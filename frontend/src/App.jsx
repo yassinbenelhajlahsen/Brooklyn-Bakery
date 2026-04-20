@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Header from './components/Header.jsx'
 import CategoryNav from './components/CategoryNav.jsx'
 import HomePage from './pages/HomePage.jsx'
@@ -11,8 +11,23 @@ const CATEGORIES = ['muffin', 'cookies', 'drinks']
 
 export default function App() {
   const [activeCategory, setActiveCategory] = useState(null)
-  const [cart, setCart] = useState({})
+  const [cart, setCart] = useState(() => {
+    try {
+      const raw = localStorage.getItem('cart');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  })
   const [cartOpen, setCartOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    } catch {
+      // private browsing / storage blocked — silently skip
+    }
+  }, [cart]);
 
   const setQty = (item, qty) => {
     setCart((prev) => {

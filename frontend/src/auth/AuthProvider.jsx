@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
     const [session, setSession] = useState(null);
     const [user, setUser] = useState(null);
     const [loginOpen, setLoginOpen] = useState(false);
+    const [loginReason, setLoginReason] = useState(null);
     const [pendingCheckout, setPendingCheckout] = useState(null);
     const [lastOrderResult, setLastOrderResult] = useState(null);
     const inFlight = useRef(false);
@@ -24,8 +25,10 @@ export function AuthProvider({ children }) {
             setUser(next?.user ?? null);
             if (!next) {
                 setPendingCheckout(null);
+                setLoginReason(null);
             } else if (event === 'SIGNED_IN') {
                 setLoginOpen(false);
+                setLoginReason(null);
             }
         });
 
@@ -40,9 +43,13 @@ export function AuthProvider({ children }) {
 
     const signOut = () => supabase.auth.signOut();
 
-    const openLogin = () => setLoginOpen(true);
+    const openLogin = (reason = null) => {
+        setLoginReason(reason);
+        setLoginOpen(true);
+    };
     const closeLogin = () => {
         setLoginOpen(false);
+        setLoginReason(null);
         setPendingCheckout(null);
     };
 
@@ -60,6 +67,7 @@ export function AuthProvider({ children }) {
             if (res.status === 401) {
                 await supabase.auth.signOut();
                 setPendingCheckout(cart);
+                setLoginReason('checkout');
                 setLoginOpen(true);
                 setLastOrderResult({ error: 'Session expired, please log in again.' });
                 return;
@@ -78,6 +86,7 @@ export function AuthProvider({ children }) {
             submitOrder(cart, session.access_token);
         } else {
             setPendingCheckout(cart);
+            setLoginReason('checkout');
             setLoginOpen(true);
         }
     };
@@ -95,6 +104,7 @@ export function AuthProvider({ children }) {
         user,
         session,
         loginOpen,
+        loginReason,
         openLogin,
         closeLogin,
         signIn,

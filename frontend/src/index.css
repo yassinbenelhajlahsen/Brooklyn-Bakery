@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap');
+
 :root {
   --bg: #fdf7f0;
   --surface: #ffffff;
@@ -10,6 +12,7 @@
 
   --sans: 'Segoe UI', system-ui, Roboto, sans-serif;
   --heading: Georgia, 'Times New Roman', serif;
+  --display: 'Fraunces', Georgia, serif;
 
   font: 16px/1.5 var(--sans);
   color: var(--text);

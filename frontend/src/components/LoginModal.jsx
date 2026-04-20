@@ -70,10 +70,10 @@ export default function LoginModal() {
         setError(null);
         setBusy(true);
         try {
-            const { error } = tab === 'login'
+            const { error: authError } = tab === 'login'
                 ? await signIn(email, password)
                 : await signUp(email, password);
-            if (error) setError(error.message);
+            if (authError) setError(authError.message);
         } catch (err) {
             setError('Could not reach auth server, please try again.');
         } finally {

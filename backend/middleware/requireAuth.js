@@ -1,20 +1,11 @@
 import { supabaseAdmin } from '../lib/supabase.js';
 
 export async function requireAuth(req, res, next) {
-    const header = req.headers.authorization;
-
-    if (!header) {
-        return res.status(401).json({ error: 'Missing token' });
+    const match = req.headers.authorization?.match(/^Bearer\s+(\S+)$/);
+    if (!match) {
+        return res.status(401).json({ error: 'Invalid or missing token' });
     }
-
-    if (!header.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Invalid auth header' });
-    }
-
-    const token = header.slice('Bearer '.length).trim();
-    if (!token) {
-        return res.status(401).json({ error: 'Missing token' });
-    }
+    const token = match[1];
 
     let data, error;
     try {

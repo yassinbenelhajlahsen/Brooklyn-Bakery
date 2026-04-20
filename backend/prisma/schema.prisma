@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ProductType {
+  bread
+  pastry
+  cake
+  cookie
+  drink
+
+  @@map("product_type")
+}
+
+enum OrderStatus {
+  confirmed
+  cancelled
+
+  @@map("order_status")
+}
+
+enum UserRole {
+  customer
+  admin
+
+  @@map("user_role")
+}
+
+model User {
+  id          String   @id @db.Uuid
+  balance     Int      @default(0)
+  role        UserRole @default(customer)
+  displayName String?  @map("display_name")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  cartItems CartItem[]
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String
+  imageUrl    String      @map("image_url")
+  type        ProductType
+  price       Int
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([type])
+  @@map("products")
+}
+
+model CartItem {
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  quantity  Int
+  addedAt   DateTime @default(now()) @map("added_at") @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  total     Int
+  status    OrderStatus @default(confirmed)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items OrderItem[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String @map("order_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  quantity  Int
+  unitPrice Int    @map("unit_price")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@map("order_items")
+}

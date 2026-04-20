@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 
-import homePageRoutes from './routes/homePageRoutes.js'
+import productsRoutes from './routes/productsRoutes.js'
 import orderRoutes from './routes/orderRoutes.js';
 import { requireAuth } from './middleware/requireAuth.js';
 
@@ -21,7 +21,7 @@ app.use(cors({
 
 app.use(express.json()) // handling json data
 
-app.use('/products', homePageRoutes);
+app.use('/products', productsRoutes);
 app.use('/orders', requireAuth, orderRoutes);
 
 app.listen(PORT, '127.0.0.1', () => {

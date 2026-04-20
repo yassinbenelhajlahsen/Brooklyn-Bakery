@@ -1,4 +1,4 @@
-import { createContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 export const AuthContext = createContext(null);
@@ -15,11 +15,6 @@ export function AuthProvider({ children }) {
     const inFlight = useRef(false);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => {
-            setSession(data.session);
-            setUser(data.session?.user ?? null);
-        });
-
         const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
             setSession(next);
             setUser(next?.user ?? null);
@@ -35,23 +30,25 @@ export function AuthProvider({ children }) {
         return () => listener.subscription.unsubscribe();
     }, []);
 
-    const signIn = (email, password) =>
-        supabase.auth.signInWithPassword({ email, password });
+    const signIn = useCallback((email, password) =>
+        supabase.auth.signInWithPassword({ email, password }), []);
 
-    const signUp = (email, password) =>
-        supabase.auth.signUp({ email, password });
+    const signUp = useCallback((email, password) =>
+        supabase.auth.signUp({ email, password }), []);
 
-    const signOut = () => supabase.auth.signOut();
+    const signOut = useCallback(() => supabase.auth.signOut(), []);
 
-    const openLogin = (reason = null) => {
+    const openLogin = useCallback((reason = null) => {
         setLoginReason(reason);
         setLoginOpen(true);
-    };
-    const closeLogin = () => {
+    }, []);
+    const closeLogin = useCallback(() => {
         setLoginOpen(false);
         setLoginReason(null);
         setPendingCheckout(null);
-    };
+    }, []);
+
+    const clearOrderResult = useCallback(() => setLastOrderResult(null), []);
 
     const submitOrder = async (cart, accessToken) => {
         inFlight.current = true;
@@ -81,7 +78,7 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const requestCheckout = (cart) => {
+    const requestCheckout = useCallback((cart) => {
         if (user && session?.access_token) {
             submitOrder(cart, session.access_token);
         } else {
@@ -89,7 +86,7 @@ export function AuthProvider({ children }) {
             setLoginReason('checkout');
             setLoginOpen(true);
         }
-    };
+    }, [user, session]);
 
     useEffect(() => {
         if (user && session?.access_token && pendingCheckout && !inFlight.current) {
@@ -98,9 +95,9 @@ export function AuthProvider({ children }) {
             setLoginOpen(false);
             submitOrder(cart, session.access_token);
         }
-    }, [user, session, pendingCheckout]);
+    }, [user, session?.access_token, pendingCheckout]);
 
-    const value = {
+    const value = useMemo(() => ({
         user,
         session,
         loginOpen,
@@ -112,8 +109,21 @@ export function AuthProvider({ children }) {
         signOut,
         requestCheckout,
         lastOrderResult,
-        clearOrderResult: () => setLastOrderResult(null),
-    };
+        clearOrderResult,
+    }), [
+        user,
+        session,
+        loginOpen,
+        loginReason,
+        openLogin,
+        closeLogin,
+        signIn,
+        signUp,
+        signOut,
+        requestCheckout,
+        lastOrderResult,
+        clearOrderResult,
+    ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

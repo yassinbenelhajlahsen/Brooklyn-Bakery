@@ -1,81 +1,43 @@
-import {useEffect, useState, useCallback} from 'react'; 
+import { useEffect, useState, useCallback } from 'react'
+import BakedGoodCard from './BakedGoodCard.jsx'
 
-export default function HomePage(){
-    
-    const [bakedGoods, setBakedGoods] = useState([]);
+export default function HomePage({ category, cart, onIncrement, onDecrement }) {
+  const [bakedGoods, setBakedGoods] = useState([])
+  const [error, setError] = useState(null)
 
-    /**
-     * Use 'useCallback' instead
-     */
-    // async function loadBakedGoods(){
-    //     console.log("called loadBakedGoods func");
-    //     try{
-    //         const response = await fetch("http://127.0.0.1:3000/HomePage");
-    //         // console.log("response: ", response);
-    //         const data = await response.json();
-    //         // console.log("data: ", data);
+  const loadBakedGoods = useCallback(async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:3000/products')
+      const data = await response.json()
+      setBakedGoods(data.items)
+    } catch (err) {
+      console.error('error: ', err)
+      setError('Failed to load products.')
+    }
+  }, [])
 
-    //         setBakedGoods(data.items);
+  useEffect(() => {
+    loadBakedGoods()
+  }, [loadBakedGoods])
 
-    //     } catch (err) {
-    //         console.error("error: ", err);
-    //     }
-    // }
+  const visible = category
+    ? bakedGoods.filter((i) => i.type === category || i.type + 's' === category)
+    : bakedGoods
 
-    const loadBakedGoods = useCallback(async () => {
-        console.log("called loadBakedGoods func");
-        try{
-            const response = await fetch("http://127.0.0.1:3000/products");
-            // console.log("response: ", response);
-            const data = await response.json();
-            // console.log("data: ", data);
+  if (error) return <p className="status">{error}</p>
+  if (!bakedGoods.length) return <p className="status">Loading…</p>
 
-            setBakedGoods(data.items);
-
-        } catch (err) {
-            console.error("error: ", err);
-        }
-    }, [])
-
-    useEffect(() => {
-        console.log("HomePage is loading...");
-        loadBakedGoods();
-    }, [loadBakedGoods])
-
-    
-    // debug:
-    useEffect(() => {
-        console.log(bakedGoods);
-    }, [bakedGoods])
-
-    return (
-        <div>
-        {/* this should create product cards with relevant information on them */}
-        {bakedGoods.map((item) => (
-            // console.log(
-            //     `
-            //     -------------------------------------------------\n
-            //     | id of product: ${item.id}\n
-            //     | name of product: ${item.name}\n
-            //     | price of product: ${item.price}\n
-            //     | description of product: ${item.description}\n
-            //     | type of product: ${item.type}\n
-            //     -------------------------------------------------\n
-            //     `
-            // );
-
-            <div key={item.id}>
-                <img style={{width:'300px', height: '300px'}}
-                    src={`bakedGoodsIMGs/${item.name}.jpg`}
-                    alt={item.description}
-                />
-                <p>
-                    <strong>{`${item.name}`}</strong>                   {/* bolded item name */}
-                    <br />                                              {/* line break */}
-                    Price: {`${item.price}`}                            {/* price of item */}
-                </p>
-            </div>
-        ))}
-        </div>
-    )
+  return (
+    <div className="product-grid">
+      {visible.map((item) => (
+        <BakedGoodCard
+          key={item.id}
+          item={item}
+          qty={cart[item.id]?.qty ?? 0}
+          onIncrement={() => onIncrement(item)}
+          onDecrement={() => onDecrement(item)}
+        />
+      ))}
+    </div>
+  )
 }

@@ -1,0 +1,19 @@
+{
+    "items": [
+        {
+        "id" : "01",
+        "name" : "cupcake1",
+        "description" : "this is a cupcake",
+        "type" : "cupcake",
+        "price" : 2.99
+        },
+        {
+        "id" : "02",
+        "name" : "cake1",
+        "description" : "this is a cake",
+        "type" : "cake",
+        "price" : 24.99 
+        }
+    ]
+}
+

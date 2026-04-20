@@ -4,6 +4,8 @@ import cors from 'cors';
 import 'dotenv/config';
 
 import homePageRoutes from './routes/homePageRoutes.js'
+import orderRoutes from './routes/orderRoutes.js';
+import { requireAuth } from './middleware/requireAuth.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +22,7 @@ app.use(cors({
 app.use(express.json()) // handling json data
 
 app.use('/products', homePageRoutes);
+app.use('/orders', requireAuth, orderRoutes);
 
 app.listen(PORT, '127.0.0.1', () => {
     console.log(`Server is running on http://127.0.0.1:${PORT}`);

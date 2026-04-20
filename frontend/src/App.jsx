@@ -4,6 +4,7 @@ import CategoryNav from './components/CategoryNav.jsx'
 import HomePage from './pages/HomePage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
+import LoginModal from './components/LoginModal.jsx'
 import './App.css'
 
 const CATEGORIES = ['muffin', 'cookies', 'drinks']
@@ -59,6 +60,7 @@ export default function App() {
         onDecrement={decrement}
         onClear={clearCart}
       />
+      <LoginModal />
     </div>
   )
 }

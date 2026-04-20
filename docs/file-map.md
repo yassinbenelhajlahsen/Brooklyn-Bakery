@@ -46,7 +46,6 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `vite.config.js` | Vite config; dev server pinned to `127.0.0.1:5173` |
 | `eslint.config.js` | ESLint flat config with React hooks + refresh rules |
 | `index.html` | Vite HTML entry |
-| `public/bakedGoodsIMGs/` | Static product images (seeded `imageUrl`s use CDN URLs; these locals are legacy) |
 | `src/main.jsx` | React root; wraps `<App />` in `<AuthProvider>` |
 | `src/App.jsx` | Top-level layout; owns cart drawer + category nav state |
 | `src/App.css`, `src/index.css` | Global styles |

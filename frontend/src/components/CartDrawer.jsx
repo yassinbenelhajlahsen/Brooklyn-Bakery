@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { useAuth } from '../auth/useAuth.js';
+
 export default function CartDrawer({
   open,
   cart,
@@ -10,9 +13,16 @@ export default function CartDrawer({
   const subtotal = entries.reduce((sum, { item, qty }) => sum + item.price * qty, 0)
   const totalItems = entries.reduce((n, { qty }) => n + qty, 0)
 
-  const handleCheckout = () => {
-    alert(`Checkout: ${totalItems} item(s), $${subtotal.toFixed(2)}`)
-  }
+  const { requestCheckout } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const handleCheckout = async () => {
+    setSubmitting(true);
+    try {
+      await requestCheckout(cart);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -76,8 +86,8 @@ export default function CartDrawer({
                 <span>Subtotal</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
-              <button className="checkout-btn" onClick={handleCheckout}>
-                Checkout
+              <button className="checkout-btn" onClick={handleCheckout} disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Checkout'}
               </button>
               <button className="clear-btn" onClick={onClear}>
                 Clear cart

@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
+import { useAuth } from './auth/useAuth.js'
 import './App.css'
 
 const CATEGORIES = ['muffin', 'cookies', 'drinks']
@@ -20,6 +21,8 @@ export default function App() {
     }
   })
   const [cartOpen, setCartOpen] = useState(false)
+
+  const { lastOrderResult, clearOrderResult } = useAuth();
 
   useEffect(() => {
     try {
@@ -75,6 +78,15 @@ export default function App() {
         onDecrement={decrement}
         onClear={clearCart}
       />
+      {lastOrderResult && (
+        <div className="order-banner" role="status" onClick={clearOrderResult}>
+          {lastOrderResult.error ? (
+            <span>⚠ {lastOrderResult.error}</span>
+          ) : (
+            <span>✓ Order received ({Object.keys(lastOrderResult.received ?? {}).length} line items). Click to dismiss.</span>
+          )}
+        </div>
+      )}
       <LoginModal />
     </div>
   )

@@ -1,4 +1,5 @@
 export async function createOrder(req, res) {
-    console.log(`[orders] user=${req.user.id} items=${JSON.stringify(req.body)}`);
+    const lineItems = Object.keys(req.body ?? {}).length;
+    console.log(`[orders] user=${req.user.id} lineItems=${lineItems}`);
     res.status(200).json({ ok: true, received: req.body });
 }

@@ -383,6 +383,10 @@
   min-width: 0;
 }
 
+.cart-item-info .qty-controls {
+  align-self: flex-start;
+}
+
 .cart-item-title {
   font-weight: 600;
   text-transform: capitalize;

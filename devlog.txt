@@ -1,0 +1,14 @@
+v0.1.0: [4/20/2026]
+Backend:
+- set up server.js
+- created dummy data
+- added route for /product
+- added controller for handling /product requests
+
+Frontend:
+- added product images to public folder
+- created HomePage component
+  - fetches baked goods data from backend on mount
+  - displays product data: image, name, and price
+  - uses useCallback for memoized fetch function
+  - uses useEffect for initial data load

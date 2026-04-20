@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/useAuth.js';
 
 export default function CartDrawer({
@@ -15,6 +15,14 @@ export default function CartDrawer({
 
   const { requestCheckout } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   const handleCheckout = async () => {
     setSubmitting(true);
     try {

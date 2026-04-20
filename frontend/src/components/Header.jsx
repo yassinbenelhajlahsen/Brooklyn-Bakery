@@ -1,4 +1,8 @@
+import { useAuth } from '../auth/useAuth.js';
+
 export default function Header({ cartCount = 0, onCartClick }) {
+  const { user, openLogin, signOut } = useAuth();
+
   return (
     <header className="site-header">
       <div className="header-left">
@@ -11,10 +15,21 @@ export default function Header({ cartCount = 0, onCartClick }) {
       <h1 className="site-title">Brooklyn Bakery</h1>
 
       <div className="header-right">
-        <button className="login-btn">
-          <span className="avatar" aria-hidden="true" />
-          <span>Login</span>
-        </button>
+        {user ? (
+          <button
+            className="login-btn"
+            onClick={() => signOut()}
+            title={user.email}
+          >
+            <span className="avatar" aria-hidden="true" />
+            <span>Log out</span>
+          </button>
+        ) : (
+          <button className="login-btn" onClick={openLogin}>
+            <span className="avatar" aria-hidden="true" />
+            <span>Log in</span>
+          </button>
+        )}
         <button
           className="icon-btn cart-btn"
           aria-label={`Open cart (${cartCount} items)`}

@@ -19,10 +19,14 @@ export function AuthProvider({ children }) {
             setUser(data.session?.user ?? null);
         });
 
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+        const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
             setSession(next);
             setUser(next?.user ?? null);
-            if (!next) setPendingCheckout(null);
+            if (!next) {
+                setPendingCheckout(null);
+            } else if (event === 'SIGNED_IN') {
+                setLoginOpen(false);
+            }
         });
 
         return () => listener.subscription.unsubscribe();
@@ -55,6 +59,7 @@ export function AuthProvider({ children }) {
             });
             if (res.status === 401) {
                 await supabase.auth.signOut();
+                setPendingCheckout(cart);
                 setLoginOpen(true);
                 setLastOrderResult({ error: 'Session expired, please log in again.' });
                 return;

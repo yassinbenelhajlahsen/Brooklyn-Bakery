@@ -4,7 +4,7 @@ export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
       <div className="card-image-wrap">
         <img
           className="card-image"
-          src={`/bakedGoodsIMGs/${item.name}.jpg`}
+          src={item.imageUrl}
           alt={item.description}
         />
         {qty > 0 && <span className="qty-badge">Qty {qty}</span>}
@@ -14,7 +14,7 @@ export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
         <h3 className="card-title">{item.name}</h3>
         <p className="card-desc">{item.description}</p>
         <div className="card-footer">
-          <span className="card-price">${item.price.toFixed(2)}</span>
+          <span className="card-price">{item.price} pts</span>
           {qty === 0 ? (
             <button className="add-btn" onClick={onIncrement}>
               Add to cart

@@ -1,8 +1,16 @@
-// importing dummy data:
-import dummyData from '../db/dummyData.json' with {type: 'json'};
+import { prisma } from '../lib/prisma.js';
 
-// this function is currently returning dummy data
-export async function getProducts(req,res){
-    // we prob want to instert an access token to our supabase db
-    res.send(dummyData); // send it 
+export async function getProducts(_req, res) {
+    const products = await prisma.product.findMany({
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+        select: {
+            id: true,
+            name: true,
+            description: true,
+            imageUrl: true,
+            type: true,
+            price: true,
+        },
+    });
+    res.json({ items: products });
 }

@@ -25,7 +25,7 @@ export default function HomePage(){
     const loadBakedGoods = useCallback(async () => {
         console.log("called loadBakedGoods func");
         try{
-            const response = await fetch("http://127.0.0.1:3000/products");
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`);
             // console.log("response: ", response);
             const data = await response.json();
             // console.log("data: ", data);

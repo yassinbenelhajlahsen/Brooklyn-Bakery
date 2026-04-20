@@ -27,13 +27,20 @@ export function useCart() {
     if (prevUserId.current === currentId) return
 
     if (!currentId) {
-      try { localStorage.removeItem('cartOwner') } catch { /* storage blocked */ }
+      if (prevUserId.current !== null) {
+        setCart({})
+        try {
+          localStorage.removeItem('cart')
+          localStorage.removeItem('cartOwner')
+        } catch { /* storage blocked */ }
+      }
       prevUserId.current = null
       return
     }
 
     const owner = (() => { try { return localStorage.getItem('cartOwner') } catch { return null } })()
-    const needsMerge = owner !== currentId
+    const hasLocalItems = Object.keys(cart).length > 0
+    const needsMerge = owner !== currentId && hasLocalItems
 
     ;(async () => {
       const hydrated = needsMerge

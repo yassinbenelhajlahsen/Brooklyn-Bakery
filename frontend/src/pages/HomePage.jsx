@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import BakedGoodCard from './BakedGoodCard.jsx'
+import BakedGoodCard from '../components/cards/BakedGoodCard.jsx'
 
 export default function HomePage({ category, cart, onIncrement, onDecrement }) {
   const [bakedGoods, setBakedGoods] = useState([])
@@ -7,7 +7,7 @@ export default function HomePage({ category, cart, onIncrement, onDecrement }) {
 
   const loadBakedGoods = useCallback(async () => {
     try {
-      const response = await fetch('http://127.0.0.1:3000/products')
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
       const data = await response.json()
       setBakedGoods(data.items)
     } catch (err) {

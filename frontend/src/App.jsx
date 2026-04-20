@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import Header from './components/Header.jsx'
 import CategoryNav from './components/CategoryNav.jsx'
-import HomePage from './components/HomePage.jsx'
+import HomePage from './pages/HomePage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import './App.css'

@@ -15,21 +15,14 @@ export default function Header({ cartCount = 0, onCartClick }) {
       <h1 className="site-title">Brooklyn Bakery</h1>
 
       <div className="header-right">
-        {user ? (
-          <button
-            className="login-btn"
-            onClick={() => signOut()}
-            title={user.email}
-          >
-            <span className="avatar" aria-hidden="true" />
-            <span>Log out</span>
-          </button>
-        ) : (
-          <button className="login-btn" onClick={openLogin}>
-            <span className="avatar" aria-hidden="true" />
-            <span>Log in</span>
-          </button>
-        )}
+        <button
+          className="login-btn"
+          onClick={user ? signOut : openLogin}
+          title={user?.email}
+        >
+          <span className="avatar" aria-hidden="true" />
+          <span>{user ? 'Log out' : 'Log in'}</span>
+        </button>
         <button
           className="icon-btn cart-btn"
           aria-label={`Open cart (${cartCount} items)`}

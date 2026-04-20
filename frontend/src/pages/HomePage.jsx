@@ -1,24 +1,25 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import BakedGoodCard from '../components/cards/BakedGoodCard.jsx'
 
 export default function HomePage({ category, cart, onIncrement, onDecrement }) {
   const [bakedGoods, setBakedGoods] = useState([])
   const [error, setError] = useState(null)
 
-  const loadBakedGoods = useCallback(async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
-      const data = await response.json()
-      setBakedGoods(data.items)
-    } catch (err) {
-      console.error('error: ', err)
-      setError('Failed to load products.')
-    }
-  }, [])
-
   useEffect(() => {
-    loadBakedGoods()
-  }, [loadBakedGoods])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
+        const data = await response.json()
+        if (!cancelled) setBakedGoods(data.items)
+      } catch (err) {
+        if (cancelled) return
+        console.error('error: ', err)
+        setError('Failed to load products.')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const visible = category
     ? bakedGoods.filter((i) => i.type === category || i.type + 's' === category)

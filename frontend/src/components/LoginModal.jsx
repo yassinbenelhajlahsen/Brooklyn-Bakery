@@ -32,6 +32,7 @@ export default function LoginModal() {
     const [tab, setTab] = useState('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [name, setName] = useState('');
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
 
@@ -72,9 +73,9 @@ export default function LoginModal() {
         try {
             const { error: authError } = tab === 'login'
                 ? await signIn(email, password)
-                : await signUp(email, password);
+                : await signUp(email, password, name);
             if (authError) setError(authError.message);
-        } catch (err) {
+        } catch {
             setError('Could not reach auth server, please try again.');
         } finally {
             setBusy(false);
@@ -157,6 +158,18 @@ export default function LoginModal() {
                     </div>
 
                     <form className="login-form" onSubmit={handleSubmit}>
+                        {tab === 'signup' && (
+                            <label className="login-field" style={{ '--i': 4.5 }}>
+                                <span className="login-label">Name</span>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    autoComplete="name"
+                                    required
+                                />
+                            </label>
+                        )}
                         <label className="login-field" style={{ '--i': 5 }}>
                             <span className="login-label">Email</span>
                             <input

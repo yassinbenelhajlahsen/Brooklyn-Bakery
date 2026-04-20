@@ -1,25 +1,30 @@
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 export const AuthContext = createContext(null);
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:3000';
 
+function toHydratedCart(items) {
+    const hydrated = {};
+    for (const row of items) {
+        hydrated[row.productId] = { item: row.product, qty: row.quantity };
+    }
+    return hydrated;
+}
+
 export function AuthProvider({ children }) {
     const [session, setSession] = useState(null);
     const [user, setUser] = useState(null);
     const [loginOpen, setLoginOpen] = useState(false);
     const [loginReason, setLoginReason] = useState(null);
-    const [pendingCheckout, setPendingCheckout] = useState(null);
-    const [lastOrderResult, setLastOrderResult] = useState(null);
-    const inFlight = useRef(false);
 
     useEffect(() => {
         const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
             setSession(next);
             setUser(next?.user ?? null);
             if (!next) {
-                setPendingCheckout(null);
                 setLoginReason(null);
             } else if (event === 'SIGNED_IN') {
                 setLoginOpen(false);
@@ -33,8 +38,12 @@ export function AuthProvider({ children }) {
     const signIn = useCallback((email, password) =>
         supabase.auth.signInWithPassword({ email, password }), []);
 
-    const signUp = useCallback((email, password) =>
-        supabase.auth.signUp({ email, password }), []);
+    const signUp = useCallback((email, password, displayName) =>
+        supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { display_name: displayName?.trim() || null } },
+        }), []);
 
     const signOut = useCallback(() => supabase.auth.signOut(), []);
 
@@ -45,57 +54,73 @@ export function AuthProvider({ children }) {
     const closeLogin = useCallback(() => {
         setLoginOpen(false);
         setLoginReason(null);
-        setPendingCheckout(null);
     }, []);
 
-    const clearOrderResult = useCallback(() => setLastOrderResult(null), []);
+    const authedFetch = useCallback(async (path, init = {}) => {
+        const accessToken = session?.access_token;
+        if (!accessToken) throw new Error('Not authenticated');
+        return fetch(`${API_BASE}${path}`, {
+            ...init,
+            headers: {
+                ...(init.headers || {}),
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+    }, [session?.access_token]);
 
-    const submitOrder = async (cart, accessToken) => {
-        inFlight.current = true;
+    const mergeAndHydrateCart = useCallback(async (localCart) => {
+        const payload = Object.values(localCart || {})
+            .map(({ item, qty }) => ({ productId: item.id, quantity: qty }));
+        const res = await authedFetch('/cart/merge', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) return null;
+        const body = await res.json();
+        return toHydratedCart(body.items);
+    }, [authedFetch]);
+
+    const fetchServerCart = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/orders`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify(cart),
-            });
-            if (res.status === 401) {
-                await supabase.auth.signOut();
-                setPendingCheckout(cart);
-                setLoginReason('checkout');
-                setLoginOpen(true);
-                setLastOrderResult({ error: 'Session expired, please log in again.' });
-                return;
-            }
+            const res = await authedFetch('/cart');
+            if (!res.ok) return null;
             const body = await res.json();
-            setLastOrderResult(body);
-        } catch (err) {
-            setLastOrderResult({ error: `Checkout failed: ${err.message}` });
-        } finally {
-            inFlight.current = false;
+            return toHydratedCart(body.items);
+        } catch {
+            return null;
         }
-    };
+    }, [authedFetch]);
 
-    const requestCheckout = useCallback((cart) => {
+    const syncCartItem = useCallback(async (productId, quantity) => {
+        if (!session?.access_token) return;
+        try {
+            await authedFetch(`/cart/items/${productId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ quantity }),
+            });
+        } catch {
+            // best-effort sync; surface via UI if it matters later
+        }
+    }, [authedFetch, session?.access_token]);
+
+    const clearServerCart = useCallback(async () => {
+        if (!session?.access_token) return;
+        try {
+            await authedFetch('/cart', { method: 'DELETE' });
+        } catch {
+            // best-effort clear
+        }
+    }, [authedFetch, session?.access_token]);
+
+    const requestCheckout = useCallback(() => {
         if (user && session?.access_token) {
-            submitOrder(cart, session.access_token);
-        } else {
-            setPendingCheckout(cart);
-            setLoginReason('checkout');
-            setLoginOpen(true);
+            // TODO: navigate to /checkout review page (coming soon).
+            return;
         }
-    }, [user, session]);
-
-    useEffect(() => {
-        if (user && session?.access_token && pendingCheckout && !inFlight.current) {
-            const cart = pendingCheckout;
-            setPendingCheckout(null);
-            setLoginOpen(false);
-            submitOrder(cart, session.access_token);
-        }
-    }, [user, session?.access_token, pendingCheckout]);
+        setLoginReason('checkout');
+        setLoginOpen(true);
+    }, [user, session?.access_token]);
 
     const value = useMemo(() => ({
         user,
@@ -108,8 +133,10 @@ export function AuthProvider({ children }) {
         signUp,
         signOut,
         requestCheckout,
-        lastOrderResult,
-        clearOrderResult,
+        mergeAndHydrateCart,
+        fetchServerCart,
+        syncCartItem,
+        clearServerCart,
     }), [
         user,
         session,
@@ -121,8 +148,10 @@ export function AuthProvider({ children }) {
         signUp,
         signOut,
         requestCheckout,
-        lastOrderResult,
-        clearOrderResult,
+        mergeAndHydrateCart,
+        fetchServerCart,
+        syncCartItem,
+        clearServerCart,
     ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

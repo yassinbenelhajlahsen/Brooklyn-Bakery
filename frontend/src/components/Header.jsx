@@ -20,7 +20,6 @@ export default function Header({ cartCount = 0, onCartClick }) {
           onClick={user ? signOut : openLogin}
           title={user?.email}
         >
-          <span className="avatar" aria-hidden="true" />
           <span>{user ? 'Log out' : 'Log in'}</span>
         </button>
         <button

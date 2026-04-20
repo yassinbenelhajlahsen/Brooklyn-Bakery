@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '../auth/useAuth.js';
 
 export default function CartDrawer({
@@ -9,12 +9,9 @@ export default function CartDrawer({
   onDecrement,
   onClear,
 }) {
-  const entries = Object.values(cart)
-  const subtotal = entries.reduce((sum, { item, qty }) => sum + item.price * qty, 0)
-  const totalItems = entries.reduce((n, { qty }) => n + qty, 0)
-
+  const entries = Object.values(cart);
+  const subtotal = entries.reduce((sum, { item, qty }) => sum + item.price * qty, 0);
   const { requestCheckout } = useAuth();
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -22,15 +19,6 @@ export default function CartDrawer({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-
-  const handleCheckout = async () => {
-    setSubmitting(true);
-    try {
-      await requestCheckout(cart);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <>
@@ -62,12 +50,12 @@ export default function CartDrawer({
                 <li key={item.id} className="cart-item">
                   <img
                     className="cart-item-img"
-                    src={`/bakedGoodsIMGs/${item.name}.jpg`}
+                    src={item.imageUrl}
                     alt={item.description}
                   />
                   <div className="cart-item-info">
                     <div className="cart-item-title">{item.name}</div>
-                    <div className="cart-item-price">${item.price.toFixed(2)}</div>
+                    <div className="cart-item-price">{item.price} pts</div>
                     <div className="qty-controls">
                       <button
                         className="qty-btn"
@@ -83,7 +71,7 @@ export default function CartDrawer({
                     </div>
                   </div>
                   <div className="cart-item-total">
-                    ${(item.price * qty).toFixed(2)}
+                    {item.price * qty} pts
                   </div>
                 </li>
               ))}
@@ -92,10 +80,10 @@ export default function CartDrawer({
             <div className="cart-footer">
               <div className="cart-subtotal">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>{subtotal} pts</span>
               </div>
-              <button className="checkout-btn" onClick={handleCheckout} disabled={submitting}>
-                {submitting ? 'Submitting...' : 'Checkout'}
+              <button className="checkout-btn" onClick={requestCheckout}>
+                Checkout
               </button>
               <button className="clear-btn" onClick={onClear}>
                 Clear cart

@@ -53,7 +53,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `index.html` | Vite HTML entry |
 | `src/main.jsx` | React root; wraps `<App />` in `<BrowserRouter>` and `<AuthProvider>` |
 | `src/App.jsx` | Top-level layout + routes (`/`, `/checkout`); owns cart state and cart-drawer/category-nav visibility on `/` |
-| `src/App.css`, `src/index.css` | Global styles |
+| `src/index.css` | Base resets and CSS custom properties (color tokens: `--color-ink`, `--color-cream`, etc.) |
 | `src/auth/AuthProvider.jsx` | Context provider: session, user profile (via `GET /me`), login modal, `authedFetch`, `requestCheckout` (navigates to `/checkout`), `refreshProfile` |
 | `src/auth/useAuth.js` | `useAuth` hook (separate file for react-refresh compliance) |
 | `src/hooks/useCart.js` | Cart state, localStorage persistence, login-time merge/hydrate (calls `services/cartService`) |
@@ -66,11 +66,13 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `src/lib/supabase.js` | Browser Supabase client (publishable key) |
 | `src/lib/cart.js` | Pure helpers: `computeCartSubtotal`, `computeCartItemCount`, `toHydratedCart` |
 | `src/lib/categories.js` | `CATEGORIES` constant |
+| `src/lib/styles.js` | Shared Tailwind class-string constants (e.g. `ICON_BTN`) |
 | `src/pages/HomePage.jsx` | Product grid; fetches `GET /products` on mount |
 | `src/pages/CheckoutPage.jsx` | Checkout review page: line items with qty controls, balance, balance-after, place-order |
 | `src/components/Header.jsx` | Site header; login/logout button, cart button |
 | `src/components/CategoryNav.jsx` | Category filter buttons |
 | `src/components/Footer.jsx` | Static footer |
+| `src/components/Ornament.jsx` | Decorative horizontal rule with rotated diamond accent |
 | `src/components/CartDrawer.jsx` | Slide-out cart; subtotal + checkout + clear |
 | `src/components/CartItemRow.jsx` | Shared cart row; `variant="drawer"` or `"checkout"` |
 | `src/components/QuantityControl.jsx` | Shared `−` / qty / `+` control used in cards, drawer, checkout |

@@ -27,6 +27,7 @@
 - ESLint is flat-config (`frontend/eslint.config.js`) with `no-unused-vars` set to ignore variables matching `^[A-Z_]` (e.g., unused constants and React internals).
 - `AuthProvider.jsx` has a top-of-file `/* eslint-disable react-refresh/only-export-components */` because it exports both a component and context. When adding similar providers, prefer splitting the hook into its own file (`useAuth.js` pattern) over disabling the rule.
 - Vite dev server is pinned to `127.0.0.1:5173` (`frontend/vite.config.js`); the backend CORS allowlist matches. Change both together.
+- **Styling.** Tailwind CSS utility classes are used throughout. Shared class strings live in `src/lib/styles.js` (e.g. `ICON_BTN`) — add to that file when the same combination is needed in 2+ places. There is no `App.css`; base resets and CSS custom properties (tokens like `--color-ink`, `--color-cream`) are defined in `src/index.css`.
 
 ### Frontend layering
 

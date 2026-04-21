@@ -8,7 +8,7 @@ import LoginModal from './components/LoginModal.jsx'
 import { useCart } from './hooks/useCart.js'
 import './App.css'
 
-const CATEGORIES = ['muffin', 'cookies', 'drinks']
+const CATEGORIES = ['bread', 'cake', 'cookies', 'drinks', 'pastry']
 
 export default function App() {
   const [activeCategory, setActiveCategory] = useState(null)

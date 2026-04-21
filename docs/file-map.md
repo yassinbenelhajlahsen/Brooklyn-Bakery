@@ -37,6 +37,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `prisma/seed.js` | Idempotent product seeding (upsert by name) |
 | `prisma/migrations/20260420192006_init/` | Initial schema migration |
 | `prisma/migrations/20260420192213_supabase_integration/` | Cross-schema FK to `auth.users` + trigger that creates `public.users` on signup |
+| `prisma/migrations/20260421045352_add_product_stock/` | Adds `products.stock` column + nonneg check constraint |
 | `tests/cart.test.js` | Tests for pure cart helpers (node:test) |
 | `db/` | (Empty placeholder) |
 

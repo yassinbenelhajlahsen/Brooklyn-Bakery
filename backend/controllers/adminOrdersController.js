@@ -19,7 +19,10 @@ export async function cancelOrder(req, res) {
     const { id } = req.params;
     try {
         const updated = await prisma.$transaction(async (tx) => {
-            const order = await tx.order.findUnique({ where: { id } });
+            const order = await tx.order.findUnique({
+                where: { id },
+                include: { items: true },
+            });
             if (!order) throw httpError(404, 'Order not found');
             if (order.status === OrderStatus.cancelled) {
                 throw httpError(409, 'Already cancelled');
@@ -29,6 +32,13 @@ export async function cancelOrder(req, res) {
                 where: { id: order.userId },
                 data: { balance: { increment: order.total } },
             });
+
+            for (const item of order.items) {
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: { stock: { increment: item.quantity } },
+                });
+            }
 
             return tx.order.update({
                 where: { id },

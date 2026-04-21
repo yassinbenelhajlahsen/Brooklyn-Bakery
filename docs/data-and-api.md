@@ -32,6 +32,7 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | `name`, `description`, `image_url` | text | all NOT NULL |
 | `type` | product_type | indexed |
 | `price` | int | `CHECK (price >= 0)`; integer points |
+| `stock` | int | default 0; `CHECK (stock >= 0)`; decremented atomically at checkout, restored on admin cancel |
 | `created_at`, `updated_at` | timestamptz | |
 
 **`cart_items`** — composite PK `(user_id, product_id)`, so one row per user/product.
@@ -71,6 +72,7 @@ Index: `(order_id)`.
 
 - **Integer money.** `price`, `balance`, `total`, `unit_price` are all `INT`. Never `Decimal`/float.
 - **Historical snapshots.** `orders.total` and `order_items.unit_price` are captured at purchase; do not recompute from `products.price` for reads.
+- **Stock accounting.** `products.stock` is decremented inside the `createOrder` transaction via a conditional `UPDATE … WHERE stock >= qty` (zero affected rows → 409, whole transaction rolls back). `cancelOrder` increments it back for each `order_item`. Keep these paired when touching either controller.
 - **Profile creation.** `public.users` is created by a DB trigger on `auth.users` insert. API code must not create profile rows itself (would race the trigger).
 - **Cascade choices.** Cart rows cascade on product delete (carts are working state). Orders/order items restrict on product/user delete (history must survive).
 - **Authorization.** Enforced at the Express layer. RLS is deliberately not used; the backend connects as the Supabase service role.
@@ -88,9 +90,9 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 | DELETE | `/cart` | user | `cartController.deleteCart` | 204 |
 | POST | `/cart/merge` | user | `cartController.mergeCart` | Body `[{ productId, quantity }]`; additive merge with existing, then replace cart in one transaction. Returns hydrated `{ items }`. |
 | GET | `/orders` | user | `orderController.listMyOrders` | `{ orders: (Order & { items })[] }`, newest first |
-| POST | `/orders` | user | `orderController.createOrder` | Atomic. 201 with order + items. 400 empty cart. 402 insufficient balance. |
+| POST | `/orders` | user | `orderController.createOrder` | Atomic. 201 with order + items. 400 empty cart. 402 insufficient balance. 409 insufficient stock (message names the product). |
 | GET | `/admin/orders` | user + admin | `adminOrdersController.listAllOrders` | All orders, newest first |
-| PATCH | `/admin/orders/:id/cancel` | user + admin | `adminOrdersController.cancelOrder` | Refunds balance and flips `status`. 404 missing, 409 already cancelled. |
+| PATCH | `/admin/orders/:id/cancel` | user + admin | `adminOrdersController.cancelOrder` | Refunds balance, restores product stock, flips `status`. 404 missing, 409 already cancelled. |
 
 Routes are mounted in [`backend/server.js`](../backend/server.js):
 

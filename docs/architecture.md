@@ -49,8 +49,9 @@ Source-of-truth rule: server once signed in, `localStorage` otherwise.
 3. Compute `total` with `computeCartTotal` (pure function in `backend/lib/cart.js`).
 4. If `balance < total`, throw `httpError(402, 'Insufficient balance')`.
 5. Decrement `users.balance` by `total`.
-6. Insert the `orders` row and nested `order_items` (snapshotting `unit_price` from the products loaded in step 1).
-7. Delete the user's `cart_items`.
+6. For each cart item, atomically decrement `products.stock` with a conditional `updateMany` (`WHERE id = ? AND stock >= qty`). If zero rows are affected, throw `httpError(409, 'Insufficient stock for <name>')` — the outer transaction rolls back, so the balance decrement is reverted. No explicit `FOR UPDATE` is needed; the `UPDATE` itself takes the row lock.
+7. Insert the `orders` row and nested `order_items` (snapshotting `unit_price` from the products loaded in step 1).
+8. Delete the user's `cart_items`.
 
 Errors thrown as `httpError(status, msg)` are translated by `sendHttpError`; unexpected errors return 500. Success returns 201 with the order and its items.
 
@@ -64,9 +65,10 @@ The current balance is sourced from `GET /me`, which returns the authenticated u
 
 `backend/controllers/adminOrdersController.js::cancelOrder` — one transaction:
 
-1. Load the order; 404 if missing, 409 if already cancelled.
+1. Load the order (with its items); 404 if missing, 409 if already cancelled.
 2. Increment the owning user's balance by `order.total`.
-3. Flip `status` to `cancelled`.
+3. Increment `products.stock` by each `order_item.quantity` — mirrors the decrement in `createOrder`.
+4. Flip `status` to `cancelled`.
 
 The route is `PATCH /admin/orders/:id/cancel` and sits behind both `requireAuth` and `requireAdmin`.
 

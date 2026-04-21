@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { mergeCartItems } from '../lib/cart.js';
 
-const PRODUCT_SELECT = { id: true, name: true, description: true, imageUrl: true, type: true, price: true };
+const PRODUCT_SELECT = { id: true, name: true, description: true, imageUrl: true, type: true, price: true, stock: true };
 
 export async function getCart(req, res) {
     const items = await prisma.cartItem.findMany({

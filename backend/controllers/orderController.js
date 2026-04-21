@@ -42,6 +42,16 @@ export async function createOrder(req, res) {
                 data: { balance: { decrement: total } },
             });
 
+            for (const ci of cartItems) {
+                const { count } = await tx.product.updateMany({
+                    where: { id: ci.product.id, stock: { gte: ci.quantity } },
+                    data: { stock: { decrement: ci.quantity } },
+                });
+                if (count === 0) {
+                    throw httpError(409, `Insufficient stock for ${ci.product.name}`);
+                }
+            }
+
             const order = await tx.order.create({
                 data: {
                     userId,

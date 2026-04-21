@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useAuth } from '../auth/useAuth.js';
+import { computeCartSubtotal } from '../lib/cart.js';
+import CartItemRow from './CartItemRow.jsx';
 
 export default function CartDrawer({
   open,
@@ -10,7 +12,7 @@ export default function CartDrawer({
   onClear,
 }) {
   const entries = Object.values(cart);
-  const subtotal = entries.reduce((sum, { item, qty }) => sum + item.price * qty, 0);
+  const subtotal = computeCartSubtotal(cart);
   const { requestCheckout } = useAuth();
 
   const handleCheckout = () => {
@@ -52,33 +54,13 @@ export default function CartDrawer({
           <>
             <ul className="cart-list">
               {entries.map(({ item, qty }) => (
-                <li key={item.id} className="cart-item">
-                  <img
-                    className="cart-item-img"
-                    src={item.imageUrl}
-                    alt={item.description}
-                  />
-                  <div className="cart-item-info">
-                    <div className="cart-item-title">{item.name}</div>
-                    <div className="cart-item-price">{item.price} pts</div>
-                    <div className="qty-controls">
-                      <button
-                        className="qty-btn"
-                        onClick={() => onDecrement(item)}
-                        aria-label="Decrease"
-                      >−</button>
-                      <span className="qty-value">{qty}</span>
-                      <button
-                        className="qty-btn"
-                        onClick={() => onIncrement(item)}
-                        aria-label="Increase"
-                      >+</button>
-                    </div>
-                  </div>
-                  <div className="cart-item-total">
-                    {item.price * qty} pts
-                  </div>
-                </li>
+                <CartItemRow
+                  key={item.id}
+                  item={item}
+                  qty={qty}
+                  onIncrement={() => onIncrement(item)}
+                  onDecrement={() => onDecrement(item)}
+                />
               ))}
             </ul>
 

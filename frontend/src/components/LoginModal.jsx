@@ -1,48 +1,34 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/useAuth.js';
-
-const COPY = {
-    login: {
-        default: {
-            headline: 'Welcome to the counter.',
-            subcopy: 'Sign in to save your cart for next time.',
-        },
-        checkout: {
-            headline: 'One last step.',
-            subcopy: 'Sign in to complete your order.',
-        },
-    },
-    signup: {
-        default: {
-            headline: 'Pull up a chair.',
-            subcopy: 'Create an account to save your cart and order faster.',
-        },
-        checkout: {
-            headline: 'Almost there.',
-            subcopy: 'Create an account to complete your order.',
-        },
-    },
-};
+import { COPY } from './loginModal.copy.js';
+import { useLoginForm } from '../hooks/useLoginForm.js';
+import { useTabUnderline } from '../hooks/useTabUnderline.js';
 
 export default function LoginModal() {
-    const { loginOpen, loginReason, closeLogin, signIn, signUp } = useAuth();
+    const { loginOpen, loginReason, closeLogin } = useAuth();
 
     const [mounted, setMounted] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
-    const [tab, setTab] = useState('login');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [error, setError] = useState(null);
-    const [busy, setBusy] = useState(false);
 
-    const tabsRef = useRef(null);
-    const loginTabRef = useRef(null);
-    const signupTabRef = useRef(null);
-    const [underline, setUnderline] = useState({ left: 0, width: 0 });
+    const {
+        mode,
+        setMode,
+        email,
+        setEmail,
+        password,
+        setPassword,
+        fullName,
+        setFullName,
+        error,
+        submitting,
+        onSubmit,
+    } = useLoginForm();
+
+    const { parentRef, registerTab, underlineStyle } = useTabUnderline(mode, [mounted]);
 
     useEffect(() => {
         if (loginOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMounted(true);
             setIsExiting(false);
         } else if (mounted) {
@@ -52,35 +38,11 @@ export default function LoginModal() {
         }
     }, [loginOpen, mounted]);
 
-    useEffect(() => {
-        const activeRef = tab === 'login' ? loginTabRef.current : signupTabRef.current;
-        if (!activeRef || !tabsRef.current) return;
-        const parentRect = tabsRef.current.getBoundingClientRect();
-        const rect = activeRef.getBoundingClientRect();
-        setUnderline({ left: rect.left - parentRect.left, width: rect.width });
-    }, [tab, mounted]);
-
     if (!mounted) return null;
 
     const reasonKey = loginReason === 'checkout' ? 'checkout' : 'default';
-    const { headline, subcopy } = COPY[tab][reasonKey];
+    const { headline, subcopy } = COPY[mode][reasonKey];
     const overlayState = isExiting ? 'is-exiting' : 'is-entering';
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setBusy(true);
-        try {
-            const { error: authError } = tab === 'login'
-                ? await signIn(email, password)
-                : await signUp(email, password, name);
-            if (authError) setError(authError.message);
-        } catch {
-            setError('Could not reach auth server, please try again.');
-        } finally {
-            setBusy(false);
-        }
-    };
 
     return (
         <div
@@ -112,7 +74,7 @@ export default function LoginModal() {
                     <h2
                         className="login-headline"
                         style={{ '--i': 1 }}
-                        key={`${tab}-${reasonKey}`}
+                        key={`${mode}-${reasonKey}`}
                     >
                         {headline}
                     </h2>
@@ -129,42 +91,39 @@ export default function LoginModal() {
 
                     <div
                         className="login-tabs"
-                        ref={tabsRef}
+                        ref={parentRef}
                         style={{ '--i': 4 }}
                     >
                         <button
-                            ref={loginTabRef}
+                            ref={registerTab('login')}
                             type="button"
-                            className={`login-tab ${tab === 'login' ? 'is-active' : ''}`}
-                            onClick={() => { setTab('login'); setError(null); }}
+                            className={`login-tab ${mode === 'login' ? 'is-active' : ''}`}
+                            onClick={() => setMode('login')}
                         >
                             Log in
                         </button>
                         <button
-                            ref={signupTabRef}
+                            ref={registerTab('signup')}
                             type="button"
-                            className={`login-tab ${tab === 'signup' ? 'is-active' : ''}`}
-                            onClick={() => { setTab('signup'); setError(null); }}
+                            className={`login-tab ${mode === 'signup' ? 'is-active' : ''}`}
+                            onClick={() => setMode('signup')}
                         >
                             Sign up
                         </button>
                         <span
                             className="login-tab-underline"
-                            style={{
-                                transform: `translateX(${underline.left}px)`,
-                                width: `${underline.width}px`,
-                            }}
+                            style={underlineStyle}
                         />
                     </div>
 
-                    <form className="login-form" onSubmit={handleSubmit}>
-                        {tab === 'signup' && (
+                    <form className="login-form" onSubmit={onSubmit}>
+                        {mode === 'signup' && (
                             <label className="login-field" style={{ '--i': 4.5 }}>
                                 <span className="login-label">Name</span>
                                 <input
                                     type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
                                     autoComplete="name"
                                     required
                                 />
@@ -187,7 +146,7 @@ export default function LoginModal() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                                 minLength={6}
                             />
                         </label>
@@ -197,13 +156,13 @@ export default function LoginModal() {
                         <button
                             type="submit"
                             className="login-submit"
-                            disabled={busy}
+                            disabled={submitting}
                             style={{ '--i': 7 }}
                         >
                             <span className="login-submit-label">
-                                {busy
+                                {submitting
                                     ? 'One moment…'
-                                    : (tab === 'login' ? 'Log in' : 'Create account')}
+                                    : (mode === 'login' ? 'Log in' : 'Create account')}
                             </span>
                             <span className="login-submit-arrow" aria-hidden="true">→</span>
                         </button>

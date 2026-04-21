@@ -2,18 +2,11 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { fetchProfile } from '../services/profileService.js';
 
 export const AuthContext = createContext(null);
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:3000';
-
-function toHydratedCart(items) {
-    const hydrated = {};
-    for (const row of items) {
-        hydrated[row.productId] = { item: row.product, qty: row.quantity };
-    }
-    return hydrated;
-}
 
 export function AuthProvider({ children }) {
     const [session, setSession] = useState(null);
@@ -86,15 +79,9 @@ export function AuthProvider({ children }) {
 
     const refreshProfile = useCallback(async () => {
         if (!session?.access_token) return null;
-        try {
-            const res = await authedFetch('/me');
-            if (!res.ok) return null;
-            const body = await res.json();
-            setProfile(body.user ?? null);
-            return body.user ?? null;
-        } catch {
-            return null;
-        }
+        const next = await fetchProfile(authedFetch);
+        setProfile(next);
+        return next;
     }, [authedFetch, session?.access_token]);
 
     useEffect(() => {
@@ -103,50 +90,6 @@ export function AuthProvider({ children }) {
             refreshProfile();
         }
     }, [session?.access_token, refreshProfile]);
-
-    const mergeAndHydrateCart = useCallback(async (localCart) => {
-        const payload = Object.values(localCart || {})
-            .map(({ item, qty }) => ({ productId: item.id, quantity: qty }));
-        const res = await authedFetch('/cart/merge', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        if (!res.ok) return null;
-        const body = await res.json();
-        return toHydratedCart(body.items);
-    }, [authedFetch]);
-
-    const fetchServerCart = useCallback(async () => {
-        try {
-            const res = await authedFetch('/cart');
-            if (!res.ok) return null;
-            const body = await res.json();
-            return toHydratedCart(body.items);
-        } catch {
-            return null;
-        }
-    }, [authedFetch]);
-
-    const syncCartItem = useCallback(async (productId, quantity) => {
-        if (!session?.access_token) return;
-        try {
-            await authedFetch(`/cart/items/${productId}`, {
-                method: 'PUT',
-                body: JSON.stringify({ quantity }),
-            });
-        } catch {
-            // best-effort sync; surface via UI if it matters later
-        }
-    }, [authedFetch, session?.access_token]);
-
-    const clearServerCart = useCallback(async () => {
-        if (!session?.access_token) return;
-        try {
-            await authedFetch('/cart', { method: 'DELETE' });
-        } catch {
-            // best-effort clear
-        }
-    }, [authedFetch, session?.access_token]);
 
     const requestCheckout = useCallback(() => {
         if (!user || !session?.access_token) {
@@ -171,10 +114,6 @@ export function AuthProvider({ children }) {
         requestCheckout,
         authedFetch,
         refreshProfile,
-        mergeAndHydrateCart,
-        fetchServerCart,
-        syncCartItem,
-        clearServerCart,
     }), [
         user,
         session,
@@ -189,10 +128,6 @@ export function AuthProvider({ children }) {
         requestCheckout,
         authedFetch,
         refreshProfile,
-        mergeAndHydrateCart,
-        fetchServerCart,
-        syncCartItem,
-        clearServerCart,
     ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

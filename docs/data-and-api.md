@@ -72,7 +72,7 @@ Index: `(order_id)`.
 
 - **Integer money.** `price`, `balance`, `total`, `unit_price` are all `INT`. Never `Decimal`/float.
 - **Historical snapshots.** `orders.total` and `order_items.unit_price` are captured at purchase; do not recompute from `products.price` for reads.
-- **Stock accounting.** `products.stock` is decremented inside the `createOrder` transaction via a conditional `UPDATE … WHERE stock >= qty` (zero affected rows → 409, whole transaction rolls back). `cancelOrder` increments it back for each `order_item`. Keep these paired when touching either controller.
+- **Stock accounting.** `products.stock` is decremented inside the `placeOrder` transaction (in `backend/services/orderService.js`) via a conditional `UPDATE … WHERE stock >= qty` (zero affected rows → 409, whole transaction rolls back). `cancelOrderById` increments it back for each `order_item`. Keep these paired when touching either service function.
 - **Profile creation.** `public.users` is created by a DB trigger on `auth.users` insert. API code must not create profile rows itself (would race the trigger).
 - **Cascade choices.** Cart rows cascade on product delete (carts are working state). Orders/order items restrict on product/user delete (history must survive).
 - **Authorization.** Enforced at the Express layer. RLS is deliberately not used; the backend connects as the Supabase service role.

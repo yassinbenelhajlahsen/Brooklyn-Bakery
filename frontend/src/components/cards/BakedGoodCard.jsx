@@ -1,3 +1,5 @@
+import QuantityControl from '../QuantityControl.jsx'
+
 export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
   return (
     <article className="card">
@@ -20,11 +22,11 @@ export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
               Add to cart
             </button>
           ) : (
-            <div className="qty-controls">
-              <button className="qty-btn" onClick={onDecrement} aria-label="Decrease">−</button>
-              <span className="qty-value">{qty}</span>
-              <button className="qty-btn" onClick={onIncrement} aria-label="Increase">+</button>
-            </div>
+            <QuantityControl
+              qty={qty}
+              onDecrement={onDecrement}
+              onIncrement={onIncrement}
+            />
           )}
         </div>
       </div>

@@ -20,7 +20,7 @@
 
 ## Auth
 
-- `frontend/src/auth/AuthProvider.jsx` owns `session` / `user`, subscribes to `supabase.auth.onAuthStateChange`, and exposes `signIn`, `signUp`, `signOut`, `openLogin`, `requestCheckout`, plus cart-sync helpers (`mergeAndHydrateCart`, `fetchServerCart`, `syncCartItem`, `clearServerCart`).
+- `frontend/src/auth/AuthProvider.jsx` owns `session` / `user` / `profile`, subscribes to `supabase.auth.onAuthStateChange`, and exposes `signIn`, `signUp`, `signOut`, `openLogin`, `requestCheckout`, `refreshProfile`, plus cart-sync helpers (`mergeAndHydrateCart`, `fetchServerCart`, `syncCartItem`, `clearServerCart`).
 - `frontend/src/auth/useAuth.js` is a separate hook file — required because `AuthProvider.jsx` exports both the context and component, and `react-refresh/only-export-components` would otherwise complain.
 - `backend/middleware/requireAuth.js` reads `Authorization: Bearer <token>`, calls `supabase.auth.getUser(token)`, and attaches `req.user = { id, email }`. No token / bad token → 401. Supabase unreachable → 503.
 - `backend/middleware/requireAdmin.js` runs **after** `requireAuth`, loads `users.role` via Prisma, and 403s if the user is not an admin.
@@ -53,6 +53,12 @@ Source-of-truth rule: server once signed in, `localStorage` otherwise.
 7. Delete the user's `cart_items`.
 
 Errors thrown as `httpError(status, msg)` are translated by `sendHttpError`; unexpected errors return 500. Success returns 201 with the order and its items.
+
+## Checkout flow
+
+The cart drawer's Checkout button calls `AuthProvider.requestCheckout`, which either opens the login modal (signed-out) or navigates to `/checkout`. `CheckoutPage` (`frontend/src/pages/CheckoutPage.jsx`) renders the review state: line items with qty controls, subtotal, current balance, and balance-after-purchase. The "Place order" button is disabled when the cart is empty, submitting, profile is still loading, or the balance is insufficient. On click it calls `POST /orders`, then clears the local cart, refreshes the profile, and swaps to a success state. Errors render inline (no `alert`).
+
+The current balance is sourced from `GET /me`, which returns the authenticated user's profile. `AuthProvider` fetches it whenever the session's access token changes (initial load, sign-in, token refresh) and exposes `profile` + `refreshProfile()` on the context.
 
 ## Admin cancel
 

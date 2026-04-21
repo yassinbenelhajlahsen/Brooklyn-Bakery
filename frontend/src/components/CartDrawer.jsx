@@ -13,6 +13,11 @@ export default function CartDrawer({
   const subtotal = entries.reduce((sum, { item, qty }) => sum + item.price * qty, 0);
   const { requestCheckout } = useAuth();
 
+  const handleCheckout = () => {
+    onClose();
+    requestCheckout();
+  };
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -82,7 +87,7 @@ export default function CartDrawer({
                 <span>Subtotal</span>
                 <span>{subtotal} pts</span>
               </div>
-              <button className="checkout-btn" onClick={requestCheckout}>
+              <button className="checkout-btn" onClick={handleCheckout}>
                 Checkout
               </button>
               <button className="clear-btn" onClick={onClear}>

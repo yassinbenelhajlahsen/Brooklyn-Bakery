@@ -113,14 +113,17 @@ export function AuthProvider({ children }) {
         }
     }, [authedFetch, session?.access_token]);
 
-    const requestCheckout = useCallback(() => {
+    const requestCheckout = useCallback(async () => {
         if (user && session?.access_token) {
-            // TODO: navigate to /checkout review page (coming soon).
-            return;
+        try{
+            await authedFetch('/orders',{ method: 'POST'});
+        } catch {
+            console.log("this console log is located: frontend/src/auth/AuthProvider.jsx\nsomething went wrong here");
+        }
         }
         setLoginReason('checkout');
         setLoginOpen(true);
-    }, [user, session?.access_token]);
+    }, [authedFetch, user, session?.access_token]);
 
     const value = useMemo(() => ({
         user,

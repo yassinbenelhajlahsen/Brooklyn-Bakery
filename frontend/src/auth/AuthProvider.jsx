@@ -114,15 +114,20 @@ export function AuthProvider({ children }) {
     }, [authedFetch, session?.access_token]);
 
     const requestCheckout = useCallback(async () => {
-        if (user && session?.access_token) {
-        try{
-            await authedFetch('/orders',{ method: 'POST'});
+        if (!user || !session?.access_token) {
+            setLoginReason('checkout');
+            setLoginOpen(true);
+            return;
+        }
+        try {
+            const res = await authedFetch('/orders', { method: 'POST' });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                alert(body.error ?? 'Checkout failed. Please try again.');
+            }
         } catch {
-            console.log("this console log is located: frontend/src/auth/AuthProvider.jsx\nsomething went wrong here");
+            alert('Could not reach the server. Please try again.');
         }
-        }
-        setLoginReason('checkout');
-        setLoginOpen(true);
     }, [authedFetch, user, session?.access_token]);
 
     const value = useMemo(() => ({

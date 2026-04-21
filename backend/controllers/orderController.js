@@ -10,9 +10,8 @@ export async function createOrder(req, res) {
         const result = await prisma.$transaction(async (tx) => {
             const cartItems = await tx.cartItem.findMany({
                 where: { userId },
-                include: { product: { select: {name: true, id: true, price: true } } },
+                include: { product: { select: { name: true, id: true, price: true } } },
             });
-            console.log(cartItems);
             if (cartItems.length === 0) {
                 throw httpError(400, 'Cart is empty');
             }

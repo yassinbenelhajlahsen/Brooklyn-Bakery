@@ -10,8 +10,9 @@ export async function createOrder(req, res) {
         const result = await prisma.$transaction(async (tx) => {
             const cartItems = await tx.cartItem.findMany({
                 where: { userId },
-                include: { product: { select: { id: true, price: true } } },
+                include: { product: { select: {name: true, id: true, price: true } } },
             });
+            console.log(cartItems);
             if (cartItems.length === 0) {
                 throw httpError(400, 'Cart is empty');
             }
@@ -33,14 +34,14 @@ export async function createOrder(req, res) {
                 throw httpError(500, 'Profile missing');
             }
             const balance = rows[0].balance;
-            if (balance < total) {
-                throw httpError(402, 'Insufficient balance');
-            }
+            // if (balance < total) {
+            //     throw httpError(402, 'Insufficient balance');
+            // }
 
-            await tx.user.update({
-                where: { id: userId },
-                data: { balance: { decrement: total } },
-            });
+            // await tx.user.update({
+            //     where: { id: userId },
+            //     data: { balance: { decrement: total } },
+            // });
 
             const order = await tx.order.create({
                 data: {

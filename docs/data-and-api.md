@@ -23,6 +23,7 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | `role` | user_role | default `customer` |
 | `display_name` | text | populated from `raw_user_meta_data->>'display_name'` at signup |
 | `created_at`, `updated_at` | timestamptz | trigger-maintained |
+| `last_click_flush_at` | timestamptz NULL | last time click-credits were applied; read + written by `POST /me/clicks` inside a `FOR UPDATE` transaction to enforce the server-side rate cap |
 
 **`products`**
 
@@ -85,6 +86,7 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 | --- | --- | --- | --- | --- |
 | GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name` |
 | GET | `/me` | user | `meController.getMe` | `{ user: { id, email, displayName, balance, role } }` |
+| POST | `/me/clicks` | user | `meController.flushClicks` | Body `{ delta: int > 0, elapsedMs: int > 0 }`. Credits up to `floor(effectiveElapsedMs / 1000) * 10 + 20` to `users.balance` (silently caps on excess), updates `last_click_flush_at`. Returns `{ balance, credited }`. 400 on invalid body. |
 | GET | `/cart` | user | `cartController.getCart` | `{ items: (CartItem & { product })[] }` |
 | PUT | `/cart/items/:productId` | user | `cartController.upsertCartItem` | Body `{ quantity: int >= 0 }`; `0` deletes (204). Unknown product → 404. |
 | DELETE | `/cart` | user | `cartController.deleteCart` | 204 |

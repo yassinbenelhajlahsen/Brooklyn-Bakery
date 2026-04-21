@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { httpError, sendHttpError } from '../lib/httpError.js';
+import { creditClicks } from '../services/clickService.js';
 
 export async function getMe(req, res) {
     try {
@@ -17,5 +18,21 @@ export async function getMe(req, res) {
     } catch (err) {
         console.error('getMe failed:', err);
         res.status(500).json({ error: 'Failed to load profile' });
+    }
+}
+
+export async function flushClicks(req, res) {
+    try {
+        const { delta, elapsedMs } = req.body ?? {};
+        const result = await creditClicks({
+            userId: req.user.id,
+            delta,
+            elapsedMs,
+        });
+        res.json(result);
+    } catch (err) {
+        if (err.http) return sendHttpError(res, err);
+        console.error('flushClicks failed:', err);
+        res.status(500).json({ error: 'Failed to credit clicks' });
     }
 }

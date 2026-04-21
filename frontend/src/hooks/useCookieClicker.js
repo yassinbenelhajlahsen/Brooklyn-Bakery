@@ -268,5 +268,10 @@ export function useCookieClicker() {
         ? (profile?.balance ?? 0) + pendingRef.current
         : pendingRef.current;
 
-    return { displayPoints, handleClick, isAuthenticated };
+    return {
+        displayPoints,
+        handleClick,
+        isAuthenticated,
+        displayName: profile?.displayName ?? null,
+    };
 }

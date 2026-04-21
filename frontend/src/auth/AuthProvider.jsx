@@ -1,24 +1,20 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { fetchProfile } from '../services/profileService.js';
 
 export const AuthContext = createContext(null);
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:3000';
-
-function toHydratedCart(items) {
-    const hydrated = {};
-    for (const row of items) {
-        hydrated[row.productId] = { item: row.product, qty: row.quantity };
-    }
-    return hydrated;
-}
 
 export function AuthProvider({ children }) {
     const [session, setSession] = useState(null);
     const [user, setUser] = useState(null);
     const [loginOpen, setLoginOpen] = useState(false);
     const [loginReason, setLoginReason] = useState(null);
+    const [profile, setProfile] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
@@ -26,14 +22,26 @@ export function AuthProvider({ children }) {
             setUser(next?.user ?? null);
             if (!next) {
                 setLoginReason(null);
+                setProfile(null);
             } else if (event === 'SIGNED_IN') {
                 setLoginOpen(false);
-                setLoginReason(null);
+                // Keep loginReason so the intent-handler effect below can
+                // consume it (e.g., 'checkout' → navigate to /checkout).
             }
         });
 
         return () => listener.subscription.unsubscribe();
     }, []);
+
+    useEffect(() => {
+        if (user && session?.access_token && loginReason === 'checkout') {
+            // Clear before navigating so a subsequent TOKEN_REFRESHED
+            // doesn't re-fire the effect and navigate again.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLoginReason(null);
+            navigate('/checkout');
+        }
+    }, [user, session?.access_token, loginReason, navigate]);
 
     const signIn = useCallback((email, password) =>
         supabase.auth.signInWithPassword({ email, password }), []);
@@ -69,62 +77,33 @@ export function AuthProvider({ children }) {
         });
     }, [session?.access_token]);
 
-    const mergeAndHydrateCart = useCallback(async (localCart) => {
-        const payload = Object.values(localCart || {})
-            .map(({ item, qty }) => ({ productId: item.id, quantity: qty }));
-        const res = await authedFetch('/cart/merge', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        if (!res.ok) return null;
-        const body = await res.json();
-        return toHydratedCart(body.items);
-    }, [authedFetch]);
-
-    const fetchServerCart = useCallback(async () => {
-        try {
-            const res = await authedFetch('/cart');
-            if (!res.ok) return null;
-            const body = await res.json();
-            return toHydratedCart(body.items);
-        } catch {
-            return null;
-        }
-    }, [authedFetch]);
-
-    const syncCartItem = useCallback(async (productId, quantity) => {
-        if (!session?.access_token) return;
-        try {
-            await authedFetch(`/cart/items/${productId}`, {
-                method: 'PUT',
-                body: JSON.stringify({ quantity }),
-            });
-        } catch {
-            // best-effort sync; surface via UI if it matters later
-        }
+    const refreshProfile = useCallback(async () => {
+        if (!session?.access_token) return null;
+        const next = await fetchProfile(authedFetch);
+        setProfile(next);
+        return next;
     }, [authedFetch, session?.access_token]);
 
-    const clearServerCart = useCallback(async () => {
-        if (!session?.access_token) return;
-        try {
-            await authedFetch('/cart', { method: 'DELETE' });
-        } catch {
-            // best-effort clear
+    useEffect(() => {
+        if (session?.access_token) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            refreshProfile();
         }
-    }, [authedFetch, session?.access_token]);
+    }, [session?.access_token, refreshProfile]);
 
     const requestCheckout = useCallback(() => {
-        if (user && session?.access_token) {
-            // TODO: navigate to /checkout review page (coming soon).
+        if (!user || !session?.access_token) {
+            setLoginReason('checkout');
+            setLoginOpen(true);
             return;
         }
-        setLoginReason('checkout');
-        setLoginOpen(true);
-    }, [user, session?.access_token]);
+        navigate('/checkout');
+    }, [user, session?.access_token, navigate]);
 
     const value = useMemo(() => ({
         user,
         session,
+        profile,
         loginOpen,
         loginReason,
         openLogin,
@@ -133,13 +112,12 @@ export function AuthProvider({ children }) {
         signUp,
         signOut,
         requestCheckout,
-        mergeAndHydrateCart,
-        fetchServerCart,
-        syncCartItem,
-        clearServerCart,
+        authedFetch,
+        refreshProfile,
     }), [
         user,
         session,
+        profile,
         loginOpen,
         loginReason,
         openLogin,
@@ -148,10 +126,8 @@ export function AuthProvider({ children }) {
         signUp,
         signOut,
         requestCheckout,
-        mergeAndHydrateCart,
-        fetchServerCart,
-        syncCartItem,
-        clearServerCart,
+        authedFetch,
+        refreshProfile,
     ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

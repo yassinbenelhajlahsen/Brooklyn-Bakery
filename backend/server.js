@@ -9,6 +9,7 @@ import cartRoutes from './routes/cartRoutes.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { requireAdmin } from './middleware/requireAdmin.js';
+import meRoutes from './routes/meRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,7 @@ app.use(express.json()) // handling json data
 
 app.use('/products', productsRoutes);
 app.use('/orders', requireAuth, orderRoutes);
+app.use('/me', requireAuth, meRoutes);
 app.use('/cart', requireAuth, cartRoutes);
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 

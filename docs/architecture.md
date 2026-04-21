@@ -20,12 +20,24 @@
 
 ## Auth
 
-- `frontend/src/auth/AuthProvider.jsx` owns `session` / `user`, subscribes to `supabase.auth.onAuthStateChange`, and exposes `signIn`, `signUp`, `signOut`, `openLogin`, `requestCheckout`, plus cart-sync helpers (`mergeAndHydrateCart`, `fetchServerCart`, `syncCartItem`, `clearServerCart`).
+- `frontend/src/auth/AuthProvider.jsx` owns `session` / `user` / `profile`, subscribes to `supabase.auth.onAuthStateChange`, and exposes `signIn`, `signUp`, `signOut`, `openLogin`, `requestCheckout`, `refreshProfile`, and `authedFetch`. Cart and order API calls live in `frontend/src/services/*` (see "Data-access layer" below).
 - `frontend/src/auth/useAuth.js` is a separate hook file — required because `AuthProvider.jsx` exports both the context and component, and `react-refresh/only-export-components` would otherwise complain.
 - `backend/middleware/requireAuth.js` reads `Authorization: Bearer <token>`, calls `supabase.auth.getUser(token)`, and attaches `req.user = { id, email }`. No token / bad token → 401. Supabase unreachable → 503.
 - `backend/middleware/requireAdmin.js` runs **after** `requireAuth`, loads `users.role` via Prisma, and 403s if the user is not an admin.
 
 **Key-header rules.** Publishable and secret keys are not JWTs — the Supabase SDK sends them in the `apikey` header automatically. The `Authorization: Bearer …` header always carries the **user's** access token, never a publishable or secret key. `SUPABASE_SECRET_KEY` is backend-only.
+
+## Data-access layer
+
+API calls are pure async functions under `frontend/src/services/` that take `authedFetch` as their first argument:
+
+- `services/cartService.js` — `mergeAndHydrateCart`, `fetchServerCart`, `syncCartItem`, `clearServerCart`
+- `services/profileService.js` — `fetchProfile` (used by `AuthProvider.refreshProfile`)
+- `services/orderService.js` — `placeOrder` (throws `PlaceOrderError` with `status` + message on non-2xx)
+
+Components never import services directly. Hooks (`useCart`, `usePlaceOrder`, `AuthProvider`) read `authedFetch` from `useAuth()` and pass it into services at call time. This keeps token-refresh behavior centralized in `AuthProvider` while letting services stay testable and free of React context.
+
+Pure transforms and formatters live in `frontend/src/lib/` (`cart.js` — `computeCartSubtotal`, `computeCartItemCount`, `toHydratedCart`; `categories.js`).
 
 ## Cart lifecycle
 
@@ -42,25 +54,33 @@ Source-of-truth rule: server once signed in, `localStorage` otherwise.
 
 ## Order creation
 
-`backend/controllers/orderController.js::createOrder` — everything inside a single `prisma.$transaction`:
+`backend/services/orderService.js::placeOrder(userId)` — everything inside a single `prisma.$transaction`. The `orderController.createOrder` handler is a thin wrapper that calls this service and maps errors via `sendHttpError`.
 
 1. Load the user's cart items with current product prices.
 2. Row-lock the user's balance with a raw `SELECT balance FROM users WHERE id = … FOR UPDATE`. This serializes concurrent orders for the same user across replicas.
 3. Compute `total` with `computeCartTotal` (pure function in `backend/lib/cart.js`).
 4. If `balance < total`, throw `httpError(402, 'Insufficient balance')`.
 5. Decrement `users.balance` by `total`.
-6. Insert the `orders` row and nested `order_items` (snapshotting `unit_price` from the products loaded in step 1).
-7. Delete the user's `cart_items`.
+6. For each cart item, atomically decrement `products.stock` with a conditional `updateMany` (`WHERE id = ? AND stock >= qty`). If zero rows are affected, throw `httpError(409, 'Insufficient stock for <name>')` — the outer transaction rolls back, so the balance decrement is reverted. No explicit `FOR UPDATE` is needed; the `UPDATE` itself takes the row lock.
+7. Insert the `orders` row and nested `order_items` (snapshotting `unit_price` from the products loaded in step 1).
+8. Delete the user's `cart_items`.
 
 Errors thrown as `httpError(status, msg)` are translated by `sendHttpError`; unexpected errors return 500. Success returns 201 with the order and its items.
 
+## Checkout flow
+
+The cart drawer's Checkout button calls `AuthProvider.requestCheckout`, which either opens the login modal (signed-out) or navigates to `/checkout`. `CheckoutPage` (`frontend/src/pages/CheckoutPage.jsx`) renders the review state: line items with qty controls, subtotal, current balance, and balance-after-purchase. The "Place order" button is disabled when the cart is empty, submitting, profile is still loading, or the balance is insufficient. Order submission goes through the `usePlaceOrder` hook, which calls `orderService.placeOrder`, refreshes the profile on success, and invokes an `onSuccess` callback so the page can clear the local cart and swap to the success state. Errors render inline (no `alert`).
+
+The current balance is sourced from `GET /me`, which returns the authenticated user's profile. `AuthProvider` fetches it whenever the session's access token changes (initial load, sign-in, token refresh) and exposes `profile` + `refreshProfile()` on the context.
+
 ## Admin cancel
 
-`backend/controllers/adminOrdersController.js::cancelOrder` — one transaction:
+`backend/services/orderService.js::cancelOrderById(orderId)` — one transaction. The `adminOrdersController.cancelOrder` handler is a thin wrapper.
 
-1. Load the order; 404 if missing, 409 if already cancelled.
+1. Load the order (with its items); 404 if missing, 409 if already cancelled.
 2. Increment the owning user's balance by `order.total`.
-3. Flip `status` to `cancelled`.
+3. Increment `products.stock` by each `order_item.quantity` — mirrors the decrement in `placeOrder`.
+4. Flip `status` to `cancelled`.
 
 The route is `PATCH /admin/orders/:id/cancel` and sits behind both `requireAuth` and `requireAdmin`.
 

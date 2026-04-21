@@ -10,6 +10,7 @@ export async function getProducts(_req, res) {
             imageUrl: true,
             type: true,
             price: true,
+            stock: true,
         },
     });
     res.json({ items: products });

@@ -72,6 +72,7 @@ export function useCart() {
 
   const increment = (item) => setQty(item, (cart[item.id]?.qty ?? 0) + 1)
   const decrement = (item) => setQty(item, (cart[item.id]?.qty ?? 0) - 1)
+  const removeItem = (item) => setQty(item, 0)
   const clearCart = () => {
     setCart({})
     clearServerCart()
@@ -82,5 +83,5 @@ export function useCart() {
     [cart]
   )
 
-  return { cart, itemCount, increment, decrement, clearCart }
+  return { cart, itemCount, increment, decrement, removeItem, clearCart }
 }

@@ -19,10 +19,12 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `.env.example` | Backend env template (`PORT`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`) |
 | `routes/productsRoutes.js` | `GET /products` |
 | `routes/cartRoutes.js` | `GET`, `DELETE`, `POST /merge`, `PUT /items/:productId` |
+| `routes/meRoutes.js` | `GET /` |
 | `routes/orderRoutes.js` | `GET /`, `POST /` |
 | `routes/adminRoutes.js` | `GET /orders`, `PATCH /orders/:id/cancel` |
 | `controllers/productsController.js` | Product listing (public) |
 | `controllers/cartController.js` | Cart CRUD + `mergeCart` |
+| `controllers/meController.js` | Authenticated profile fetch (`GET /me`) |
 | `controllers/orderController.js` | `createOrder` (atomic transaction), `listMyOrders` |
 | `controllers/adminOrdersController.js` | `listAllOrders`, `cancelOrder` |
 | `middleware/requireAuth.js` | JWT verification via Supabase admin client |
@@ -46,14 +48,15 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `vite.config.js` | Vite config; dev server pinned to `127.0.0.1:5173` |
 | `eslint.config.js` | ESLint flat config with React hooks + refresh rules |
 | `index.html` | Vite HTML entry |
-| `src/main.jsx` | React root; wraps `<App />` in `<AuthProvider>` |
-| `src/App.jsx` | Top-level layout; owns cart drawer + category nav state |
+| `src/main.jsx` | React root; wraps `<App />` in `<BrowserRouter>` and `<AuthProvider>` |
+| `src/App.jsx` | Top-level layout + routes (`/`, `/checkout`); owns cart state and cart-drawer/category-nav visibility on `/` |
 | `src/App.css`, `src/index.css` | Global styles |
-| `src/auth/AuthProvider.jsx` | Context provider: session, login modal, `authedFetch`, cart sync helpers |
+| `src/auth/AuthProvider.jsx` | Context provider: session, user profile (via `GET /me`), login modal, `authedFetch`, `requestCheckout` (navigates to `/checkout`), cart sync helpers |
 | `src/auth/useAuth.js` | `useAuth` hook (separate file for react-refresh compliance) |
 | `src/hooks/useCart.js` | Cart state, localStorage persistence, login-time merge/hydrate |
 | `src/lib/supabase.js` | Browser Supabase client (publishable key) |
 | `src/pages/HomePage.jsx` | Product grid; fetches `GET /products` on mount |
+| `src/pages/CheckoutPage.jsx` | Checkout review page: line items with qty controls, balance, balance-after, place-order |
 | `src/components/Header.jsx` | Site header; login/logout button, cart button |
 | `src/components/CategoryNav.jsx` | Category filter buttons |
 | `src/components/Footer.jsx` | Static footer |

@@ -82,6 +82,7 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 | Method | Path | Auth | Controller | Contract |
 | --- | --- | --- | --- | --- |
 | GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name` |
+| GET | `/me` | user | `meController.getMe` | `{ user: { id, email, displayName, balance, role } }` |
 | GET | `/cart` | user | `cartController.getCart` | `{ items: (CartItem & { product })[] }` |
 | PUT | `/cart/items/:productId` | user | `cartController.upsertCartItem` | Body `{ quantity: int >= 0 }`; `0` deletes (204). Unknown product → 404. |
 | DELETE | `/cart` | user | `cartController.deleteCart` | 204 |
@@ -95,6 +96,7 @@ Routes are mounted in [`backend/server.js`](../backend/server.js):
 
 ```js
 app.use('/products', productsRoutes);
+app.use('/me', requireAuth, meRoutes);
 app.use('/orders', requireAuth, orderRoutes);
 app.use('/cart', requireAuth, cartRoutes);
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);

@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 
 export const AuthContext = createContext(null);
@@ -19,6 +20,8 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loginOpen, setLoginOpen] = useState(false);
     const [loginReason, setLoginReason] = useState(null);
+    const [profile, setProfile] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
@@ -26,14 +29,26 @@ export function AuthProvider({ children }) {
             setUser(next?.user ?? null);
             if (!next) {
                 setLoginReason(null);
+                setProfile(null);
             } else if (event === 'SIGNED_IN') {
                 setLoginOpen(false);
-                setLoginReason(null);
+                // Keep loginReason so the intent-handler effect below can
+                // consume it (e.g., 'checkout' → navigate to /checkout).
             }
         });
 
         return () => listener.subscription.unsubscribe();
     }, []);
+
+    useEffect(() => {
+        if (user && session?.access_token && loginReason === 'checkout') {
+            // Clear before navigating so a subsequent TOKEN_REFRESHED
+            // doesn't re-fire the effect and navigate again.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLoginReason(null);
+            navigate('/checkout');
+        }
+    }, [user, session?.access_token, loginReason, navigate]);
 
     const signIn = useCallback((email, password) =>
         supabase.auth.signInWithPassword({ email, password }), []);
@@ -68,6 +83,26 @@ export function AuthProvider({ children }) {
             },
         });
     }, [session?.access_token]);
+
+    const refreshProfile = useCallback(async () => {
+        if (!session?.access_token) return null;
+        try {
+            const res = await authedFetch('/me');
+            if (!res.ok) return null;
+            const body = await res.json();
+            setProfile(body.user ?? null);
+            return body.user ?? null;
+        } catch {
+            return null;
+        }
+    }, [authedFetch, session?.access_token]);
+
+    useEffect(() => {
+        if (session?.access_token) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            refreshProfile();
+        }
+    }, [session?.access_token, refreshProfile]);
 
     const mergeAndHydrateCart = useCallback(async (localCart) => {
         const payload = Object.values(localCart || {})
@@ -113,26 +148,19 @@ export function AuthProvider({ children }) {
         }
     }, [authedFetch, session?.access_token]);
 
-    const requestCheckout = useCallback(async () => {
+    const requestCheckout = useCallback(() => {
         if (!user || !session?.access_token) {
             setLoginReason('checkout');
             setLoginOpen(true);
             return;
         }
-        try {
-            const res = await authedFetch('/orders', { method: 'POST' });
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                alert(body.error ?? 'Checkout failed. Please try again.');
-            }
-        } catch {
-            alert('Could not reach the server. Please try again.');
-        }
-    }, [authedFetch, user, session?.access_token]);
+        navigate('/checkout');
+    }, [user, session?.access_token, navigate]);
 
     const value = useMemo(() => ({
         user,
         session,
+        profile,
         loginOpen,
         loginReason,
         openLogin,
@@ -141,6 +169,8 @@ export function AuthProvider({ children }) {
         signUp,
         signOut,
         requestCheckout,
+        authedFetch,
+        refreshProfile,
         mergeAndHydrateCart,
         fetchServerCart,
         syncCartItem,
@@ -148,6 +178,7 @@ export function AuthProvider({ children }) {
     }), [
         user,
         session,
+        profile,
         loginOpen,
         loginReason,
         openLogin,
@@ -156,6 +187,8 @@ export function AuthProvider({ children }) {
         signUp,
         signOut,
         requestCheckout,
+        authedFetch,
+        refreshProfile,
         mergeAndHydrateCart,
         fetchServerCart,
         syncCartItem,

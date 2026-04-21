@@ -34,14 +34,14 @@ export async function createOrder(req, res) {
                 throw httpError(500, 'Profile missing');
             }
             const balance = rows[0].balance;
-            // if (balance < total) {
-            //     throw httpError(402, 'Insufficient balance');
-            // }
+            if (balance < total) {
+                throw httpError(402, 'Insufficient balance');
+            }
 
-            // await tx.user.update({
-            //     where: { id: userId },
-            //     data: { balance: { decrement: total } },
-            // });
+            await tx.user.update({
+                where: { id: userId },
+                data: { balance: { decrement: total } },
+            });
 
             const order = await tx.order.create({
                 data: {

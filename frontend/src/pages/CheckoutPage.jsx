@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth.js";
+import { computeCartSubtotal } from "../lib/cart.js";
+import CartItemRow from "../components/CartItemRow.jsx";
+import { usePlaceOrder } from "../hooks/usePlaceOrder.js";
 
 function Ornament() {
   return (
@@ -30,20 +33,21 @@ export default function CheckoutPage({
   removeItem,
   clearCart,
 }) {
-  const { user, profile, refreshProfile, authedFetch } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
   const [order, setOrder] = useState(null);
+  const { placeOrder, submitting, error } = usePlaceOrder({
+    onSuccess: (created) => {
+      clearCart();
+      setOrder({ id: created.id, total: created.total });
+    },
+  });
 
   if (!user) return <Navigate to="/" replace />;
 
   const entries = Object.values(cart);
-  const subtotal = entries.reduce(
-    (sum, { item, qty }) => sum + item.price * qty,
-    0,
-  );
+  const subtotal = computeCartSubtotal(cart);
   const balance = profile?.balance ?? null;
   const balanceAfter = balance == null ? null : balance - subtotal;
   const insufficient = balance != null && balance < subtotal;
@@ -99,35 +103,6 @@ export default function CheckoutPage({
     );
   }
 
-  const placeOrder = async () => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await authedFetch("/orders", { method: "POST" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const msg =
-          res.status === 402
-            ? "Not enough points to complete this order."
-            : res.status === 400
-              ? "Your cart is empty."
-              : (body.error ?? "Something went wrong. Please try again.");
-        setError(msg);
-        setSubmitting(false);
-        return;
-      }
-      const created = await res.json();
-      clearCart();
-      await refreshProfile();
-      setOrder({ id: created.id, total: created.total });
-      setSubmitting(false);
-    } catch (err) {
-      console.error("placeOrder failed:", err);
-      setError("Could not reach the server. Please try again.");
-      setSubmitting(false);
-    }
-  };
-
   return (
     <div className="checkout">
       <CheckoutHeader
@@ -139,43 +114,15 @@ export default function CheckoutPage({
       <div className="checkout-layout">
         <ul className="checkout-items">
           {entries.map(({ item, qty }) => (
-            <li key={item.id} className="checkout-line">
-              <img
-                className="checkout-line-img"
-                src={item.imageUrl}
-                alt={item.description}
-              />
-              <div className="checkout-line-body">
-                <div className="checkout-line-title">{item.name}</div>
-                <div className="checkout-line-unit">{item.price} pts each</div>
-                <div className="checkout-line-controls">
-                  <div className="qty-controls">
-                    <button
-                      className="qty-btn"
-                      onClick={() => decrement(item)}
-                      aria-label="Decrease"
-                    >
-                      −
-                    </button>
-                    <span className="qty-value">{qty}</span>
-                    <button
-                      className="qty-btn"
-                      onClick={() => increment(item)}
-                      aria-label="Increase"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <button
-                    className="checkout-line-remove"
-                    onClick={() => removeItem(item)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-              <div className="checkout-line-total">{item.price * qty} pts</div>
-            </li>
+            <CartItemRow
+              key={item.id}
+              variant="checkout"
+              item={item}
+              qty={qty}
+              onIncrement={() => increment(item)}
+              onDecrement={() => decrement(item)}
+              onRemove={() => removeItem(item)}
+            />
           ))}
         </ul>
 

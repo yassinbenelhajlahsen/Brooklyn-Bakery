@@ -1,8 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../auth/useAuth.js'
+import { computeCartItemCount } from '../lib/cart.js'
+import {
+  mergeAndHydrateCart,
+  fetchServerCart,
+  syncCartItem,
+  clearServerCart,
+} from '../services/cartService.js'
 
 export function useCart() {
-  const { user, mergeAndHydrateCart, fetchServerCart, syncCartItem, clearServerCart } = useAuth()
+  const { user, session, authedFetch } = useAuth()
 
   const [cart, setCart] = useState(() => {
     try {
@@ -44,8 +51,8 @@ export function useCart() {
 
     ;(async () => {
       const hydrated = needsMerge
-        ? await mergeAndHydrateCart(cart)
-        : await fetchServerCart()
+        ? await mergeAndHydrateCart(authedFetch, cart)
+        : await fetchServerCart(authedFetch)
       if (hydrated) {
         setCart(hydrated)
         try { localStorage.setItem('cartOwner', currentId) } catch { /* storage blocked */ }
@@ -54,7 +61,7 @@ export function useCart() {
 
     prevUserId.current = currentId
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, mergeAndHydrateCart, fetchServerCart])
+  }, [user?.id, authedFetch])
 
   const setQty = (item, qty) => {
     const clamped = Math.max(0, qty)
@@ -67,7 +74,9 @@ export function useCart() {
       }
       return next
     })
-    syncCartItem(item.id, clamped)
+    if (session?.access_token) {
+      syncCartItem(authedFetch, item.id, clamped)
+    }
   }
 
   const increment = (item) => setQty(item, (cart[item.id]?.qty ?? 0) + 1)
@@ -75,13 +84,12 @@ export function useCart() {
   const removeItem = (item) => setQty(item, 0)
   const clearCart = () => {
     setCart({})
-    clearServerCart()
+    if (session?.access_token) {
+      clearServerCart(authedFetch)
+    }
   }
 
-  const itemCount = useMemo(
-    () => Object.values(cart).reduce((n, { qty }) => n + qty, 0),
-    [cart]
-  )
+  const itemCount = useMemo(() => computeCartItemCount(cart), [cart])
 
   return { cart, itemCount, increment, decrement, removeItem, clearCart }
 }

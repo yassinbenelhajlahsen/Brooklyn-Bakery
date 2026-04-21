@@ -8,9 +8,8 @@ import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
 import { useCart } from './hooks/useCart.js'
+import { CATEGORIES } from './lib/categories.js'
 import './App.css'
-
-const CATEGORIES = ['bread', 'cake', 'cookies', 'drinks', 'pastry']
 
 export default function App() {
   const [activeCategory, setActiveCategory] = useState(null)

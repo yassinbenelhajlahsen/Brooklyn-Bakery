@@ -150,12 +150,44 @@
 }
 
 /* ---------- Main / grid ---------- */
+.app-container {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+
+.cookie-sidebar {
+  width: 22%;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.cookie-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+  height: 100%;
+}
+
+.cookie-title {
+  text-align: center;
+  font-size: 1.5rem;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
 .app-main {
   flex: 1;
   padding: 32px;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
+  max-width: 100%;
+  overflow-y: auto;
 }
 
 .product-grid {
@@ -850,4 +882,84 @@
     cursor: pointer;
     z-index: 900;
     box-shadow: var(--shadow);
+}
+
+/* ---------- Cookie Clicker ---------- */
+.points-display {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.points-text {
+  font-size: 3rem;
+  font-weight: bold;
+  color: var(--accent);
+  margin: 0;
+  font-family: var(--display);
+}
+
+.points-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cookie-button {
+  font-size: 14rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease;
+  user-select: none;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(61, 47, 36, 0.15));
+}
+
+.cookie-button:hover {
+  transform: scale(1.05);
+}
+
+.cookie-button:active {
+  animation: cookieClick 0.3s ease-out;
+}
+
+@keyframes cookieClick {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+.floating-points {
+  position: fixed;
+  pointer-events: none;
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: var(--accent);
+  animation: floatUp 1s ease-out forwards;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-family: var(--display);
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0.8);
+  }
 }

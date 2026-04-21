@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
+import CookieClicker from './components/CookieClicker.jsx'
 import { useCart } from './hooks/useCart.js'
 import './App.css'
 
@@ -23,14 +24,19 @@ export default function App() {
         active={activeCategory}
         onSelect={setActiveCategory}
       />
-      <main className="app-main">
-        <HomePage
-          category={activeCategory}
-          cart={cart}
-          onIncrement={increment}
-          onDecrement={decrement}
-        />
-      </main>
+      <div className="app-container">
+        <aside className="cookie-sidebar">
+          <CookieClicker />
+        </aside>
+        <main className="app-main">
+          <HomePage
+            category={activeCategory}
+            cart={cart}
+            onIncrement={increment}
+            onDecrement={decrement}
+          />
+        </main>
+      </div>
       <Footer />
       <CartDrawer
         open={cartOpen}
@@ -44,3 +50,4 @@ export default function App() {
     </div>
   )
 }
+

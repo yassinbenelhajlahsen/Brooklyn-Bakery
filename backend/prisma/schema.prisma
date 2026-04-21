@@ -39,6 +39,7 @@ model User {
   displayName String?  @map("display_name")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  lastClickFlushAt DateTime? @map("last_click_flush_at") @db.Timestamptz(6)
 
   cartItems CartItem[]
   orders    Order[]

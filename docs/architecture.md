@@ -73,6 +73,41 @@ The cart drawer's Checkout button calls `AuthProvider.requestCheckout`, which ei
 
 The current balance is sourced from `GET /me`, which returns the authenticated user's profile. `AuthProvider` fetches it whenever the session's access token changes (initial load, sign-in, token refresh) and exposes `profile` + `refreshProfile()` on the context.
 
+## Cookie clicker / click-credit flow
+
+Clicks on the `CookieClicker` component earn 1 point each into the user's `users.balance` — the same balance spent at checkout. Writes are batched; a DB call never happens per click.
+
+Frontend state lives in `frontend/src/hooks/useCookieClicker.js`.
+
+1. **Client throttle.** `handleClick` keeps a rolling 1-second window of click timestamps in a ref. If the window already holds ≥ 10 entries, the click is dropped silently (no pending increment, no floating `+1` animation). This is a UX cap only — the server is the real enforcer.
+2. **Pending accumulator.** Accepted clicks increment `pendingRef`. On the first click of a window, `windowStartRef = performance.now()`.
+3. **Authenticated flush.** `doFlush` snapshots `{ delta: pendingRef, elapsedMs: now - windowStartRef }`, resets the refs **before** the network call (so in-flight clicks accumulate into a fresh window), and `POST /me/clicks` via `authedFetch`. On 2xx it calls `refreshProfile()` so `profile.balance` is re-synced app-wide. On failure it drops the pending delta — the next trigger retries with whatever's newly accumulated. `flushingRef` guards against concurrent flushes.
+4. **Flush triggers** (all gated on `isAuthenticated`):
+   - 5s `setInterval`
+   - Inline when `pendingRef >= 50` (threshold)
+   - `visibilitychange → hidden` and `pagehide`, both with `fetch keepalive: true`
+   - Logout transition — uses the **previous** token via a raw `fetch` (also `keepalive`), since `authedFetch` would throw once the session is null
+5. **Guest accumulation.** While logged out, `pendingRef` and the first-click wall-clock time are mirrored to `localStorage.bb:guestClicks` debounced ~500ms (try/catch wraps localStorage access for Safari private mode). The component renders a subtle "Log in to save your points" hint.
+6. **Guest → authenticated migration.** On the auth transition `false → true`, the hook POSTs the saved `{ pending, firstClickAt }` to `/me/clicks` with `elapsedMs = Date.now() - firstClickAt`. On success, `bb:guestClicks` is removed. A second mount-time effect retries the migration on subsequent page loads if a prior attempt failed.
+
+Server-side, `backend/services/clickService.js::creditClicks` mirrors the `placeOrder` idiom:
+
+1. Reject invalid input (non-integer / out-of-range `delta` or `elapsedMs`) with `httpError(400)`.
+2. `prisma.$transaction` → `SELECT balance, last_click_flush_at FROM users WHERE id = $uid FOR UPDATE`.
+3. Call the pure helper `backend/lib/clickCredit.js::computeCredit` with `{ delta, elapsedMs, lastClickFlushAt, now }`. That function returns `{ credited }` after capping:
+   - `effectiveElapsed = min(clientElapsed, now - lastClickFlushAt)` if `lastClickFlushAt != null`
+   - `effectiveElapsed = min(clientElapsed, MAX_FIRST_WINDOW_MS)` when `lastClickFlushAt == null` (first flush / new account)
+   - `maxAllowed = floor(effectiveElapsed / 1000) * RATE_PER_SEC + BURST_BONUS` (10/sec + burst of 20)
+   - `credited = min(delta, maxAllowed)`
+4. Apply `balance += credited` and `last_click_flush_at = now()` in the same transaction.
+5. Return `{ balance, credited }`.
+
+**Why the `FOR UPDATE` lock matters.** It serializes concurrent flushes from the same user (e.g. two browser tabs) so the second flush's `now - last_click_flush_at` reflects the first flush's write — otherwise both flushes would see the same `lastClickFlushAt` and each credit the full burst bonus.
+
+**Silent cap, not rejection.** When a caller exceeds the rate, the server credits what's allowed and returns it in `credited` — no 429, no error. Cheaters don't get a signal to probe the boundary; honest users with lag or tab switches don't get punished.
+
+**Why trust neither client nor server elapsed alone.** Server-side `now - lastClickFlushAt` is authoritative but can't cover the very first flush (no prior timestamp). Client-side `elapsedMs` is trusted up to a 1h cap on the first flush (guest migration), then bounded by `min(client, server)` thereafter. This lets guest sessions that spanned a long idle time migrate their points without trusting a malicious client that claims `elapsedMs: 99999999`.
+
 ## Admin cancel
 
 `backend/services/orderService.js::cancelOrderById(orderId)` — one transaction. The `adminOrdersController.cancelOrder` handler is a thin wrapper.

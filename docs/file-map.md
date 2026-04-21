@@ -19,28 +19,32 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `.env.example` | Backend env template (`PORT`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`) |
 | `routes/productsRoutes.js` | `GET /products` |
 | `routes/cartRoutes.js` | `GET`, `DELETE`, `POST /merge`, `PUT /items/:productId` |
-| `routes/meRoutes.js` | `GET /` |
+| `routes/meRoutes.js` | `GET /`, `POST /clicks` |
 | `routes/orderRoutes.js` | `GET /`, `POST /` |
 | `routes/adminRoutes.js` | `GET /orders`, `PATCH /orders/:id/cancel` |
 | `controllers/productsController.js` | Product listing (public) |
 | `controllers/cartController.js` | Cart CRUD; `mergeCart` delegates to `services/cartService` |
-| `controllers/meController.js` | Authenticated profile fetch (`GET /me`) |
+| `controllers/meController.js` | Authenticated profile fetch (`GET /me`) and click-credit flush (`POST /me/clicks`) |
 | `controllers/orderController.js` | `createOrder` (delegates to `services/orderService.placeOrder`), `listMyOrders` |
 | `controllers/adminOrdersController.js` | `listAllOrders`; `cancelOrder` (delegates to `services/orderService.cancelOrderById`) |
 | `services/orderService.js` | `placeOrder(userId)` and `cancelOrderById(orderId)` — the two atomic Prisma transactions (balance row-lock, stock guard, order create/cancel) |
 | `services/cartService.js` | `mergeGuestCart(userId, incoming)` — load, additive-merge via `lib/cart`, validate against products, transactional replace, hydrate |
+| `services/clickService.js` | `creditClicks({ userId, delta, elapsedMs })` — row-locked balance credit with server-side rate cap, updates `lastClickFlushAt` |
 | `middleware/requireAuth.js` | JWT verification via Supabase admin client |
 | `middleware/requireAdmin.js` | Admin role check (loads `users.role` via Prisma) |
 | `lib/prisma.js` | PrismaClient singleton (survives nodemon reload in dev) |
 | `lib/supabase.js` | Admin Supabase client (uses `SUPABASE_SECRET_KEY`) |
 | `lib/cart.js` | Pure functions: `mergeCartItems`, `computeCartTotal` |
+| `lib/clickCredit.js` | Pure rate-cap math: `computeCredit({ delta, elapsedMs, lastClickFlushAt, now })` + constants (`RATE_PER_SEC`, `BURST_BONUS`, `MAX_FIRST_WINDOW_MS`, `MAX_DELTA`, `MAX_ELAPSED_MS`) |
 | `lib/httpError.js` | `httpError(status, msg)` and `sendHttpError(res, err)` helpers |
 | `prisma/schema.prisma` | Data model (User, Product, CartItem, Order, OrderItem) + enums |
 | `prisma/seed.js` | Idempotent product seeding (upsert by name) |
 | `prisma/migrations/20260420192006_init/` | Initial schema migration |
 | `prisma/migrations/20260420192213_supabase_integration/` | Cross-schema FK to `auth.users` + trigger that creates `public.users` on signup |
 | `prisma/migrations/20260421045352_add_product_stock/` | Adds `products.stock` column + nonneg check constraint |
+| `prisma/migrations/20260421203012_add_user_last_click_flush_at/` | Adds `users.last_click_flush_at` (nullable) for click-credit rate cap |
 | `tests/cart.test.js` | Tests for pure cart helpers (node:test) |
+| `tests/clickCredit.test.js` | Tests for `computeCredit` rate-cap math (node:test) |
 | `db/` | (Empty placeholder) |
 
 ## `frontend/`
@@ -53,30 +57,34 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `index.html` | Vite HTML entry |
 | `src/main.jsx` | React root; wraps `<App />` in `<BrowserRouter>` and `<AuthProvider>` |
 | `src/App.jsx` | Top-level layout + routes (`/`, `/checkout`); owns cart state and cart-drawer/category-nav visibility on `/` |
-| `src/App.css`, `src/index.css` | Global styles |
+| `src/index.css` | Base resets and CSS custom properties (color tokens: `--color-ink`, `--color-cream`, etc.) |
 | `src/auth/AuthProvider.jsx` | Context provider: session, user profile (via `GET /me`), login modal, `authedFetch`, `requestCheckout` (navigates to `/checkout`), `refreshProfile` |
 | `src/auth/useAuth.js` | `useAuth` hook (separate file for react-refresh compliance) |
 | `src/hooks/useCart.js` | Cart state, localStorage persistence, login-time merge/hydrate (calls `services/cartService`) |
 | `src/hooks/useLoginForm.js` | Login / signup form state + submit, wraps `signIn` / `signUp` |
 | `src/hooks/useTabUnderline.js` | Animated tab-underline measurement; returns `parentRef`, `registerTab(key)`, `underlineStyle` |
 | `src/hooks/usePlaceOrder.js` | Place-order flow; calls `orderService.placeOrder`, refreshes profile, fires `onSuccess` |
+| `src/hooks/useCookieClicker.js` | Click accumulator + 10/sec client throttle; batched flush via `POST /me/clicks` on 5s interval / 50-click threshold / page-hide / logout; guest clicks persisted to `localStorage.bb:guestClicks` and migrated on login |
 | `src/services/cartService.js` | Cart API calls (`mergeAndHydrateCart`, `fetchServerCart`, `syncCartItem`, `clearServerCart`) — take `authedFetch` as first arg |
 | `src/services/profileService.js` | `fetchProfile` — returns `body.user` or `null` |
 | `src/services/orderService.js` | `placeOrder`; throws `PlaceOrderError` on non-2xx |
 | `src/lib/supabase.js` | Browser Supabase client (publishable key) |
 | `src/lib/cart.js` | Pure helpers: `computeCartSubtotal`, `computeCartItemCount`, `toHydratedCart` |
 | `src/lib/categories.js` | `CATEGORIES` constant |
+| `src/lib/styles.js` | Shared Tailwind class-string constants (e.g. `ICON_BTN`) |
 | `src/pages/HomePage.jsx` | Product grid; fetches `GET /products` on mount |
 | `src/pages/CheckoutPage.jsx` | Checkout review page: line items with qty controls, balance, balance-after, place-order |
 | `src/components/Header.jsx` | Site header; login/logout button, cart button |
 | `src/components/CategoryNav.jsx` | Category filter buttons |
 | `src/components/Footer.jsx` | Static footer |
+| `src/components/Ornament.jsx` | Decorative horizontal rule with rotated diamond accent |
 | `src/components/CartDrawer.jsx` | Slide-out cart; subtotal + checkout + clear |
 | `src/components/CartItemRow.jsx` | Shared cart row; `variant="drawer"` or `"checkout"` |
 | `src/components/QuantityControl.jsx` | Shared `−` / qty / `+` control used in cards, drawer, checkout |
 | `src/components/LoginModal.jsx` | Login / sign-up modal with animated tab underline |
 | `src/components/loginModal.copy.js` | Copy constants for `LoginModal` (headlines/subcopy per mode+reason) |
 | `src/components/cards/BakedGoodCard.jsx` | Product card with qty controls |
+| `src/components/CookieClicker.jsx` | Cookie clicker UI; consumes `useCookieClicker`, renders the floating `+1` animation, shows "Log in to save your points" for guests |
 
 ## `docs/`
 

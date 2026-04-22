@@ -92,6 +92,16 @@ export default function ProfileMenu() {
         </div>
 
         <div className="py-1">
+          {profile?.role === 'admin' && (
+            <MenuItem
+              icon={<UserIcon className="w-[18px] h-[18px]" />}
+              label="Admin"
+              onClick={() => {
+                setOpen(false);
+                navigate('/admin');
+              }}
+            />
+          )}
           <MenuItem
             icon={<UserIcon className="w-[18px] h-[18px]" />}
             label="Profile"

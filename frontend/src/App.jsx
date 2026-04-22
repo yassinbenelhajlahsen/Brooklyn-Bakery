@@ -14,6 +14,8 @@ import StoryPage from './pages/StoryPage.jsx';
 import ContactPage from './pages/ContactUsPage.jsx';
 import FaqPage from './pages/FAQPage.jsx';
 import HelpPage from './pages/HelpPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
+import AdminRoute from './components/admin/AdminRoute.jsx';
 
 const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 
@@ -65,6 +67,16 @@ export default function App() {
         <Route path="/faq" element={<main className={MAIN_CLS}><FaqPage /></main>} />
         <Route path="/help" element={<main className={MAIN_CLS}><HelpPage /></main>} />
         <Route path="/orders" element={<OrderHistoryPage />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <main className={MAIN_CLS}>
+                <AdminPage />
+              </main>
+            </AdminRoute>
+          }
+        />
       </Routes>
       <Footer />
       <LoginModal />

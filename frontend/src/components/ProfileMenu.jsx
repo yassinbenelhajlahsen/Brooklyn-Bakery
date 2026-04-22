@@ -2,6 +2,8 @@ import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/useAuth.js';
 import { useNavigate } from 'react-router-dom';
+import PackageIcon from './icons/PackageIcon.jsx';
+import UserIcon from './icons/UserIcon.jsx';
 
 export default function ProfileMenu() {
   const { user, profile, openLogin, signOut } = useAuth();
@@ -135,44 +137,6 @@ function MenuItem({ icon, label, onClick }) {
       {icon}
       <span>{label}</span>
     </button>
-  );
-}
-
-function UserIcon({ className }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21a8 8 0 0 1 16 0" />
-    </svg>
-  );
-}
-
-function PackageIcon({ className }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z" />
-      <path d="m3 7.5 9 4.5 9-4.5" />
-      <path d="M12 12v9" />
-      <path d="m7.5 5.25 9 4.5" />
-    </svg>
   );
 }
 

@@ -3,7 +3,9 @@ import clsx from 'clsx'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth.js'
 import Ornament from '../components/Ornament.jsx'
-import { fetchMyOrders } from '../services/orderService.js'
+import StatusBadge from '../components/StatusBadge.jsx'
+import ReasonPromptModal from '../components/ReasonPromptModal.jsx'
+import { fetchMyOrders, userCancelOrder, userReturnOrder } from '../services/orderService.js'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -12,6 +14,13 @@ const BACK_BTN = clsx(
   "hover:text-accent hover:border-accent",
   "motion-reduce:transition-none",
 )
+
+const RETURN_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+function canReturn(order) {
+  if (order.status !== 'delivered' || !order.deliveredAt) return false;
+  return Date.now() - new Date(order.deliveredAt).getTime() <= RETURN_WINDOW_MS;
+}
 
 function OrderHeader() {
   return (
@@ -30,6 +39,12 @@ export default function OrderHistoryPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [modal, setModal] = useState(null)
+
+  async function refresh() {
+    const data = await fetchMyOrders(authedFetch)
+    setOrders(data.orders ?? [])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -55,6 +70,39 @@ export default function OrderHistoryPage() {
     loadOrders()
     return () => { cancelled = true }
   }, [user, authedFetch])
+
+  async function handleCancel(order) {
+    if (order.status === 'confirmed') {
+      try {
+        await userCancelOrder(authedFetch, order.id, '')
+        await refresh()
+      } catch (err) {
+        setError(err?.message ?? 'Cancel failed')
+      }
+    } else {
+      setModal({ kind: 'cancel', orderId: order.id })
+    }
+  }
+
+  function handleReturn(order) {
+    setModal({ kind: 'return', orderId: order.id })
+  }
+
+  async function submitReason(reason) {
+    if (!modal) return
+    const { kind, orderId } = modal
+    setModal(null)
+    try {
+      if (kind === 'cancel') {
+        await userCancelOrder(authedFetch, orderId, reason)
+      } else {
+        await userReturnOrder(authedFetch, orderId, reason)
+      }
+      await refresh()
+    } catch (err) {
+      setError(err?.message ?? 'Request failed')
+    }
+  }
 
   if (!user) return <Navigate to="/" replace />
 
@@ -96,7 +144,7 @@ export default function OrderHistoryPage() {
                   <div className="text-right max-sm:text-left">
                     <p className="m-0 text-[11px] uppercase tracking-[0.18em] text-muted">Total</p>
                     <p className="mt-2 mb-1 text-lg font-semibold text-accent-dark">{order.total} pts</p>
-                    <p className="m-0 text-sm capitalize text-muted">{order.status}</p>
+                    <div className="mt-1"><StatusBadge status={order.status} /></div>
                   </div>
                 </div>
 
@@ -120,11 +168,55 @@ export default function OrderHistoryPage() {
                     </li>
                   ))}
                 </ul>
+
+                {(order.requestReason || order.decisionReason) && (
+                  <div className="mt-4 space-y-1 text-sm">
+                    {order.requestReason && (
+                      <div className="text-muted"><span className="text-ink">Your reason:</span> {order.requestReason}</div>
+                    )}
+                    {order.decisionReason && (
+                      <div className="text-muted"><span className="text-ink">Admin note:</span> {order.decisionReason}</div>
+                    )}
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  {(order.status === 'confirmed' || order.status === 'processing') && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancel(order)}
+                      className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream transition-colors"
+                    >
+                      {order.status === 'confirmed' ? 'Cancel order' : 'Request cancellation'}
+                    </button>
+                  )}
+                  {order.status === 'delivered' && (
+                    <button
+                      type="button"
+                      disabled={!canReturn(order)}
+                      title={!canReturn(order) ? 'Return period expired' : undefined}
+                      onClick={() => handleReturn(order)}
+                      className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      Request return
+                    </button>
+                  )}
+                </div>
               </article>
             ))}
           </div>
         )}
       </div>
+
+      {modal && (
+        <ReasonPromptModal
+          open
+          title={modal.kind === 'cancel' ? 'Request cancellation' : 'Request return'}
+          placeholder="Tell us why (optional)"
+          submitLabel="Send request"
+          onClose={() => setModal(null)}
+          onSubmit={submitReason}
+        />
+      )}
     </main>
   )
 }

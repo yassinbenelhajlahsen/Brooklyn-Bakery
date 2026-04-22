@@ -7,8 +7,8 @@ export default function BuyEarnTabs() {
   return (
     <nav className="relative bg-cream border-b border-line">
       <div className="relative grid grid-cols-2 max-w-2xl mx-auto">
-        <TabLink to="/" end label="Shop" caption="shop the counter" />
-        <TabLink to="/earn" label="Earn" caption="click the cookie" />
+        <TabLink to="/" end label="Shop" caption="from our counter" />
+        <TabLink to="/earn" label="Earn" caption="click for points" />
         <span
           aria-hidden="true"
           className="absolute bottom-0 left-0 h-px w-1/2 bg-accent transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"

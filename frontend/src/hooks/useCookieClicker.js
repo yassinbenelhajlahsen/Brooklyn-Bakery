@@ -47,6 +47,7 @@ export function useCookieClicker() {
     const isAuthenticated = Boolean(accessToken);
 
     const pendingRef = useRef(0);
+    const inFlightRef = useRef(0); // clicks currently being POSTed; kept in displayPoints so the counter doesn't dip during the round-trip
     const windowStartRef = useRef(null); // performance.now() of the first click in the current authenticated flush window
     const guestFirstClickAtRef = useRef(null); // wall-clock Date.now() of first guest click
     const clickTimesRef = useRef([]);
@@ -96,6 +97,10 @@ export function useCookieClicker() {
                 Math.round(performance.now() - (windowStartRef.current ?? performance.now())),
             );
 
+            // Move pending → in-flight so displayPoints stays at balance + pending + inFlight
+            // during the round-trip. Without this, the counter visibly dips to balance until
+            // refreshProfile lands the new balance.
+            inFlightRef.current = delta;
             pendingRef.current = 0;
             windowStartRef.current = null;
             rerender();
@@ -109,11 +114,25 @@ export function useCookieClicker() {
                 });
                 if (res.ok) {
                     await refreshProfile();
+                    inFlightRef.current = 0;
+                    rerender();
                 } else {
-                    // 4xx/5xx: drop these clicks. Next tick will try fresh pending.
+                    // Return the flushed clicks to pending so the next interval retries.
+                    pendingRef.current += inFlightRef.current;
+                    inFlightRef.current = 0;
+                    if (pendingRef.current > 0 && windowStartRef.current == null) {
+                        windowStartRef.current = performance.now();
+                    }
+                    rerender();
                     console.warn('flush /me/clicks failed:', res.status);
                 }
             } catch (err) {
+                pendingRef.current += inFlightRef.current;
+                inFlightRef.current = 0;
+                if (pendingRef.current > 0 && windowStartRef.current == null) {
+                    windowStartRef.current = performance.now();
+                }
+                rerender();
                 console.warn('flush /me/clicks error:', err);
             } finally {
                 flushingRef.current = false;
@@ -265,7 +284,7 @@ export function useCookieClicker() {
     }, [doFlush, isAuthenticated, rerender, scheduleGuestWrite]);
 
     const displayPoints = isAuthenticated
-        ? (profile?.balance ?? 0) + pendingRef.current
+        ? (profile?.balance ?? 0) + pendingRef.current + inFlightRef.current
         : pendingRef.current;
 
     return {

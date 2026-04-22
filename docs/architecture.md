@@ -108,16 +108,74 @@ Server-side, `backend/services/clickService.js::creditClicks` mirrors the `place
 
 **Why trust neither client nor server elapsed alone.** Server-side `now - lastClickFlushAt` is authoritative but can't cover the very first flush (no prior timestamp). Client-side `elapsedMs` is trusted up to a 1h cap on the first flush (guest migration), then bounded by `min(client, server)` thereafter. This lets guest sessions that spanned a long idle time migrate their points without trusting a malicious client that claims `elapsedMs: 99999999`.
 
-## Admin cancel
+## Order lifecycle & state machine
 
-`backend/services/orderService.js::cancelOrderById(orderId)` — one transaction. The `adminOrdersController.cancelOrder` handler is a thin wrapper.
+Orders move through a bounded set of statuses (`confirmed | processing | shipped | delivered | cancel_requested | cancelled | return_requested | returned`). All status changes — from both user and admin endpoints — route through a single module: [`backend/services/orderStateMachine.js`](../backend/services/orderStateMachine.js). Design rationale: [`superpowers/specs/2026-04-22-admin-page-design.md`](superpowers/specs/2026-04-22-admin-page-design.md).
 
-1. Load the order (with its items); 404 if missing, 409 if already cancelled.
-2. Increment the owning user's balance by `order.total`.
-3. Increment `products.stock` by each `order_item.quantity` — mirrors the decrement in `placeOrder`.
-4. Flip `status` to `cancelled`.
+The module exports three things:
 
-The route is `PATCH /admin/orders/:id/cancel` and sits behind both `requireAuth` and `requireAdmin`.
+- `transitions` — the full transition table, keyed by current status. Each entry declares the target status, the allowed actor (`user` or `admin`), and side-effect flags (`refundPoints`, `restoreStock`, `setDeliveredAt`, `requiresReason`, `requiresWindow`).
+- `resolveTransition(currentStatus, action, actor)` — pure lookup that throws `httpError(409)` for invalid transitions, `httpError(403)` for actor mismatches.
+- `checkReturnWindow(deliveredAt, now)` — pure predicate that returns `true` when `now - deliveredAt ≤ 48h` and `deliveredAt` is non-null.
+- `transition({ orderId, action, actor, reason })` — the I/O wrapper; this is what controllers call.
+
+`transition` wraps everything in a single `prisma.$transaction`:
+
+1. Row-lock the order (`SELECT … FOR UPDATE`) so concurrent admin clicks and user actions on the same order serialize.
+2. Resolve the transition against the locked status (not the value the client saw).
+3. If `requiresReason`, demand a non-empty `reason` argument (400 otherwise). If `requiresWindow`, check `checkReturnWindow(order.deliveredAt)` (409 on expired).
+4. Apply side effects inside the same tx: refund the user's balance (with a separate `SELECT balance … FOR UPDATE` lock on the user row when refunding), increment `products.stock` per item if `restoreStock`, stamp `deliveredAt = now()` if `setDeliveredAt`.
+5. Write `requestReason` or `decisionReason` based on the actor (`user` → `requestReason`, `admin` → `decisionReason`).
+6. Update the status and return the updated order with items + user joined in.
+
+`shipped` is a one-way street with a single outgoing transition (`setDelivered`) — once shipped, neither user nor admin can cancel. Lost-package handling rolls into the return flow after delivery.
+
+Returns refund points but deliberately **do not** restore stock (perishable goods).
+
+### User-driven transitions
+
+User-facing endpoints are semantic, not raw action names — the frontend never names a state-machine action:
+
+- `POST /orders/:id/cancel` — `confirmed → cancelled` (direct, refund + stock) or `processing → cancel_requested`. The controller (`orderController.userCancel`) pre-reads the current status only to pick which action name to pass to `transition`; the authoritative check re-runs inside the tx under the row lock.
+- `POST /orders/:id/return` — `delivered → return_requested` within 48h.
+
+Both controllers verify `order.userId === req.user.id` up front (403 otherwise).
+
+### Admin-driven transitions
+
+The admin-side API is a single RPC-style dispatch endpoint: `POST /admin/orders/:id/transition` with body `{ action, reason? }`. The controller (`adminOrdersController.transitionOrder`) validates `action` against a whitelist of admin-allowed actions and hands off to `transition({ actor: 'admin' })`. Nine admin actions are wired: `setProcessing`, `setShipped`, `setDelivered`, `approveCancel`, `denyCancel`, `approveReturn`, `denyReturn`, `forceCancel`, `forceReturn`. Four of them (the destructive/denial ones) require a reason.
+
+Denials revert: `denyCancel` sends `cancel_requested` back to `processing`; `denyReturn` sends `return_requested` back to `delivered`. The customer UI hides the "Request cancellation" / "Request return" buttons once `decisionReason` is populated on a non-terminal order, so users can't spam repeat requests after a denial.
+
+## Admin panel (frontend)
+
+Single route: `/admin`, gated by `AdminRoute` (reads `profile.role` from `useAuth()`; redirects non-admins to `/`, renders a loading state while the profile is still being fetched). The real enforcement is the backend's `requireAdmin` middleware; the guard is just UX.
+
+`AdminPage` is a shell with three internal tabs (component-local `useState`, not URL-synced) and a single sliding accent underline that translates between tabs (`translateX(activeIdx * 100%)`) — mirrors `BuyEarnTabs`. Tabs:
+
+- **Orders** (`components/admin/OrdersTab.jsx`) — filterable table via `StatusFilter`. Row click opens `OrderDetailDrawer`, a right-side slide-in panel with customer / date / total / items / reasons. The drawer's action footer renders buttons by status (from `ACTIONS_BY_STATUS`); actions needing a reason expand an inline textarea inside the footer (no modal). ESC closes the drawer.
+- **Products** (`components/admin/ProductsTab.jsx`) — product table with "Include archived" toggle. "New product" and row-level "Edit" both open `ProductEditModal`. Archive / Unarchive fire inline. Server error surfaces inline in the modal; validation is client-side first.
+- **Users** (`components/admin/UsersTab.jsx`) — user table. Row click opens `UserDetailDrawer`, which shows identity + role toggle (disabled when the target is the acting admin) + balance delta form + that user's orders with `StatusBadge`. The drawer fetches its own detail via `useAdminUsers.getOne(id)` on mount.
+
+Drawer UX conventions (shared by `OrderDetailDrawer` and `UserDetailDrawer`):
+
+- Slide in from right on mount (`requestAnimationFrame` to flip `translate-x-full` → `translate-x-0` with a 250ms ease-out), slide out on close before unmount.
+- ESC key closes. Backdrop click closes. Height is `h-dvh` to fill the visible viewport on mobile Safari.
+- Parent conditionally renders the drawer (`{selected && <Drawer … />}`) so opening a new row always gets a fresh mount — state doesn't leak between openings.
+
+### Admin data layer
+
+Services live under `frontend/src/services/admin/` (one file per domain: `adminOrdersService.js`, `adminProductsService.js`, `adminUsersService.js`) and hooks under `frontend/src/hooks/admin/` (one hook per domain). This is a mild departure from the otherwise-flat `services/` and `hooks/` directories — admin adds enough files that nesting reads better.
+
+Performance note: hooks don't refetch the full list after a mutation. The backend endpoints return the updated entity, and the hooks splice it into local state (`setOrders((prev) => prev.map(o => o.id === id ? updated : o))`). When an active filter would exclude the updated item (status filter on orders, `includeArchived=false` on a newly-archived product), the item is dropped from the list instead. Initial loads and explicit "Refresh" clicks still hit the list endpoint.
+
+## Non-order admin guards
+
+These don't use the state machine (there's no graph), but they share its transactional discipline.
+
+- **Role change** (`PATCH /admin/users/:id/role`): inside a single `prisma.$transaction`, apply the update, then `SELECT count(*) FROM users WHERE role = 'admin'`. If zero, throw → rolls back. The acting-admin self-demotion check is a cheap guard at the controller level (`req.user.id === req.params.id`).
+- **Balance delta** (`POST /admin/users/:id/balance`): row-lock the target user (`SELECT balance … FOR UPDATE`), compute `next = current + delta`, throw 409 if `next < 0`, otherwise write.
+- **Product archive / unarchive**: just set / clear `archived_at`. Public `GET /products` filters `archived_at IS NULL`; the admin product list controls visibility via `?includeArchived`.
 
 ## Authorization stance
 

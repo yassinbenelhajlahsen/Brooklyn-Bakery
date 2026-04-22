@@ -35,6 +35,11 @@
 - **`hooks/`** — stateful wrappers. A hook reads `authedFetch` from `useAuth()` on each render and passes it into services at call time — don't snapshot `authedFetch` into a ref or closure, or token refresh breaks.
 - **`lib/`** — pure helpers (math, transforms, constants). No React imports. Mirror backend helper names where parallel (`computeCartSubtotal` ↔ `computeCartTotal`).
 - **Components** consume hooks; they don't import from `services/` directly.
+- **Subdirectories for large feature surfaces.** When a feature adds three or more service/hook files, nest them under a subdirectory (`services/admin/`, `hooks/admin/`). Small features stay flat. `components/admin/` and `components/icons/` follow the same rule. The default is still flat — only nest when the feature has its own vocabulary.
+
+### Admin mutation pattern (in-place list updates)
+
+Admin hooks don't refetch the full list after a mutation — the backend returns the updated entity and the hook splices it into local state. If an active filter would exclude the updated item (e.g. status filter on orders, `includeArchived=false` on a newly-archived product), drop it from the list instead. Initial loads and explicit "Refresh" clicks still call the list endpoint. Pattern lives in `hooks/admin/useAdminOrders.js`, `useAdminProducts.js`, `useAdminUsers.js` — copy the shape when adding new admin mutations.
 
 ## Environment variables
 

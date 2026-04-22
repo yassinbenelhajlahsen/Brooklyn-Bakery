@@ -1,6 +1,6 @@
 # Data & API reference
 
-Condensed reference for the Prisma schema and the HTTP surface. For the *why* behind these decisions (cascade choices, the absent `pending` order state, the YAGNI list), see [`superpowers/specs/2026-04-20-database-schema-design.md`](superpowers/specs/2026-04-20-database-schema-design.md).
+Condensed reference for the Prisma schema and the HTTP surface. For the *why* behind the original decisions (cascade choices, the absent `pending` order state, the YAGNI list), see [`superpowers/specs/2026-04-20-database-schema-design.md`](superpowers/specs/2026-04-20-database-schema-design.md). For the order-lifecycle state machine, product soft delete, and admin-panel additions, see [`superpowers/specs/2026-04-22-admin-page-design.md`](superpowers/specs/2026-04-22-admin-page-design.md).
 
 ## Schema
 
@@ -9,7 +9,7 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 ### Enums
 
 - `ProductType` — `bread | pastry | cake | cookie | drink`
-- `OrderStatus` — `confirmed | cancelled` (no `pending`: order creation is one atomic transaction)
+- `OrderStatus` — `confirmed | processing | shipped | delivered | cancel_requested | cancelled | return_requested | returned`. Terminal states: `cancelled`, `returned`. The allowed transitions between non-terminal states live in the state-machine module (see `backend/services/orderStateMachine.js` and the architecture doc).
 - `UserRole` — `customer | admin`
 
 ### Tables
@@ -33,8 +33,9 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | `name`, `description`, `image_url` | text | all NOT NULL |
 | `type` | product_type | indexed |
 | `price` | int | `CHECK (price >= 0)`; integer points |
-| `stock` | int | default 0; `CHECK (stock >= 0)`; decremented atomically at checkout, restored on admin cancel |
+| `stock` | int | default 0; `CHECK (stock >= 0)`; decremented atomically at checkout, restored by pre-shipped cancels, NOT restored by returns (perishable goods) |
 | `created_at`, `updated_at` | timestamptz | |
+| `archived_at` | timestamptz NULL | soft delete. Public `GET /products` filters `archived_at IS NULL`. Admin endpoints can opt-in via `?includeArchived=true`. The `OrderItem → Product` FK is still `ON DELETE RESTRICT` as defense-in-depth. |
 
 **`cart_items`** — composite PK `(user_id, product_id)`, so one row per user/product.
 
@@ -54,6 +55,9 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | `total` | int snapshot; `CHECK (total >= 0)` |
 | `status` | default `confirmed` |
 | `created_at` | timestamptz |
+| `delivered_at` | timestamptz NULL; stamped when admin transitions `shipped → delivered`. Source of truth for the 48h return window. |
+| `request_reason` | text NULL; user-supplied reason when requesting cancel/return. |
+| `decision_reason` | text NULL; admin-supplied reason when denying a request or performing a force action. |
 
 Index: `(user_id, created_at DESC)` for the "my orders" listing.
 
@@ -73,28 +77,50 @@ Index: `(order_id)`.
 
 - **Integer money.** `price`, `balance`, `total`, `unit_price` are all `INT`. Never `Decimal`/float.
 - **Historical snapshots.** `orders.total` and `order_items.unit_price` are captured at purchase; do not recompute from `products.price` for reads.
-- **Stock accounting.** `products.stock` is decremented inside the `placeOrder` transaction (in `backend/services/orderService.js`) via a conditional `UPDATE … WHERE stock >= qty` (zero affected rows → 409, whole transaction rolls back). `cancelOrderById` increments it back for each `order_item`. Keep these paired when touching either service function.
+- **Stock accounting.** `products.stock` is decremented inside the `placeOrder` transaction (in `backend/services/orderService.js`) via a conditional `UPDATE … WHERE stock >= qty` (zero affected rows → 409, whole transaction rolls back). Restoration is driven by the state machine: any transition with `restoreStock: true` in the table (pre-shipped cancels) increments `stock` back. Returns (`approveReturn`, `forceReturn`) deliberately do NOT restore stock — baked goods are perishable.
 - **Profile creation.** `public.users` is created by a DB trigger on `auth.users` insert. API code must not create profile rows itself (would race the trigger).
-- **Cascade choices.** Cart rows cascade on product delete (carts are working state). Orders/order items restrict on product/user delete (history must survive).
+- **Cascade choices.** Cart rows cascade on product delete (carts are working state). Orders/order items restrict on product/user delete (history must survive). Products are soft-deleted via `archived_at`.
 - **Authorization.** Enforced at the Express layer. RLS is deliberately not used; the backend connects as the Supabase service role.
+- **State-machine invariants.** Every order status change flows through `services/orderStateMachine.js::transition`. The transition locks the order row (`SELECT … FOR UPDATE`), validates current status + actor, optionally enforces preconditions (48h window), applies side effects (refund, stock, `delivered_at`, reasons), and updates the status — all in a single `prisma.$transaction`.
 
 ## API
 
 All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Auth endpoints expect `Authorization: Bearer <supabase_access_token>`.
 
+### Public / customer
+
 | Method | Path | Auth | Controller | Contract |
 | --- | --- | --- | --- | --- |
-| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name` |
+| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name`. Filters `archived_at IS NULL`. |
 | GET | `/me` | user | `meController.getMe` | `{ user: { id, email, displayName, balance, role } }` |
 | POST | `/me/clicks` | user | `meController.flushClicks` | Body `{ delta: int > 0, elapsedMs: int > 0 }`. Credits up to `floor(effectiveElapsedMs / 1000) * 10 + 20` to `users.balance` (silently caps on excess), updates `last_click_flush_at`. Returns `{ balance, credited }`. 400 on invalid body. |
 | GET | `/cart` | user | `cartController.getCart` | `{ items: (CartItem & { product })[] }` |
 | PUT | `/cart/items/:productId` | user | `cartController.upsertCartItem` | Body `{ quantity: int >= 0 }`; `0` deletes (204). Unknown product → 404. |
 | DELETE | `/cart` | user | `cartController.deleteCart` | 204 |
 | POST | `/cart/merge` | user | `cartController.mergeCart` | Body `[{ productId, quantity }]`; additive merge with existing, then replace cart in one transaction. Returns hydrated `{ items }`. |
-| GET | `/orders` | user | `orderController.listMyOrders` | `{ orders: (Order & { items })[] }`, newest first |
+| GET | `/orders` | user | `orderController.listMyOrders` | `{ orders: (Order & { items })[] }`, newest first. Response now includes `deliveredAt`, `requestReason`, `decisionReason`. |
 | POST | `/orders` | user | `orderController.createOrder` | Atomic. 201 with order + items. 400 empty cart. 402 insufficient balance. 409 insufficient stock (message names the product). |
-| GET | `/admin/orders` | user + admin | `adminOrdersController.listAllOrders` | All orders, newest first |
-| PATCH | `/admin/orders/:id/cancel` | user + admin | `adminOrdersController.cancelOrder` | Refunds balance, restores product stock, flips `status`. 404 missing, 409 already cancelled. |
+| POST | `/orders/:id/cancel` | user | `orderController.userCancel` | Body `{ reason?: string }`. From `confirmed` → `cancelled` (refund + stock). From `processing` → `cancel_requested`. 403 if not the owner. 404 missing. 409 invalid transition. |
+| POST | `/orders/:id/return` | user | `orderController.userReturn` | Body `{ reason?: string }`. From `delivered` → `return_requested` if within 48h of `deliveredAt`. 403 / 404 / 409 as above; 409 also on expired window. |
+
+### Admin
+
+All admin routes are behind `requireAuth → requireAdmin`.
+
+| Method | Path | Controller | Contract |
+| --- | --- | --- | --- |
+| GET | `/admin/orders` | `adminOrdersController.listAllOrders` | Query `?status=<OrderStatus>`. Newest first. 400 on invalid status. |
+| GET | `/admin/orders/:id` | `adminOrdersController.getOrder` | Single order with items + user (including balance). 404 missing. |
+| POST | `/admin/orders/:id/transition` | `adminOrdersController.transitionOrder` | Body `{ action, reason? }`. `action ∈ { setProcessing, setShipped, setDelivered, approveCancel, denyCancel, approveReturn, denyReturn, forceCancel, forceReturn }`. Delegates to `services/orderStateMachine.transition`. 400 unknown action / missing required reason, 404 missing order, 409 invalid transition / expired window. |
+| GET | `/admin/products` | `adminProductsController.listProducts` | Query `?includeArchived=true` to include archived. Newest first. |
+| POST | `/admin/products` | `adminProductsController.createProduct` | Body `{ name, description, imageUrl, type, price, stock }`. 201 with product. 400 on validation failure. |
+| PATCH | `/admin/products/:id` | `adminProductsController.updateProduct` | Partial body of the above (same validators, optional fields). Works on archived products (editing history is fine). 404 missing. |
+| POST | `/admin/products/:id/archive` | `adminProductsController.archiveProduct` | Sets `archived_at = now()`. 404 missing. |
+| POST | `/admin/products/:id/unarchive` | `adminProductsController.unarchiveProduct` | Clears `archived_at`. 404 missing. |
+| GET | `/admin/users` | `adminUsersController.listUsers` | `{ users: { id, displayName, role, balance, createdAt, orderCount }[] }`. Newest first. |
+| GET | `/admin/users/:id` | `adminUsersController.getUser` | User with nested `orders[]` (each with its items). 404 missing. |
+| PATCH | `/admin/users/:id/role` | `adminUsersController.updateRole` | Body `{ role: 'customer' \| 'admin' }`. Guards: 409 if the target is the acting admin (self-demotion), 409 if applying the change would leave zero admins (counted inside the same tx). |
+| POST | `/admin/users/:id/balance` | `adminUsersController.adjustBalance` | Body `{ delta: integer }` (signed, non-zero). Row-locks the target user (`SELECT balance … FOR UPDATE`). 409 if the result would be negative. |
 
 Routes are mounted in [`backend/server.js`](../backend/server.js):
 
@@ -106,4 +132,4 @@ app.use('/cart', requireAuth, cartRoutes);
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 ```
 
-`requireAuth` must come before `requireAdmin`.
+`requireAuth` must come before `requireAdmin`. `adminRoutes.js` in turn mounts `/orders` routes inline and `/products` + `/users` via sub-routers (`adminProductsRoutes.js`, `adminUsersRoutes.js`).

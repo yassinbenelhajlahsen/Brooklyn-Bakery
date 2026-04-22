@@ -20,7 +20,13 @@ enum ProductType {
 
 enum OrderStatus {
   confirmed
+  processing
+  shipped
+  delivered
+  cancel_requested
   cancelled
+  return_requested
+  returned
 
   @@map("order_status")
 }
@@ -57,6 +63,7 @@ model Product {
   stock       Int         @default(0)
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
 
   cartItems  CartItem[]
   orderItems OrderItem[]
@@ -84,6 +91,9 @@ model Order {
   total     Int
   status    OrderStatus @default(confirmed)
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz(6)
+  requestReason  String?   @map("request_reason")
+  decisionReason String?   @map("decision_reason")
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   items OrderItem[]

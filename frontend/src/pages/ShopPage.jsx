@@ -31,6 +31,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
   const [bakedGoods, setBakedGoods] = useState([])
   const [error, setError] = useState(null)
   const [activeCategory, setActiveCategory] = useState(null)
+  const [sortBy, setSortBy] = useState('default')
 
   useEffect(() => {
     let cancelled = false

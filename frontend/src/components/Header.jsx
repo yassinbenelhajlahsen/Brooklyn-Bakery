@@ -8,7 +8,7 @@ export default function Header({ cartCount = 0, onCartClick }) {
   const showCart = pathname !== '/checkout';
 
   return (
-    <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-8 py-4 bg-surface border-b border-line shadow-card max-sm:px-4 max-sm:py-3">
+    <header className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-8 py-4 bg-surface border-b border-line shadow-card max-sm:px-4 max-sm:py-3">
       <div aria-hidden="true" />
 
       <h1

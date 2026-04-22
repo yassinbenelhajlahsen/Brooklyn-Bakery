@@ -2,9 +2,20 @@ import { OrderStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { computeCartTotal } from '../lib/cart.js';
 import { httpError } from '../lib/httpError.js';
+import { sendConfirmationEmail } from './mailerService.js';
+import { supabaseAdmin } from '../lib/supabase.js';
 
 export async function placeOrder(userId) {
-    return prisma.$transaction(async (tx) => {
+
+    // Fetch auth user and display name before transaction to avoid timeout
+    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+
+    const userProfile = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { displayName: true },
+    });
+
+    const order = await prisma.$transaction(async (tx) => {
         const cartItems = await tx.cartItem.findMany({
             where: { userId },
             include: { product: { select: { name: true, id: true, price: true } } },
@@ -67,8 +78,31 @@ export async function placeOrder(userId) {
 
         await tx.cartItem.deleteMany({ where: { userId } });
 
-        return order;
+        return { createdOrder: order, cartItems };
     });
+
+    // Send confirmation email AFTER transaction completes
+    if (authUser?.email && userProfile) {
+        try {
+            await sendConfirmationEmail({
+                to: authUser.email,
+                customerName: userProfile.displayName || 'Customer',
+                orderDetails: {
+                    orderId: order.createdOrder.id,
+                    items: order.cartItems.map((item) => ({
+                        name: item.product.name,
+                        qty: item.quantity,
+                        price: item.product.price
+                    })),
+                    total: order.createdOrder.total
+                },
+            });
+        } catch (emailErr) {
+            console.error('Email failed to send, but order was created:', emailErr.message);
+        }
+    }
+
+    return order.createdOrder;
 }
 
 export async function cancelOrderById(orderId) {

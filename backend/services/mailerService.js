@@ -5,8 +5,8 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: process.env.GMAIL_USER,        
-    pass: process.env.GMAIL_APP_PASSWORD 
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD
   }
 });
 
@@ -57,10 +57,9 @@ async function sendConfirmationEmail({ to, customerName, orderDetails }) {
       </div>
     `
   };
- 
+
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('Confirmation email sent to:', to);
     return info;
   } catch (err) {
     console.error('Failed to send confirmation email:', err.message);
@@ -69,4 +68,3 @@ async function sendConfirmationEmail({ to, customerName, orderDetails }) {
 }
 
 export { sendConfirmationEmail };
- 

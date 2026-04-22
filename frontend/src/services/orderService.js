@@ -28,3 +28,27 @@ export async function fetchMyOrders(authedFetch) {
   }
   return res.json();
 }
+
+export async function userCancelOrder(authedFetch, orderId, reason) {
+  const res = await authedFetch(`/orders/${orderId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? 'Cancel failed');
+  }
+  return res.json();
+}
+
+export async function userReturnOrder(authedFetch, orderId, reason) {
+  const res = await authedFetch(`/orders/${orderId}/return`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? 'Return request failed');
+  }
+  return res.json();
+}

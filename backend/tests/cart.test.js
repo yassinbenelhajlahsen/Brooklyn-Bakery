@@ -33,6 +33,14 @@ test('mergeCartItems: drops invalid items (non-positive qty, missing id)', () =>
     assert.deepEqual(merged, [{ productId: 'c', quantity: 2 }]);
 });
 
+test('mergeCartItems: caps merged quantity at 99', () => {
+    const merged = mergeCartItems(
+        [{ productId: 'a', quantity: 95 }],
+        [{ productId: 'a', quantity: 10 }],
+    );
+    assert.deepEqual(merged, [{ productId: 'a', quantity: 99 }]);
+});
+
 test('computeCartTotal: sums quantity * price across items', () => {
     const items = [
         { productId: 'a', quantity: 2 },

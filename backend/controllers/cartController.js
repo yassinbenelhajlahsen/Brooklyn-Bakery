@@ -16,8 +16,8 @@ export async function getCart(req, res) {
 export async function upsertCartItem(req, res) {
     const { productId } = req.params;
     const quantity = Number(req.body?.quantity);
-    if (!Number.isInteger(quantity) || quantity < 0) {
-        return res.status(400).json({ error: 'quantity must be a non-negative integer' });
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > 99) {
+        return res.status(400).json({ error: 'quantity must be an integer between 0 and 99' });
     }
     if (quantity === 0) {
         await prisma.cartItem.deleteMany({

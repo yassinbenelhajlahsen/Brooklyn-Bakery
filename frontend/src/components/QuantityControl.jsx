@@ -10,7 +10,7 @@ export default function QuantityControl({ qty, onIncrement, onDecrement }) {
       <span className="min-w-6 text-center text-[14px] border-x border-line px-1 py-0.5">
         {qty}
       </span>
-      <button className={QTY_BTN} onClick={onIncrement} aria-label="Increase">
+      <button className={QTY_BTN} onClick={onIncrement} aria-label="Increase" disabled={qty >= 99}>
         +
       </button>
     </div>

@@ -64,7 +64,7 @@ export function useCart() {
   }, [user?.id, authedFetch])
 
   const setQty = (item, qty) => {
-    const clamped = Math.max(0, qty)
+    const clamped = Math.min(99, Math.max(0, qty))
     setCart((prev) => {
       const next = { ...prev }
       if (clamped <= 0) {

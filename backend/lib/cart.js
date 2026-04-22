@@ -7,7 +7,7 @@ export function mergeCartItems(existing, incoming) {
     }
     for (const { productId, quantity } of incoming) {
         if (!productId || !Number.isInteger(quantity) || quantity <= 0) continue;
-        byId.set(productId, (byId.get(productId) ?? 0) + quantity);
+        byId.set(productId, Math.min(99, (byId.get(productId) ?? 0) + quantity));
     }
     return Array.from(byId, ([productId, quantity]) => ({ productId, quantity }));
 }

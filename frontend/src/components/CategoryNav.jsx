@@ -1,6 +1,6 @@
 export default function CategoryNav({ categories, active, onSelect }) {
   return (
-    <nav className="flex justify-center gap-4 px-8 py-4 bg-surface border-b border-line flex-wrap">
+    <nav className="flex justify-center gap-4 px-8 py-4 bg-cream flex-wrap">
       {categories.map((cat) => {
         const isActive = active === cat;
         return (

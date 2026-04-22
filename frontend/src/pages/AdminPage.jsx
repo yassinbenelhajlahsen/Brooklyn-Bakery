@@ -51,7 +51,7 @@ export default function AdminPage() {
     <div className="w-full">
       <div className="mb-6 flex justify-start">
         <button className={BACK_BTN} onClick={() => navigate('/')}>
-          Back to shop
+          Back to home
         </button>
       </div>
 

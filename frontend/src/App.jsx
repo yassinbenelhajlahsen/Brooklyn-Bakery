@@ -8,15 +8,11 @@ import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
 import { useCart } from './hooks/useCart.js'
 
-import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AboutPage from './pages/AboutUsPage.jsx';
 import StoryPage from './pages/StoryPage.jsx';
 import ContactPage from './pages/ContactUsPage.jsx';
 import FaqPage from './pages/FAQPage.jsx';
 import HelpPage from './pages/HelpPage.jsx';
-import OrdersPage from './pages/OrdersPage.jsx';
-import ProfilePage from './pages/ProfilePage.jsx';
-
 
 const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 

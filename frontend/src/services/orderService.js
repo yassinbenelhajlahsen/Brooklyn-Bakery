@@ -19,3 +19,12 @@ export async function placeOrder(authedFetch) {
   }
   return res.json();
 }
+
+export async function fetchMyOrders(authedFetch) {
+  const res = await authedFetch('/orders');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? 'Could not load your order history.');
+  }
+  return res.json();
+}

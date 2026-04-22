@@ -1,11 +1,13 @@
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/useAuth.js';
+import { useNavigate } from 'react-router-dom';
 
 export default function ProfileMenu() {
   const { user, profile, openLogin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -96,7 +98,10 @@ export default function ProfileMenu() {
           <MenuItem
             icon={<PackageIcon className="w-[18px] h-[18px]" />}
             label="Order History"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              navigate('/orders');
+            }}
           />
         </div>
 

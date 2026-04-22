@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const TYPES = ['bread', 'pastry', 'cake', 'cookie', 'drink'];
 
@@ -19,6 +19,12 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
   const [serverError, setServerError] = useState(null);
 
   const isEdit = mode === 'edit';
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const validate = () => {
     const e = {};

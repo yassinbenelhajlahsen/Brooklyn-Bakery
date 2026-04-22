@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import StatusBadge from '../StatusBadge.jsx';
+
+const ANIM_MS = 250;
 
 function SectionLabel({ children }) {
   return (
@@ -54,7 +56,26 @@ export default function UserDetailDrawer({
   const [delta, setDelta] = useState('');
   const [balanceError, setBalanceError] = useState(null);
 
+  const [entered, setEntered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
   const isSelf = userId === currentUserId;
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const closeWithAnim = useCallback(() => {
+    setLeaving(true);
+    setTimeout(onClose, ANIM_MS);
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeWithAnim(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [closeWithAnim]);
 
   async function loadUser(id) {
     setFetchLoading(true);
@@ -125,23 +146,21 @@ export default function UserDetailDrawer({
   if (!userId) return null;
 
   const shortId = userId.slice(0, 8);
+  const visible = entered && !leaving;
 
   return (
     <>
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/30 z-40"
-        onClick={onClose}
+        className={`fixed inset-0 h-dvh z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={closeWithAnim}
         aria-hidden="true"
       />
 
-      {/* Drawer panel */}
       <aside
-        className="fixed top-0 right-0 bottom-0 w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 flex flex-col overflow-hidden"
+        className={`fixed top-0 right-0 h-dvh w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 flex flex-col overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
         role="dialog"
         aria-label={`User ${user?.displayName ?? shortId} details`}
       >
-        {/* Header */}
         <div className="px-6 py-4 border-b border-line bg-cream/40 flex items-center justify-between shrink-0">
           <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
             {fetchLoading ? (
@@ -151,7 +170,7 @@ export default function UserDetailDrawer({
             )}
           </span>
           <button
-            onClick={onClose}
+            onClick={closeWithAnim}
             aria-label="Close drawer"
             className="w-8 h-8 rounded-full hover:bg-line flex items-center justify-center text-muted hover:text-ink transition-colors"
           >

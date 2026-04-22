@@ -19,8 +19,18 @@ export function useAdminUsers() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const getOne = useCallback((id) => api.getUser(authedFetch, id), [authedFetch]);
-  const setRole = useCallback(async (id, role) => { await api.updateRole(authedFetch, id, role); await refresh(); }, [authedFetch, refresh]);
-  const adjustBalance = useCallback(async (id, delta) => { await api.adjustBalance(authedFetch, id, delta); await refresh(); }, [authedFetch, refresh]);
+
+  const setRole = useCallback(async (id, role) => {
+    const updated = await api.updateRole(authedFetch, id, role);
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
+    return updated;
+  }, [authedFetch]);
+
+  const adjustBalance = useCallback(async (id, delta) => {
+    const updated = await api.adjustBalance(authedFetch, id, delta);
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
+    return updated;
+  }, [authedFetch]);
 
   return { users, loading, error, refresh, getOne, setRole, adjustBalance };
 }

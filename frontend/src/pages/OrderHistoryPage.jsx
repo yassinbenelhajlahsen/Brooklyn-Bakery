@@ -175,21 +175,30 @@ export default function OrderHistoryPage() {
                       <div className="text-muted"><span className="text-ink">Your reason:</span> {order.requestReason}</div>
                     )}
                     {order.decisionReason && (
-                      <div className="text-muted"><span className="text-ink">Admin note:</span> {order.decisionReason}</div>
+                      <div className="text-muted"><span className="text-ink">Reason:</span> {order.decisionReason}</div>
                     )}
                   </div>
                 )}
                 <div className="mt-4 flex gap-2">
-                  {(order.status === 'confirmed' || order.status === 'processing') && (
+                  {order.status === 'confirmed' && (
                     <button
                       type="button"
                       onClick={() => handleCancel(order)}
                       className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream transition-colors"
                     >
-                      {order.status === 'confirmed' ? 'Cancel order' : 'Request cancellation'}
+                      Cancel order
                     </button>
                   )}
-                  {order.status === 'delivered' && (
+                  {order.status === 'processing' && !order.decisionReason && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancel(order)}
+                      className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream transition-colors"
+                    >
+                      Request cancellation
+                    </button>
+                  )}
+                  {order.status === 'delivered' && !order.decisionReason && (
                     <button
                       type="button"
                       disabled={!canReturn(order)}

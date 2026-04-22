@@ -110,16 +110,16 @@ export default function OrdersTab() {
         </table>
       </div>
 
-      {/* Detail drawer */}
-      <OrderDetailDrawer
-        order={selected}
-        onClose={() => setSelected(null)}
-        onTransition={async (action, reason) => {
-          await transition(selected.id, action, reason);
-          // hook's transition already calls refresh(); update drawer to refreshed order
-          setSelected(null);
-        }}
-      />
+      {selected && (
+        <OrderDetailDrawer
+          order={selected}
+          onClose={() => setSelected(null)}
+          onTransition={async (action, reason) => {
+            const updated = await transition(selected.id, action, reason);
+            setSelected(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

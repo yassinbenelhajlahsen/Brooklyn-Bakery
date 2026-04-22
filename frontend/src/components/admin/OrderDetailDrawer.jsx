@@ -1,15 +1,14 @@
-import { useState } from 'react';
-import ReasonPromptModal from '../ReasonPromptModal.jsx';
+import { useCallback, useEffect, useState } from 'react';
 import StatusBadge from '../StatusBadge.jsx';
 
 const ACTIONS_BY_STATUS = {
-  confirmed:        [{ action: 'setProcessing',  label: 'Mark as processing',       needsReason: false },
+  confirmed:        [{ action: 'setProcessing',  label: 'Mark as processing',     needsReason: false },
                      { action: 'forceCancel',    label: 'Cancel order',           needsReason: true  }],
-  processing:       [{ action: 'setShipped',     label: 'Mark as shipped',           needsReason: false },
+  processing:       [{ action: 'setShipped',     label: 'Mark as shipped',        needsReason: false },
                      { action: 'forceCancel',    label: 'Cancel order',           needsReason: true  }],
   cancel_requested: [{ action: 'approveCancel',  label: 'Approve cancellation',   needsReason: false },
                      { action: 'denyCancel',     label: 'Deny cancellation',      needsReason: true  }],
-  shipped:          [{ action: 'setDelivered',   label: 'Mark as delivered',         needsReason: false }],
+  shipped:          [{ action: 'setDelivered',   label: 'Mark as delivered',      needsReason: false }],
   return_requested: [{ action: 'approveReturn',  label: 'Approve return',         needsReason: false },
                      { action: 'denyReturn',     label: 'Deny return',            needsReason: true  }],
   cancelled:        [],
@@ -17,6 +16,7 @@ const ACTIONS_BY_STATUS = {
 };
 
 const DESTRUCTIVE_ACTIONS = new Set(['forceCancel', 'forceReturn', 'denyCancel', 'denyReturn']);
+const ANIM_MS = 250;
 
 function SectionLabel({ children }) {
   return (
@@ -25,15 +25,37 @@ function SectionLabel({ children }) {
 }
 
 export default function OrderDetailDrawer({ order, onClose, onTransition }) {
-  const [pending, setPending] = useState(null); // { action, label }
+  const [pending, setPending] = useState(null);
+  const [reasonText, setReasonText] = useState('');
+  const [reasonError, setReasonError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [transitionError, setTransitionError] = useState(null);
+
+  const [entered, setEntered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const closeWithAnim = useCallback(() => {
+    setLeaving(true);
+    setTimeout(onClose, ANIM_MS);
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeWithAnim(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [closeWithAnim]);
 
   if (!order) return null;
 
   const actions = ACTIONS_BY_STATUS[order.status] ?? [];
   const isTerminal = order.status === 'cancelled' || order.status === 'returned';
   const shortId = order.id.slice(-8);
+  const visible = entered && !leaving;
 
   async function fireAction(action, reason) {
     setSubmitting(true);
@@ -41,6 +63,8 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
     try {
       await onTransition(action, reason);
       setPending(null);
+      setReasonText('');
+      setReasonError(null);
     } catch (err) {
       setTransitionError(err.message ?? 'Action failed. Please try again.');
     } finally {
@@ -52,27 +76,43 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
     if (submitting) return;
     if (actionDef.needsReason) {
       setPending(actionDef);
+      setReasonText('');
+      setReasonError(null);
+      setTransitionError(null);
     } else {
       fireAction(actionDef.action, '');
     }
   }
 
+  function cancelPending() {
+    if (submitting) return;
+    setPending(null);
+    setReasonText('');
+    setReasonError(null);
+  }
+
+  function confirmPending() {
+    const trimmed = reasonText.trim();
+    if (!trimmed) {
+      setReasonError('A reason is required.');
+      return;
+    }
+    fireAction(pending.action, trimmed);
+  }
+
   return (
     <>
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/30 z-40"
-        onClick={onClose}
+        className={`fixed inset-0 h-dvh z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={closeWithAnim}
         aria-hidden="true"
       />
 
-      {/* Drawer panel */}
       <aside
-        className="fixed top-0 right-0 bottom-0 w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 flex flex-col overflow-hidden"
+        className={`fixed top-0 right-0 h-dvh w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 flex flex-col overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
         role="dialog"
         aria-label={`Order #${shortId} details`}
       >
-        {/* Header */}
         <div className="px-6 py-4 border-b border-line bg-cream/40 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
@@ -81,7 +121,7 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             <StatusBadge status={order.status} />
           </div>
           <button
-            onClick={onClose}
+            onClick={closeWithAnim}
             aria-label="Close drawer"
             className="w-8 h-8 rounded-full hover:bg-line flex items-center justify-center text-muted hover:text-ink transition-colors"
           >
@@ -89,10 +129,8 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
           </button>
         </div>
 
-        {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-          {/* Info grid: Customer / Date / Total */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-cream/50 rounded-lg px-3 py-2.5">
               <SectionLabel>Customer</SectionLabel>
@@ -120,7 +158,6 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             )}
           </div>
 
-          {/* Items */}
           <div>
             <SectionLabel>Items ({order.items.length})</SectionLabel>
             <ul className="space-y-2">
@@ -151,7 +188,6 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             </ul>
           </div>
 
-          {/* User's reason (if present) */}
           {order.requestReason && (
             <div>
               <SectionLabel>User&apos;s reason</SectionLabel>
@@ -161,7 +197,6 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             </div>
           )}
 
-          {/* Admin note (if present) */}
           {order.decisionReason && (
             <div>
               <SectionLabel>Admin note</SectionLabel>
@@ -172,10 +207,40 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
           )}
         </div>
 
-        {/* Sticky action footer */}
         <div className="px-6 py-4 border-t border-line bg-surface shrink-0">
           {isTerminal || actions.length === 0 ? (
             <p className="text-muted text-sm">No actions available.</p>
+          ) : pending ? (
+            <div className="space-y-2">
+              <SectionLabel>Reason for {pending.label.toLowerCase()}</SectionLabel>
+              <textarea
+                autoFocus
+                value={reasonText}
+                onChange={(e) => { setReasonText(e.target.value); setReasonError(null); }}
+                placeholder="Enter a reason…"
+                disabled={submitting}
+                className="w-full border border-line rounded-md p-2 text-sm min-h-20 focus:outline-none focus:border-accent disabled:opacity-50"
+              />
+              {reasonError && <p className="text-danger text-xs">{reasonError}</p>}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={cancelPending}
+                  disabled={submitting}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-line text-ink hover:bg-cream disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmPending}
+                  disabled={submitting}
+                  className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {submitting ? 'Saving…' : `Confirm ${pending.label.toLowerCase()}`}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {actions.map((actionDef) => {
@@ -202,19 +267,6 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
           )}
         </div>
       </aside>
-
-      {/* Reason modal — conditionally rendered only when needed */}
-      {pending && (
-        <ReasonPromptModal
-          open={true}
-          title={pending.label}
-          placeholder="Enter a reason…"
-          required={true}
-          submitLabel={pending.label}
-          onSubmit={(reason) => fireAction(pending.action, reason)}
-          onClose={() => setPending(null)}
-        />
-      )}
     </>
   );
 }

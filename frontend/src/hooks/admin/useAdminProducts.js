@@ -21,10 +21,33 @@ export function useAdminProducts() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const create = useCallback(async (data) => { await api.createProduct(authedFetch, data); await refresh(); }, [authedFetch, refresh]);
-  const update = useCallback(async (id, data) => { await api.updateProduct(authedFetch, id, data); await refresh(); }, [authedFetch, refresh]);
-  const archive = useCallback(async (id) => { await api.archiveProduct(authedFetch, id); await refresh(); }, [authedFetch, refresh]);
-  const unarchive = useCallback(async (id) => { await api.unarchiveProduct(authedFetch, id); await refresh(); }, [authedFetch, refresh]);
+  const create = useCallback(async (data) => {
+    const created = await api.createProduct(authedFetch, data);
+    setProducts((prev) => [created, ...prev]);
+    return created;
+  }, [authedFetch]);
+
+  const update = useCallback(async (id, data) => {
+    const updated = await api.updateProduct(authedFetch, id, data);
+    setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
+  }, [authedFetch]);
+
+  const archive = useCallback(async (id) => {
+    const updated = await api.archiveProduct(authedFetch, id);
+    setProducts((prev) => {
+      const next = prev.map((p) => (p.id === id ? updated : p));
+      if (!includeArchived) return next.filter((p) => !p.archivedAt);
+      return next;
+    });
+    return updated;
+  }, [authedFetch, includeArchived]);
+
+  const unarchive = useCallback(async (id) => {
+    const updated = await api.unarchiveProduct(authedFetch, id);
+    setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
+  }, [authedFetch]);
 
   return { products, includeArchived, setIncludeArchived, loading, error, refresh, create, update, archive, unarchive };
 }

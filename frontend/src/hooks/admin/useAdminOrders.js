@@ -22,9 +22,17 @@ export function useAdminOrders() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const transition = useCallback(async (id, action, reason) => {
-    await api.transitionOrder(authedFetch, id, action, reason);
-    await refresh();
-  }, [authedFetch, refresh]);
+    const updated = await api.transitionOrder(authedFetch, id, action, reason);
+    setOrders((prev) => {
+      const next = prev.map((o) => (o.id === id ? { ...o, ...updated } : o));
+      // If an active filter excludes the new status, drop the item from the list.
+      if (status && updated.status !== status) {
+        return next.filter((o) => o.id !== id);
+      }
+      return next;
+    });
+    return updated;
+  }, [authedFetch, status]);
 
   return { orders, status, setStatus, loading, error, refresh, transition };
 }

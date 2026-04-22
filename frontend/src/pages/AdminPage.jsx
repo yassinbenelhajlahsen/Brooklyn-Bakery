@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
+import { useNavigate } from 'react-router-dom';
 import OrdersTab from '../components/admin/OrdersTab.jsx';
 import ProductsTab from '../components/admin/ProductsTab.jsx';
 import UsersTab from '../components/admin/UsersTab.jsx';
@@ -32,12 +33,28 @@ const TABS = [
   { key: 'users',    label: 'Users',    Icon: UserIcon,    Component: UsersTab    },
 ];
 
+const BACK_BTN = clsx(
+  'bg-transparent text-muted border border-line rounded-lg p-3',
+  'font-sans font-medium text-[12px] leading-[1] tracking-[0.1em] uppercase',
+  '[transition:color_180ms_ease,border-color_180ms_ease]',
+  'hover:text-accent hover:border-accent',
+  'motion-reduce:transition-none',
+);
+
 export default function AdminPage() {
   const [active, setActive] = useState('orders');
-  const ActiveTab = TABS.find((t) => t.key === active).Component;
+  const navigate = useNavigate();
+  const activeIdx = TABS.findIndex((t) => t.key === active);
+  const ActiveTab = TABS[activeIdx].Component;
 
   return (
     <div className="w-full">
+      <div className="mb-6 flex justify-start">
+        <button className={BACK_BTN} onClick={() => navigate('/')}>
+          Back to shop
+        </button>
+      </div>
+
       <header className="mb-6">
         <h1
           className="font-display font-normal text-[42px] leading-[1.1] tracking-[-0.015em] text-ink m-0 [font-variation-settings:'opsz'_48] max-[880px]:text-[32px]"
@@ -47,7 +64,7 @@ export default function AdminPage() {
       </header>
 
       <nav
-        className="flex gap-1 border-b border-line mb-6"
+        className="relative grid grid-cols-3 border-b border-line mb-6"
         role="tablist"
         aria-label="Admin sections"
       >
@@ -61,11 +78,9 @@ export default function AdminPage() {
               aria-selected={selected}
               onClick={() => setActive(key)}
               className={clsx(
-                'inline-flex items-center gap-2 px-4 py-2.5 -mb-px border-b-2',
-                'text-sm font-medium transition-colors duration-150',
-                selected
-                  ? 'border-accent text-ink'
-                  : 'border-transparent text-muted hover:text-ink',
+                'inline-flex items-center justify-center gap-2 py-3',
+                'text-sm font-medium transition-colors duration-300',
+                selected ? 'text-ink' : 'text-muted hover:text-ink',
               )}
             >
               <Icon className="w-4 h-4" />
@@ -73,9 +88,17 @@ export default function AdminPage() {
             </button>
           );
         })}
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 left-0 h-0.5 bg-accent transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{
+            width: `${100 / TABS.length}%`,
+            transform: `translateX(${activeIdx * 100}%)`,
+          }}
+        />
       </nav>
 
-      <section role="tabpanel" aria-label={`${TABS.find((t) => t.key === active).label} panel`}>
+      <section role="tabpanel" aria-label={`${TABS[activeIdx].label} panel`}>
         <ActiveTab />
       </section>
     </div>

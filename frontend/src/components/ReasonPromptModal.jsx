@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function ReasonPromptModal({
   open,
@@ -12,7 +12,13 @@ export default function ReasonPromptModal({
   const [value, setValue] = useState('');
   const [error, setError] = useState(null);
 
-  // Early return unmounts the component when closed, which resets all state naturally.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const handleSubmit = (e) => {
@@ -34,7 +40,8 @@ export default function ReasonPromptModal({
       >
         <h2 className="text-lg font-display mb-3">{title}</h2>
         <textarea
-          className="w-full border border-line rounded-md p-2 text-sm min-h-[96px] focus:outline-none focus:border-accent"
+          autoFocus
+          className="w-full border border-line rounded-md p-2 text-sm min-h-24 focus:outline-none focus:border-accent"
           placeholder={placeholder}
           value={value}
           onChange={(e) => setValue(e.target.value)}

@@ -206,7 +206,7 @@ export default function CheckoutPage({
               className={BACK_BTN}
               onClick={() => navigate("/")}
             >
-              Back to shop
+              Back to home
             </button>
           </div>
         </aside>

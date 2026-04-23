@@ -4,6 +4,7 @@ import Header from './components/Header.jsx'
 import ShopEarnShell from './components/ShopEarnShell.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
 import OrderHistoryPage from './pages/OrderHistoryPage.jsx'
+import ProductDetailPage from './pages/ProductDetailPage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
@@ -46,6 +47,17 @@ export default function App() {
           <Route index element={null} />
           <Route path="earn" element={null} />
         </Route>
+
+        <Route
+          path="/product/:id"
+          element={
+            <ProductDetailPage
+              cart={cart}
+              onIncrement={increment}
+              onDecrement={decrement}
+            />
+          }
+        />
 
         <Route
           path="/checkout"

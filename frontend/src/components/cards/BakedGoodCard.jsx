@@ -1,8 +1,15 @@
+import { useNavigate } from 'react-router-dom'
 import QuantityControl from '../QuantityControl.jsx'
 
 export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
+  const navigate = useNavigate()
+
+  const handleCardClick = () => {
+    navigate(`/product/${item.id}`)
+  }
+
   return (
-    <article className="bg-surface border border-line rounded-xl overflow-hidden flex flex-col transition-[transform,box-shadow] duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-card">
+    <article className="bg-surface border border-line rounded-xl overflow-hidden flex flex-col transition-[transform,box-shadow] duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-card cursor-pointer" onClick={handleCardClick}>
       <div className="relative aspect-square bg-cream">
         <img
           className="w-full h-full object-cover block"
@@ -24,16 +31,21 @@ export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
           {qty === 0 ? (
             <button
               className="bg-accent text-white border-none rounded-lg px-3.5 py-1.5 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
-              onClick={onIncrement}
+              onClick={(e) => {
+                e.stopPropagation()
+                onIncrement()
+              }}
             >
               Add to cart
             </button>
           ) : (
-            <QuantityControl
-              qty={qty}
-              onDecrement={onDecrement}
-              onIncrement={onIncrement}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <QuantityControl
+                qty={qty}
+                onDecrement={onDecrement}
+                onIncrement={onIncrement}
+              />
+            </div>
           )}
         </div>
       </div>

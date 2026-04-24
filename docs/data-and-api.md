@@ -58,8 +58,21 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | `delivered_at` | timestamptz NULL; stamped when admin transitions `shipped → delivered`. Source of truth for the 48h return window. |
 | `request_reason` | text NULL; user-supplied reason when requesting cancel/return. |
 | `decision_reason` | text NULL; admin-supplied reason when denying a request or performing a force action. |
+| `shipping_line1`, `shipping_line2`, `shipping_city`, `shipping_state`, `shipping_postal_code`, `shipping_country` | text NULL; snapshot of the selected address at checkout. Nullable only because orders created before the feature have no value; the API enforces non-null on new orders. Editing or deleting the source address in `addresses` does not mutate these. |
 
 Index: `(user_id, created_at DESC)` for the "my orders" listing.
+
+**`addresses`**
+
+| Column | Notes |
+| --- | --- |
+| `id` | uuid PK |
+| `user_id` → `users(id)` | ON DELETE CASCADE |
+| `line1`, `city`, `state`, `postal_code`, `country` | text NOT NULL |
+| `line2` | text NULL |
+| `created_at`, `updated_at` | timestamptz |
+
+Index: `(user_id)`. Deleting an address leaves past orders' `shipping_*` columns untouched (they are pure snapshots — no FK).
 
 **`order_items`**
 
@@ -99,7 +112,11 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 | DELETE | `/cart` | user | `cartController.deleteCart` | 204 |
 | POST | `/cart/merge` | user | `cartController.mergeCart` | Body `[{ productId, quantity }]`; additive merge with existing, then replace cart in one transaction. Returns hydrated `{ items }`. |
 | GET | `/orders` | user | `orderController.listMyOrders` | `{ orders: (Order & { items })[] }`, newest first. Response now includes `deliveredAt`, `requestReason`, `decisionReason`. |
-| POST | `/orders` | user | `orderController.createOrder` | Atomic. 201 with order + items. 400 empty cart. 402 insufficient balance. 409 insufficient stock (message names the product). |
+| POST | `/orders` | user | `orderController.createOrder` | Body `{ addressId: uuid }` — required. Atomic. Loads the address inside the transaction, verifies it belongs to the caller, and copies its six fields onto the new order row. 201 with order + items. 400 missing `addressId` / empty cart. 402 insufficient balance. 403 `addressId` not owned by caller. 404 `addressId` does not exist. 409 insufficient stock. |
+| GET | `/me/addresses` | user | `addressesController.listAddresses` | `{ addresses: Address[] }`, newest first. |
+| POST | `/me/addresses` | user | `addressesController.createAddress` | Body `{ line1, line2?, city, state, postalCode, country }`. Strings trimmed; required fields non-empty. 201 `{ address }`. 400 on invalid field. |
+| PATCH | `/me/addresses/:id` | user | `addressesController.updateAddress` | Partial body of the above. 200 `{ address }`. 400 invalid field, 403 wrong owner, 404 missing. |
+| DELETE | `/me/addresses/:id` | user | `addressesController.deleteAddress` | 204. 403 wrong owner, 404 missing. Past orders retain their snapshot. |
 | POST | `/orders/:id/cancel` | user | `orderController.userCancel` | Body `{ reason?: string }`. From `confirmed` → `cancelled` (refund + stock). From `processing` → `cancel_requested`. 403 if not the owner. 404 missing. 409 invalid transition. |
 | POST | `/orders/:id/return` | user | `orderController.userReturn` | Body `{ reason?: string }`. From `delivered` → `return_requested` if within 48h of `deliveredAt`. 403 / 404 / 409 as above; 409 also on expired window. |
 

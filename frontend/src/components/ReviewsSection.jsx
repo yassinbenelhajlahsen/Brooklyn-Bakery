@@ -81,6 +81,19 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
     } catch {}
   }
 
+  const handleEdit = async (_review, { rating, text }) => {
+    const res = await authedFetch(`/products/${productId}/reviews`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rating, text: text.trim() || null }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to save.')
+    }
+    const updated = await res.json()
+    setReviews((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+  }
+
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : null
@@ -191,6 +204,7 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
               review={review}
               currentUserId={user?.id}
               onDelete={() => handleDelete(review)}
+              onEdit={handleEdit}
             />
           ))
         )}

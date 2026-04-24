@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import ReviewCard from './ReviewCard.jsx'
 
-export default function ReviewsSection({ productId, productName }) {
+export default function ReviewsSection({ productName }) {
   const [reviews, setReviews] = useState([])
   const [formOpen, setFormOpen] = useState(false)
   const [formData, setFormData] = useState({
@@ -111,7 +111,7 @@ export default function ReviewsSection({ productId, productName }) {
               <div className="flex items-center gap-2">
                 <select
                   value={formData.rating}
-                  onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, rating: parseInt(e.target.value) })}
                   className="rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
                 >
                   {[5, 4, 3, 2, 1].map((n) => (

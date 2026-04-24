@@ -34,6 +34,10 @@ export async function getUser(req, res) {
                     items: { include: { product: { select: { name: true, imageUrl: true } } } },
                 },
             },
+            reviews: {
+                orderBy: { createdAt: 'desc' },
+                include: { product: { select: { name: true } } },
+            },
         },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });

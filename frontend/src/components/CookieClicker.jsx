@@ -1,14 +1,11 @@
-import { useRef, useState } from 'react'
 import { useCookieClicker } from '../hooks/useCookieClicker.js'
 
 export default function CookieClicker() {
   const { displayPoints, handleClick, isAuthenticated, displayName } = useCookieClicker()
   const heading = displayName ? `${displayName}'s bakery` : 'Your bakery'
-  const idRef = useRef(0)
 
-  const handleCookieClick = (e) => {
-    const accepted = handleClick()
-    if (!accepted) return
+  const handleCookieClick = () => {
+    handleClick()
   }
 
   return (

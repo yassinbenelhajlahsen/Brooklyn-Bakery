@@ -188,6 +188,20 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             </ul>
           </div>
 
+          <div>
+            <SectionLabel>Shipping address</SectionLabel>
+            {order.shippingLine1 ? (
+              <div className="bg-cream/50 border border-line rounded-lg px-3 py-2.5 text-sm text-ink leading-relaxed">
+                <div>{order.shippingLine1}</div>
+                {order.shippingLine2 && <div>{order.shippingLine2}</div>}
+                <div>{order.shippingCity}, {order.shippingState} {order.shippingPostalCode}</div>
+                <div>{order.shippingCountry}</div>
+              </div>
+            ) : (
+              <p className="text-muted text-sm">No address on file</p>
+            )}
+          </div>
+
           {order.requestReason && (
             <div>
               <SectionLabel>User&apos;s reason</SectionLabel>

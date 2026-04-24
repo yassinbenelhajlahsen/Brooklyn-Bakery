@@ -1,44 +1,55 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ReviewCard from './ReviewCard.jsx'
 
-export default function ReviewsSection({ productName }) {
+export default function ReviewsSection({ productId, productName, authedFetch, isAuthenticated, openLogin }) {
   const [reviews, setReviews] = useState([])
   const [formOpen, setFormOpen] = useState(false)
-  const [formData, setFormData] = useState({
-    reviewer: '',
-    rating: 5,
-    text: '',
-  })
+  const [formData, setFormData] = useState({ rating: 5, text: '' })
   const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${productId}/reviews`)
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled) setReviews(data.reviews) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [productId])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
 
-    if (!formData.reviewer.trim()) {
-      setFormError('Please enter your name.')
-      return
-    }
     if (!formData.text.trim()) {
       setFormError('Please enter a review.')
       return
     }
 
-    const newReview = {
-      id: Date.now().toString(),
-      reviewer: formData.reviewer.trim(),
-      rating: parseInt(formData.rating),
-      text: formData.text.trim(),
-      date: new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
+    setSubmitting(true)
+    try {
+      const res = await authedFetch(`/products/${productId}/reviews`, {
+        method: 'POST',
+        body: JSON.stringify({ rating: formData.rating, text: formData.text.trim() }),
+      })
+      if (res.status === 409) {
+        setFormError('You have already reviewed this product.')
+        return
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setFormError(body.error ?? 'Failed to submit review.')
+        return
+      }
+      const created = await res.json()
+      setReviews([created, ...reviews])
+      setFormData({ rating: 5, text: '' })
+      setFormOpen(false)
+    } catch {
+      setFormError('Failed to submit review.')
+    } finally {
+      setSubmitting(false)
     }
-
-    setReviews([newReview, ...reviews])
-    setFormData({ reviewer: '', rating: 5, text: '' })
-    setFormOpen(false)
   }
 
   const avgRating = reviews.length > 0
@@ -69,8 +80,15 @@ export default function ReviewsSection({ productName }) {
         )}
       </div>
 
-      {/* Add Review Button/Form */}
-      {!formOpen ? (
+      {/* Write a Review */}
+      {!isAuthenticated ? (
+        <button
+          onClick={() => openLogin()}
+          className="mb-8 bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
+        >
+          Log in to write a review
+        </button>
+      ) : !formOpen ? (
         <button
           onClick={() => setFormOpen(true)}
           className="mb-8 bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
@@ -89,25 +107,9 @@ export default function ReviewsSection({ productName }) {
           )}
 
           <div className="space-y-4">
-            {/* Name Input */}
-            <div>
-              <label className="block text-[14px] font-medium text-ink mb-2">
-                Your Name
-              </label>
-              <input
-                type="text"
-                value={formData.reviewer}
-                onChange={(e) => setFormData({ ...formData, reviewer: e.target.value })}
-                placeholder="Enter your name"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
-              />
-            </div>
-
             {/* Rating Input */}
             <div>
-              <label className="block text-[14px] font-medium text-ink mb-2">
-                Rating
-              </label>
+              <label className="block text-[14px] font-medium text-ink mb-2">Rating</label>
               <div className="flex items-center gap-2">
                 <select
                   value={formData.rating}
@@ -115,18 +117,14 @@ export default function ReviewsSection({ productName }) {
                   className="rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
                 >
                   {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>
-                      {n} star{n !== 1 ? 's' : ''}
-                    </option>
+                    <option key={n} value={n}>{n} star{n !== 1 ? 's' : ''}</option>
                   ))}
                 </select>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
                     <svg
                       key={i}
-                      className={`w-4 h-4 ${
-                        i < formData.rating ? 'fill-accent' : 'fill-line'
-                      }`}
+                      className={`w-4 h-4 ${i < formData.rating ? 'fill-accent' : 'fill-line'}`}
                       viewBox="0 0 24 24"
                     >
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -138,9 +136,7 @@ export default function ReviewsSection({ productName }) {
 
             {/* Review Text */}
             <div>
-              <label className="block text-[14px] font-medium text-ink mb-2">
-                Your Review
-              </label>
+              <label className="block text-[14px] font-medium text-ink mb-2">Your Review</label>
               <textarea
                 value={formData.text}
                 onChange={(e) => setFormData({ ...formData, text: e.target.value })}
@@ -156,7 +152,7 @@ export default function ReviewsSection({ productName }) {
                 type="button"
                 onClick={() => {
                   setFormOpen(false)
-                  setFormData({ reviewer: '', rating: 5, text: '' })
+                  setFormData({ rating: 5, text: '' })
                   setFormError('')
                 }}
                 className="px-4 py-2 border border-line bg-surface rounded-lg text-[14px] font-medium text-ink transition-colors hover:bg-cream"
@@ -165,9 +161,10 @@ export default function ReviewsSection({ productName }) {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-accent text-white rounded-lg text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
+                disabled={submitting}
+                className="px-4 py-2 bg-accent text-white rounded-lg text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark disabled:opacity-50"
               >
-                Post Review
+                {submitting ? 'Posting…' : 'Post Review'}
               </button>
             </div>
           </div>

@@ -3,8 +3,10 @@ export default function ReviewCard({ review }) {
     <article className="bg-cream rounded-lg p-4 border border-line">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h4 className="font-medium text-ink">{review.reviewer}</h4>
-          <p className="text-[12px] text-muted">{review.date}</p>
+          <h4 className="font-medium text-ink">{review.user.displayName ?? 'Anonymous'}</h4>
+          <p className="text-[12px] text-muted">
+            {new Date(review.createdAt).toLocaleDateString()}
+          </p>
         </div>
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (

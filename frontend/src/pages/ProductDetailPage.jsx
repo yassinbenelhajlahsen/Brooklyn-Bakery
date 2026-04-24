@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import QuantityControl from '../components/QuantityControl.jsx'
 import ReviewsSection from '../components/ReviewsSection.jsx'
+import { useAuth } from '../auth/useAuth.js'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -15,6 +16,8 @@ const BACK_BTN = clsx(
 export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { authedFetch, user, openLogin } = useAuth()
+  const isAuthenticated = !!user
   const [product, setProduct] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -128,7 +131,13 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
       </div>
 
       {/* Reviews Section */}
-      <ReviewsSection productName={product.name} />
+      <ReviewsSection
+        productId={product.id}
+        productName={product.name}
+        authedFetch={authedFetch}
+        isAuthenticated={isAuthenticated}
+        openLogin={openLogin}
+      />
     </main>
   )
 }

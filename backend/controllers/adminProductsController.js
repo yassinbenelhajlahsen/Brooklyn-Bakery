@@ -25,12 +25,16 @@ const ADMIN_PRODUCT_SELECT = {
     stock: true,
     archivedAt: true,
     createdAt: true,
-    _avg: { select: { rating: true } },
     _count: { select: { reviews: true } },
 };
 
-function formatAdminProduct(p) {
-    return {
+async function withAdminRatings(products) {
+    const aggs = await prisma.review.groupBy({
+        by: ['productId'],
+        _avg: { rating: true },
+    });
+    const avgMap = Object.fromEntries(aggs.map(a => [a.productId, a._avg.rating]));
+    return products.map(p => ({
         id: p.id,
         name: p.name,
         description: p.description,
@@ -40,9 +44,9 @@ function formatAdminProduct(p) {
         stock: p.stock,
         archivedAt: p.archivedAt,
         createdAt: p.createdAt,
-        avgRating: p._avg?.rating ?? null,
-        reviewCount: p._count?.reviews ?? 0,
-    };
+        avgRating: avgMap[p.id] ?? null,
+        reviewCount: p._count.reviews,
+    }));
 }
 
 export async function listProducts(req, res) {
@@ -52,7 +56,7 @@ export async function listProducts(req, res) {
         orderBy: { createdAt: 'desc' },
         select: ADMIN_PRODUCT_SELECT,
     });
-    res.json({ products: products.map(formatAdminProduct) });
+    res.json({ products: await withAdminRatings(products) });
 }
 
 export async function createProduct(req, res) {

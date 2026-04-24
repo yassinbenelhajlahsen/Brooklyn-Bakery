@@ -1,19 +1,5 @@
 import { prisma } from '../lib/prisma.js';
 
-function formatProduct(p) {
-  return {
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    imageUrl: p.imageUrl,
-    type: p.type,
-    price: p.price,
-    stock: p.stock,
-    avgRating: p._avg?.rating ?? null,
-    reviewCount: p._count?.reviews ?? 0,
-  };
-}
-
 const PRODUCT_SELECT = {
   id: true,
   name: true,
@@ -22,9 +8,27 @@ const PRODUCT_SELECT = {
   type: true,
   price: true,
   stock: true,
-  _avg: { select: { rating: true } },
   _count: { select: { reviews: true } },
 };
+
+async function withRatings(products) {
+  const aggs = await prisma.review.groupBy({
+    by: ['productId'],
+    _avg: { rating: true },
+  });
+  const avgMap = Object.fromEntries(aggs.map(a => [a.productId, a._avg.rating]));
+  return products.map(p => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    imageUrl: p.imageUrl,
+    type: p.type,
+    price: p.price,
+    stock: p.stock,
+    avgRating: avgMap[p.id] ?? null,
+    reviewCount: p._count.reviews,
+  }));
+}
 
 export async function getProducts(_req, res) {
   const products = await prisma.product.findMany({
@@ -32,7 +36,7 @@ export async function getProducts(_req, res) {
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
     select: PRODUCT_SELECT,
   });
-  res.json({ items: products.map(formatProduct) });
+  res.json({ items: await withRatings(products) });
 }
 
 export async function getProduct(req, res) {
@@ -41,5 +45,6 @@ export async function getProduct(req, res) {
     select: PRODUCT_SELECT,
   });
   if (!product) return res.status(404).json({ error: 'Product not found.' });
-  res.json(formatProduct(product));
+  const [formatted] = await withRatings([product]);
+  res.json(formatted);
 }

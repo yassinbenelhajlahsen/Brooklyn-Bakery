@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAdminProducts } from '../../hooks/admin/useAdminProducts.js';
 import ProductEditModal from './ProductEditModal.jsx';
-import ProductReviewsModal from './ProductReviewsModal.jsx';
+import ProductReviewsDrawer from './ProductReviewsDrawer.jsx';
 
 const COLUMNS = ['', 'Name', 'Type', 'Price', 'Stock', 'Rating', 'Status', 'Actions'];
 
@@ -247,7 +247,7 @@ export default function ProductsTab() {
       )}
 
       {reviewProduct && (
-        <ProductReviewsModal
+        <ProductReviewsDrawer
           product={reviewProduct}
           onClose={() => setReviewProduct(null)}
         />

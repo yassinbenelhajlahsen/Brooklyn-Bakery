@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+const ANIM_MS = 250
 
 function StarRow({ rating }) {
   return (
@@ -16,10 +18,28 @@ function StarRow({ rating }) {
   )
 }
 
-export default function ProductReviewsModal({ product, onClose }) {
+export default function ProductReviewsDrawer({ product, onClose }) {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [entered, setEntered] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  const closeWithAnim = useCallback(() => {
+    setLeaving(true)
+    setTimeout(onClose, ANIM_MS)
+  }, [onClose])
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeWithAnim() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [closeWithAnim])
 
   useEffect(() => {
     let cancelled = false
@@ -30,24 +50,35 @@ export default function ProductReviewsModal({ product, onClose }) {
     return () => { cancelled = true }
   }, [product.id])
 
+  const visible = entered && !leaving
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-surface rounded-xl border border-line shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
-          <h2 className="text-[16px] font-medium text-ink">
-            Reviews — {product.name}
-          </h2>
+    <>
+      <div
+        className={`fixed inset-0 h-dvh z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={closeWithAnim}
+        aria-hidden="true"
+      />
+      <aside
+        className={`fixed top-0 right-0 h-dvh w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 flex flex-col overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
+        role="dialog"
+        aria-label={`Reviews for ${product.name}`}
+      >
+        <div className="px-6 py-4 border-b border-line bg-cream/40 flex items-center justify-between shrink-0">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Reviews</p>
+            <h2 className="font-display text-xl text-ink capitalize">{product.name}</h2>
+          </div>
           <button
-            onClick={onClose}
-            className="text-muted hover:text-ink transition-colors text-[20px] leading-none"
+            onClick={closeWithAnim}
+            aria-label="Close drawer"
+            className="w-8 h-8 rounded-full hover:bg-line flex items-center justify-center text-muted hover:text-ink transition-colors"
           >
             ×
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           {loading ? (
             <p className="text-muted text-sm py-4 text-center">Loading…</p>
           ) : error ? (
@@ -73,7 +104,7 @@ export default function ProductReviewsModal({ product, onClose }) {
             ))
           )}
         </div>
-      </div>
-    </div>
+      </aside>
+    </>
   )
 }

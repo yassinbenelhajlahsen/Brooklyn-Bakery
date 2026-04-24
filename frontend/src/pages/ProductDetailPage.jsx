@@ -78,7 +78,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Product Image */}
         <div className="flex items-center justify-center bg-cream rounded-xl aspect-square overflow-hidden">
           <img
@@ -88,7 +88,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
           />
         </div>
 
-        {/* Product Info */}
+        {/* Product Info + Reviews */}
         <div className="flex flex-col gap-6">
           <div>
             <h1 className="text-[36px] capitalize font-display mb-2">{product.name}</h1>
@@ -127,17 +127,17 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
               </div>
             )}
           </div>
+
+          <ReviewsSection
+            productId={product.id}
+            productName={product.name}
+            authedFetch={authedFetch}
+            isAuthenticated={isAuthenticated}
+            openLogin={openLogin}
+            user={user}
+          />
         </div>
       </div>
-
-      {/* Reviews Section */}
-      <ReviewsSection
-        productId={product.id}
-        productName={product.name}
-        authedFetch={authedFetch}
-        isAuthenticated={isAuthenticated}
-        openLogin={openLogin}
-      />
     </main>
   )
 }

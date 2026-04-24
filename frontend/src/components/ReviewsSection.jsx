@@ -1,7 +1,33 @@
 import { useEffect, useState } from 'react'
 import ReviewCard from './ReviewCard.jsx'
 
-export default function ReviewsSection({ productId, productName, authedFetch, isAuthenticated, openLogin }) {
+function StarPicker({ value, onChange }) {
+  const [hovered, setHovered] = useState(0)
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          onMouseEnter={() => setHovered(n)}
+          onMouseLeave={() => setHovered(0)}
+          className="focus:outline-none"
+          aria-label={`${n} star${n !== 1 ? 's' : ''}`}
+        >
+          <svg
+            className={`w-7 h-7 transition-colors ${n <= (hovered || value) ? 'fill-accent' : 'fill-line'}`}
+            viewBox="0 0 24 24"
+          >
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export default function ReviewsSection({ productId, productName, authedFetch, isAuthenticated, openLogin, user }) {
   const [reviews, setReviews] = useState([])
   const [formOpen, setFormOpen] = useState(false)
   const [formData, setFormData] = useState({ rating: 5, text: '' })
@@ -20,12 +46,11 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
-
     setSubmitting(true)
     try {
       const res = await authedFetch(`/products/${productId}/reviews`, {
         method: 'POST',
-        body: JSON.stringify({ rating: formData.rating, text: formData.text.trim() }),
+        body: JSON.stringify({ rating: formData.rating, text: formData.text.trim() || null }),
       })
       if (res.status === 409) {
         setFormError('You have already reviewed this product.')
@@ -47,14 +72,23 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
     }
   }
 
+  const handleDelete = async (review) => {
+    try {
+      const res = await authedFetch(`/products/${productId}/reviews`, { method: 'DELETE' })
+      if (res.ok || res.status === 204) {
+        setReviews((prev) => prev.filter((r) => r.id !== review.id))
+      }
+    } catch {}
+  }
+
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : null
 
   return (
-    <section className="border-t border-line pt-12">
-      <div className="mb-8">
-        <h2 className="text-[28px] font-display mb-2">Reviews</h2>
+    <section className="border-t border-line pt-6">
+      <div className="mb-6">
+        <h2 className="text-[22px] font-display mb-2">Reviews</h2>
         {avgRating && (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
@@ -79,69 +113,47 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
       {!isAuthenticated ? (
         <button
           onClick={() => openLogin()}
-          className="mb-8 bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
+          className="mb-6 bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
         >
           Log in to write a review
         </button>
       ) : !formOpen ? (
         <button
           onClick={() => setFormOpen(true)}
-          className="mb-8 bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
+          className="mb-6 bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
         >
           Write a Review
         </button>
       ) : (
         <form
           onSubmit={handleSubmit}
-          className="mb-8 bg-cream rounded-lg p-6 border border-line"
+          className="mb-6 bg-cream rounded-lg p-5 border border-line"
         >
-          <h3 className="text-[18px] font-medium mb-4">Share Your Thoughts</h3>
+          <h3 className="text-[16px] font-medium mb-4">Share Your Thoughts</h3>
 
           {formError && (
             <p className="text-danger text-[14px] mb-4">{formError}</p>
           )}
 
           <div className="space-y-4">
-            {/* Rating Input */}
             <div>
-              <label className="block text-[14px] font-medium text-ink mb-2">Rating</label>
-              <div className="flex items-center gap-2">
-                <select
-                  value={formData.rating}
-                  onChange={(e) => setFormData({ ...formData, rating: parseInt(e.target.value) })}
-                  className="rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
-                >
-                  {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>{n} star{n !== 1 ? 's' : ''}</option>
-                  ))}
-                </select>
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-4 h-4 ${i < formData.rating ? 'fill-accent' : 'fill-line'}`}
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
+              <label className="block text-[13px] font-medium text-ink mb-2">Rating</label>
+              <StarPicker value={formData.rating} onChange={(n) => setFormData({ ...formData, rating: n })} />
             </div>
 
-            {/* Review Text */}
             <div>
-              <label className="block text-[14px] font-medium text-ink mb-2">Your Review</label>
+              <label className="block text-[13px] font-medium text-ink mb-2">
+                Review <span className="text-muted font-normal">(optional)</span>
+              </label>
               <textarea
                 value={formData.text}
                 onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-                placeholder="Tell us what you think..."
-                rows={4}
+                placeholder="Tell us what you think…"
+                rows={3}
                 className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card resize-none"
               />
             </div>
 
-            {/* Buttons */}
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
@@ -167,14 +179,19 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
       )}
 
       {/* Reviews List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {reviews.length === 0 ? (
-          <p className="text-muted text-[14px] py-6">
+          <p className="text-muted text-[14px] py-4">
             No reviews yet. Be the first to review {productName}!
           </p>
         ) : (
           reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              currentUserId={user?.id}
+              onDelete={() => handleDelete(review)}
+            />
           ))
         )}
       </div>

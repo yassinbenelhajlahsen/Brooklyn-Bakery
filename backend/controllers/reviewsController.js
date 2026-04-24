@@ -1,16 +1,19 @@
 import { prisma } from '../lib/prisma.js';
 
+const REVIEW_SELECT = {
+  id: true,
+  userId: true,
+  rating: true,
+  text: true,
+  createdAt: true,
+  user: { select: { displayName: true } },
+};
+
 export async function getProductReviews(req, res) {
   const reviews = await prisma.review.findMany({
     where: { productId: req.params.id },
     orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      rating: true,
-      text: true,
-      createdAt: true,
-      user: { select: { displayName: true } },
-    },
+    select: REVIEW_SELECT,
   });
   res.json({ reviews });
 }
@@ -35,13 +38,22 @@ export async function createReview(req, res) {
 
   const review = await prisma.review.create({
     data: { productId, userId, rating: ratingInt, text: trimmedText },
-    select: {
-      id: true,
-      rating: true,
-      text: true,
-      createdAt: true,
-      user: { select: { displayName: true } },
-    },
+    select: REVIEW_SELECT,
   });
   res.status(201).json(review);
+}
+
+export async function deleteReview(req, res) {
+  const productId = req.params.id;
+  const userId = req.user.id;
+
+  const existing = await prisma.review.findUnique({
+    where: { productId_userId: { productId, userId } },
+  });
+  if (!existing) {
+    return res.status(404).json({ error: 'Review not found.' });
+  }
+
+  await prisma.review.delete({ where: { productId_userId: { productId, userId } } });
+  res.status(204).end();
 }

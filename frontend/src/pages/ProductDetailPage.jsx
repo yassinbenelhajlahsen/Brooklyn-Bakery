@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import clsx from 'clsx'
 import QuantityControl from '../components/QuantityControl.jsx'
 import ReviewsSection from '../components/ReviewsSection.jsx'
+
+const BACK_BTN = clsx(
+  "bg-transparent text-muted border border-line rounded-lg p-3",
+  "font-sans font-medium text-[12px] leading-[1] tracking-[0.1em] uppercase",
+  "[transition:color_180ms_ease,border-color_180ms_ease]",
+  "hover:text-accent hover:border-accent",
+  "motion-reduce:transition-none",
+)
 
 export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   const { id } = useParams()
@@ -15,14 +24,13 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
     ;(async () => {
       try {
         setLoading(true)
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
-        const data = await response.json()
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${id}`)
         if (!cancelled) {
-          const found = data.items.find((item) => item.id === id)
-          if (found) {
-            setProduct(found)
-          } else {
+          if (response.status === 404) {
             setError('Product not found.')
+          } else {
+            const data = await response.json()
+            setProduct(data)
           }
         }
       } catch (err) {
@@ -49,10 +57,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
       <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
         <div className="text-center">
           <p className="text-muted py-12">{error || 'Product not found.'}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="bg-accent text-white border-none rounded-lg px-4 py-2 text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
-          >
+          <button onClick={() => navigate('/')} className={BACK_BTN}>
             Back to Shop
           </button>
         </div>
@@ -64,19 +69,18 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
 
   return (
     <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
-      <button
-        onClick={() => navigate('/')}
-        className="mb-6 text-accent hover:text-accent-dark transition-colors text-[14px] font-medium flex items-center gap-1"
-      >
-        ← Back to Shop
-      </button>
+      <div className="mb-6 flex justify-start">
+        <button onClick={() => navigate('/')} className={BACK_BTN}>
+          Back to Shop
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
         {/* Product Image */}
         <div className="flex items-center justify-center bg-cream rounded-xl aspect-square overflow-hidden">
           <img
             src={product.imageUrl}
-            alt={product.description}
+            alt={product.name}
             className="w-full h-full object-cover"
           />
         </div>
@@ -124,7 +128,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
       </div>
 
       {/* Reviews Section */}
-      <ReviewsSection productId={product.id} productName={product.name} />
+      <ReviewsSection productName={product.name} />
     </main>
   )
 }

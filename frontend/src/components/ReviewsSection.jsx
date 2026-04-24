@@ -21,11 +21,6 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
     e.preventDefault()
     setFormError('')
 
-    if (!formData.text.trim()) {
-      setFormError('Please enter a review.')
-      return
-    }
-
     setSubmitting(true)
     try {
       const res = await authedFetch(`/products/${productId}/reviews`, {

@@ -24,9 +24,7 @@ export async function createReview(req, res) {
   if (!Number.isInteger(ratingInt) || ratingInt < 1 || ratingInt > 5) {
     return res.status(400).json({ error: 'Rating must be an integer between 1 and 5.' });
   }
-  if (!text || !String(text).trim()) {
-    return res.status(400).json({ error: 'Review text is required.' });
-  }
+  const trimmedText = text ? String(text).trim() || null : null;
 
   const existing = await prisma.review.findUnique({
     where: { productId_userId: { productId, userId } },
@@ -36,7 +34,7 @@ export async function createReview(req, res) {
   }
 
   const review = await prisma.review.create({
-    data: { productId, userId, rating: ratingInt, text: String(text).trim() },
+    data: { productId, userId, rating: ratingInt, text: trimmedText },
     select: {
       id: true,
       rating: true,

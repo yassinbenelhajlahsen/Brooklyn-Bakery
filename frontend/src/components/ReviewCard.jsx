@@ -20,7 +20,7 @@ export default function ReviewCard({ review }) {
           ))}
         </div>
       </div>
-      <p className="text-[14px] text-ink m-0 leading-relaxed">{review.text}</p>
+      {review.text && <p className="text-[14px] text-ink m-0 leading-relaxed">{review.text}</p>}
     </article>
   )
 }

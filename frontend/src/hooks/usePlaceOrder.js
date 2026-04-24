@@ -7,18 +7,16 @@ export function usePlaceOrder({ onSuccess } = {}) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  const placeOrder = async () => {
+  const placeOrder = async ({ addressId }) => {
     setSubmitting(true);
     setError(null);
     try {
-      const created = await placeOrderService(authedFetch);
+      const created = await placeOrderService(authedFetch, { addressId });
       await refreshProfile();
       if (onSuccess) onSuccess(created);
     } catch (err) {
       console.error('placeOrder failed:', err);
-      setError(
-        err?.message ?? 'Could not reach the server. Please try again.',
-      );
+      setError(err?.message ?? 'Could not reach the server. Please try again.');
     } finally {
       setSubmitting(false);
     }

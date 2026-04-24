@@ -14,7 +14,15 @@ const EMPTY = {
 };
 
 export default function AddressForm({ initial, submitLabel = 'Save', onSubmit, onCancel }) {
-  const [values, setValues] = useState({ ...EMPTY, ...(initial ?? {}) });
+  const [values, setValues] = useState(() => {
+    const seed = { ...EMPTY };
+    if (initial) {
+      for (const key of Object.keys(EMPTY)) {
+        if (initial[key] != null) seed[key] = initial[key];
+      }
+    }
+    return seed;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 

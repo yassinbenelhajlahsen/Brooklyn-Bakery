@@ -16,3 +16,20 @@ export async function getProducts(_req, res) {
     });
     res.json({ items: products });
 }
+
+export async function getProduct(req, res) {
+    const product = await prisma.product.findFirst({
+        where: { id: req.params.id, archivedAt: null },
+        select: {
+            id: true,
+            name: true,
+            description: true,
+            imageUrl: true,
+            type: true,
+            price: true,
+            stock: true,
+        },
+    });
+    if (!product) return res.status(404).json({ error: 'Product not found.' });
+    res.json(product);
+}

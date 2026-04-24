@@ -17,17 +17,21 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | --- | --- |
 | `server.js` | Express app, middleware, route mounts |
 | `.env.example` | Backend env template (`PORT`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`) |
-| `routes/productsRoutes.js` | `GET /products` (filters archived) |
+| `routes/productsRoutes.js` | `GET /`, `GET /:id`, plus per-product review endpoints (`GET /:id/reviews` public; `POST` / `PATCH` / `DELETE /:id/reviews` authed) |
+| `routes/addressesRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` — mounted at `/me/addresses` |
 | `routes/cartRoutes.js` | `GET`, `DELETE`, `POST /merge`, `PUT /items/:productId` |
 | `routes/meRoutes.js` | `GET /`, `POST /clicks` |
-| `routes/orderRoutes.js` | `GET /`, `POST /`, `POST /:id/cancel`, `POST /:id/return` |
+| `routes/orderRoutes.js` | `GET /`, `POST /`, `PATCH /:id/address`, `POST /:id/cancel`, `POST /:id/return` |
 | `routes/adminRoutes.js` | Order routes inline (`GET /orders`, `GET /orders/:id`, `POST /orders/:id/transition`) and mounts `/products` + `/users` sub-routers |
 | `routes/adminProductsRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `POST /:id/archive`, `POST /:id/unarchive` |
 | `routes/adminUsersRoutes.js` | `GET /`, `GET /:id`, `PATCH /:id/role`, `POST /:id/balance` |
-| `controllers/productsController.js` | Public product listing; filters `archived_at IS NULL` |
+| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; attaches `avgRating` + `reviewCount` via a single `review.groupBy` |
+| `controllers/reviewsController.js` | `getProductReviews` (public), `createReview` / `updateReview` / `deleteReview` (authed, one review per product per user, enforced by unique index) |
+| `controllers/addressesController.js` | `listAddresses`, `createAddress`, `updateAddress`, `deleteAddress` — ownership enforced via `userId` from `req.user` |
+| `lib/address.js` | Pure helpers: `normalizeAddressInput` (trim + validate required fields) and `snapshotAddress` (copies the 6 shipping fields onto an order-update payload) |
 | `controllers/cartController.js` | Cart CRUD; `mergeCart` delegates to `services/cartService` |
 | `controllers/meController.js` | Authenticated profile fetch (`GET /me`) and click-credit flush (`POST /me/clicks`) |
-| `controllers/orderController.js` | `createOrder` (delegates to `services/orderService.placeOrder`), `listMyOrders`, `userCancel`, `userReturn` — both user-side actions route to `services/orderStateMachine.transition` with `actor: 'user'` |
+| `controllers/orderController.js` | `createOrder` (delegates to `services/orderService.placeOrder`; requires `addressId`, snapshots address inside the tx), `listMyOrders`, `updateOrderAddress` (re-snapshots while order is `confirmed`), `userCancel`, `userReturn` — cancel/return route to `services/orderStateMachine.transition` with `actor: 'user'` |
 | `controllers/adminOrdersController.js` | `listAllOrders` (filterable), `getOrder` (detail), `transitionOrder` (admin dispatch to state machine with whitelisted actions) |
 | `controllers/adminProductsController.js` | Product CRUD + archive/unarchive + payload validation |
 | `controllers/adminUsersController.js` | `listUsers` (with `orderCount`), `getUser` (+ nested orders), `updateRole` (self-demotion + last-admin guards inside tx), `adjustBalance` (row-locked, negative-balance guard) |
@@ -43,16 +47,20 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `lib/cart.js` | Pure functions: `mergeCartItems`, `computeCartTotal` |
 | `lib/clickCredit.js` | Pure rate-cap math: `computeCredit({ delta, elapsedMs, lastClickFlushAt, now })` + constants (`RATE_PER_SEC`, `BURST_BONUS`, `MAX_FIRST_WINDOW_MS`, `MAX_DELTA`, `MAX_ELAPSED_MS`) |
 | `lib/httpError.js` | `httpError(status, msg)` and `sendHttpError(res, err)` helpers |
-| `prisma/schema.prisma` | Data model (User, Product, CartItem, Order, OrderItem) + enums (`OrderStatus`, `ProductType`, `UserRole`) |
+| `prisma/schema.prisma` | Data model (User, Product, CartItem, Order, OrderItem, Review, Address) + enums (`OrderStatus`, `ProductType`, `UserRole`) |
 | `prisma/seed.js` | Idempotent product seeding (upsert by name) |
 | `prisma/migrations/20260420192006_init/` | Initial schema migration |
 | `prisma/migrations/20260420192213_supabase_integration/` | Cross-schema FK to `auth.users` + trigger that creates `public.users` on signup |
 | `prisma/migrations/20260421045352_add_product_stock/` | Adds `products.stock` + nonneg check |
 | `prisma/migrations/20260421203012_add_user_last_click_flush_at/` | Adds `users.last_click_flush_at` (nullable) for click-credit rate cap |
 | `prisma/migrations/20260422000000_admin_order_lifecycle_and_product_archive/` | Expands `order_status` enum (6 new values), adds `orders.delivered_at` / `request_reason` / `decision_reason`, adds `products.archived_at`. Applied via `prisma migrate deploy` (sidesteps the shadow-DB issue caused by the earlier cross-schema FK to `auth.users`). |
+| `prisma/migrations/20260424053144_add_reviews/` | Creates `reviews` table with `(product_id, user_id)` unique index |
+| `prisma/migrations/20260424000001_make_review_text_optional/` | Makes `reviews.text` nullable (rating-only reviews) |
+| `prisma/migrations/20260424120000_add_addresses_and_order_shipping/` | Creates `addresses` table; adds six nullable `shipping_*` snapshot columns to `orders` |
 | `tests/cart.test.js` | Tests for pure cart helpers (node:test) |
 | `tests/clickCredit.test.js` | Tests for `computeCredit` rate-cap math |
 | `tests/orderStateMachine.test.js` | Tests for `resolveTransition` + `checkReturnWindow` — the pure pieces of the state machine. The I/O wrapper (`transition`) is covered by manual QA per project test conventions. |
+| `tests/address.test.js` | Tests for `lib/address.js` (`normalizeAddressInput`, `snapshotAddress`) |
 
 ## `frontend/`
 
@@ -65,7 +73,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `eslint.config.js` | ESLint flat config with React hooks + refresh rules |
 | `index.html` | Vite HTML entry |
 | `src/main.jsx` | React root; wraps `<App />` in `<BrowserRouter>` and `<AuthProvider>` |
-| `src/App.jsx` | Top-level layout + routes (`/`, `/earn`, `/checkout`, `/about`, `/story`, `/contact`, `/faq`, `/help`, `/orders`, `/admin`); owns cart state and cart-drawer visibility for the shop shell |
+| `src/App.jsx` | Top-level layout + routes (`/`, `/earn`, `/checkout`, `/product/:id`, `/about`, `/story`, `/contact`, `/faq`, `/help`, `/orders`, `/admin`); owns cart state and cart-drawer visibility for the shop shell |
 | `src/index.css` | Base resets and CSS custom properties (color tokens: `--color-ink`, `--color-cream`, etc.) |
 
 ### Auth + hooks + services + lib
@@ -79,12 +87,14 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `src/hooks/useTabUnderline.js` | Animated tab-underline measurement; returns `parentRef`, `registerTab(key)`, `underlineStyle` |
 | `src/hooks/usePlaceOrder.js` | Place-order flow; calls `orderService.placeOrder`, refreshes profile, fires `onSuccess` |
 | `src/hooks/useCookieClicker.js` | Click accumulator + 10/sec client throttle; batched flush via `POST /me/clicks` on 5s interval / 50-click threshold / page-hide / logout; guest clicks persisted to `localStorage.bb:guestClicks` and migrated on login |
+| `src/hooks/useAddresses.js` | List + create + update + delete against `/me/addresses`; splices returned address into local state (no refetch) |
 | `src/hooks/admin/useAdminOrders.js` | List + filter + transition. After `transition`, splices the returned order into local state; drops it if the active status filter would now exclude it. |
 | `src/hooks/admin/useAdminProducts.js` | List + CRUD + archive/unarchive. Mutations splice the returned product into state; archives dropped when `includeArchived=false`. |
 | `src/hooks/admin/useAdminUsers.js` | List + `getOne(id)` detail fetch + role change + balance delta. Role/balance mutations merge the returned fields into the list row (preserves `orderCount` and `createdAt`). |
 | `src/services/cartService.js` | Cart API calls (`mergeAndHydrateCart`, `fetchServerCart`, `syncCartItem`, `clearServerCart`) — take `authedFetch` as first arg |
 | `src/services/profileService.js` | `fetchProfile` — returns `body.user` or `null` |
-| `src/services/orderService.js` | `placeOrder` (throws `PlaceOrderError` on non-2xx), `fetchMyOrders`, `userCancelOrder`, `userReturnOrder` |
+| `src/services/orderService.js` | `placeOrder` (takes `{ addressId }`; throws `PlaceOrderError` on non-2xx), `fetchMyOrders`, `updateOrderAddress`, `userCancelOrder`, `userReturnOrder` |
+| `src/services/addressesService.js` | `listAddresses`, `createAddress`, `updateAddress`, `deleteAddress` — takes `authedFetch` as first arg |
 | `src/services/admin/adminOrdersService.js` | `listOrders({ status? })`, `getOrder(id)`, `transitionOrder(id, action, reason)` |
 | `src/services/admin/adminProductsService.js` | `listProducts({ includeArchived })`, `createProduct`, `updateProduct`, `archiveProduct`, `unarchiveProduct` |
 | `src/services/admin/adminUsersService.js` | `listUsers`, `getUser(id)`, `updateRole(id, role)`, `adjustBalance(id, delta)` |
@@ -97,10 +107,11 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 
 | Path | Purpose |
 | --- | --- |
-| `src/pages/ShopPage.jsx` | Product grid at `/`; fetches `GET /products` on mount; supports category filter + sort |
+| `src/pages/ShopPage.jsx` | Product grid at `/`; fetches `GET /products` on mount; supports category filter + sort (name / price asc-desc / Top Rated — sorts by `avgRating`, tie-breaks on `reviewCount`) |
+| `src/pages/ProductDetailPage.jsx` | `/product/:id` — fetches product via `GET /products/:id`, renders full description, qty control, and mounts `ReviewsSection` below |
 | `src/pages/EarnPage.jsx` | `/earn` — hosts the `<CookieClicker />` |
-| `src/pages/CheckoutPage.jsx` | Checkout review page: line items, balance, balance-after, place-order |
-| `src/pages/OrderHistoryPage.jsx` | `/orders` — customer order list with `StatusBadge`, conditional Cancel / Request-cancellation / Request-return buttons per status, hides Request-* when `decisionReason` is set, enforces 48h return window, prompts for reason via `ReasonPromptModal` |
+| `src/pages/CheckoutPage.jsx` | Checkout review page: line items, balance, balance-after, `AddressSelector` (required before place-order), place-order |
+| `src/pages/OrderHistoryPage.jsx` | `/orders` — customer order list with `StatusBadge`, shipping-address snapshot, "Change address" action while `confirmed` (uses `AddressSelector`), conditional Cancel / Request-cancellation / Request-return buttons per status, hides Request-* when `decisionReason` is set, enforces 48h return window, prompts for reason via `ReasonPromptModal` |
 | `src/pages/AdminPage.jsx` | `/admin` shell — gated by `AdminRoute`. Tab state (`useState`), sliding accent underline indicator, mounts `OrdersTab` / `ProductsTab` / `UsersTab` |
 | `src/pages/AboutUsPage.jsx`, `StoryPage.jsx`, `ContactUsPage.jsx`, `FAQPage.jsx`, `HelpPage.jsx` | Static company / informational pages |
 
@@ -123,7 +134,11 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `src/components/StatusBadge.jsx` | Colored pill for any `OrderStatus`; used by both customer (`OrderHistoryPage`) and admin surfaces |
 | `src/components/ReasonPromptModal.jsx` | Fixed-overlay modal with a textarea + Cancel/Submit. `required` prop rejects empty submit with inline error. ESC closes. Used on customer side only for cancel/return prompts — admin uses an inline textarea inside the drawer. |
 | `src/components/CookieClicker.jsx` | Cookie clicker UI; consumes `useCookieClicker`, renders the floating `+1` animation, shows "Log in to save your points" for guests |
-| `src/components/cards/BakedGoodCard.jsx` | Product card with qty controls |
+| `src/components/cards/BakedGoodCard.jsx` | Product card with qty controls; renders `avgRating` star row + review count; links to `/product/:id` |
+| `src/components/ReviewsSection.jsx` | Per-product reviews block: list + star-picker composer. Handles create / inline edit / delete of the caller's own review via `/products/:id/reviews` endpoints. |
+| `src/components/ReviewCard.jsx` | Single review row (display name, stars, text, created date); owner sees inline edit + delete icon buttons |
+| `src/components/AddressForm.jsx` | Address create / edit form (line1, line2?, city, state, postalCode, country) with trim + required-field validation; tolerates null `line2` on edit |
+| `src/components/AddressSelector.jsx` | Radio list of the caller's saved addresses + "New address" button; embeds `AddressForm` for create / edit. Used by checkout and by order-history "change address". |
 | `src/components/icons/PackageIcon.jsx` | SVG (orders icon); used by `ProfileMenu` and `AdminPage` |
 | `src/components/icons/UserIcon.jsx` | SVG (user/admin icon); used by `ProfileMenu` and `AdminPage` |
 
@@ -134,11 +149,12 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `src/components/admin/AdminRoute.jsx` | Role-gate wrapper: reads `useAuth().profile`; shows loading until profile resolves; redirects non-admins to `/` |
 | `src/components/admin/OrdersTab.jsx` | Admin orders table + `StatusFilter` + Refresh; row click opens `OrderDetailDrawer` and rebinds to the updated order after a transition |
 | `src/components/admin/StatusFilter.jsx` | `<select>` over all 8 statuses + "All statuses" |
-| `src/components/admin/OrderDetailDrawer.jsx` | Right slide-in drawer (animated, ESC-closes, `h-dvh`). Action footer renders buttons via `ACTIONS_BY_STATUS`; reason-required actions expand an inline textarea (Cancel / Confirm) rather than opening a modal. |
-| `src/components/admin/ProductsTab.jsx` | Products table with "Include archived" toggle + "New product"; row-level Edit / Archive / Unarchive |
+| `src/components/admin/OrderDetailDrawer.jsx` | Right slide-in drawer (animated, ESC-closes, `h-dvh`). Shows snapshotted shipping address. Action footer renders buttons via `ACTIONS_BY_STATUS`; reason-required actions expand an inline textarea (Cancel / Confirm) rather than opening a modal. |
+| `src/components/admin/ProductsTab.jsx` | Products table with "Include archived" toggle, sort (default / popularity via `avgRating` + `reviewCount`), rating column, "New product", row-level Edit / Archive / Unarchive / Reviews |
+| `src/components/admin/ProductReviewsDrawer.jsx` | Right slide-in drawer listing all reviews for a product (admin-read only; uses public `GET /products/:id/reviews`) |
 | `src/components/admin/ProductEditModal.jsx` | Create / edit form with client-side validation, server-error surface, ESC-closes |
 | `src/components/admin/UsersTab.jsx` | Users table; row click opens `UserDetailDrawer` |
-| `src/components/admin/UserDetailDrawer.jsx` | Right slide-in drawer (animated, ESC-closes, `h-dvh`). Identity + role toggle (disabled when target === acting admin) + balance delta form + user's orders with `StatusBadge`. Fetches own detail via `useAdminUsers.getOne(id)`. |
+| `src/components/admin/UserDetailDrawer.jsx` | Right slide-in drawer (animated, ESC-closes, `h-dvh`). Identity + role toggle (disabled when target === acting admin) + balance delta form + user's orders with `StatusBadge` + user's reviews (product name, stars, text). Fetches own detail via `useAdminUsers.getOne(id)`. |
 
 ## `docs/`
 
@@ -148,5 +164,5 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `conventions.md` | Code conventions |
 | `file-map.md` | This file |
 | `data-and-api.md` | Schema summary + API endpoint reference |
-| `superpowers/specs/` | Design specs (authoritative for *why* decisions were made) |
-| `superpowers/plans/` | Implementation plans produced by the superpowers skill |
+| `superpowers/specs/` | Design specs (authoritative for *why* decisions were made) — includes `2026-04-24-reviews-design.md` and `2026-04-24-addresses-design.md` |
+| `superpowers/plans/` | Implementation plans produced by the superpowers skill — includes `2026-04-24-reviews.md` and `2026-04-24-addresses.md` |

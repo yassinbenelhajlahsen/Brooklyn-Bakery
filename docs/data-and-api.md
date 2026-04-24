@@ -74,6 +74,19 @@ Index: `(user_id, created_at DESC)` for the "my orders" listing.
 
 Index: `(user_id)`. Deleting an address leaves past orders' `shipping_*` columns untouched (they are pure snapshots — no FK).
 
+**`reviews`** — one review per `(product_id, user_id)` pair.
+
+| Column | Notes |
+| --- | --- |
+| `id` | uuid PK |
+| `product_id` → `products(id)` | ON DELETE CASCADE |
+| `user_id` → `users(id)` | ON DELETE CASCADE |
+| `rating` | int; 1–5 enforced at the API layer |
+| `text` | text NULL; trimmed; empty strings stored as NULL |
+| `created_at` | timestamptz |
+
+Unique `(product_id, user_id)`. `GET /products` and `GET /products/:id` read from this table via `groupBy productId _avg: rating` and `_count reviews` to compute `avgRating` and `reviewCount` on each product response.
+
 **`order_items`**
 
 | Column | Notes |
@@ -104,7 +117,12 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 
 | Method | Path | Auth | Controller | Contract |
 | --- | --- | --- | --- | --- |
-| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name`. Filters `archived_at IS NULL`. |
+| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name`. Filters `archived_at IS NULL`. Each product includes `avgRating` (float or null) and `reviewCount` (int). |
+| GET | `/products/:id` | public | `productsController.getProduct` | Single product with `avgRating` + `reviewCount`. 404 if missing or archived. |
+| GET | `/products/:id/reviews` | public | `reviewsController.getProductReviews` | `{ reviews: Review[] }` newest first, each with `user.displayName`. |
+| POST | `/products/:id/reviews` | user | `reviewsController.createReview` | Body `{ rating: 1..5, text?: string }`. Text is trimmed; blank → null. 201 with review. 400 invalid rating. 409 if caller already reviewed this product. |
+| PATCH | `/products/:id/reviews` | user | `reviewsController.updateReview` | Updates the caller's own review for this product. Same body. 404 if they have none. |
+| DELETE | `/products/:id/reviews` | user | `reviewsController.deleteReview` | Deletes the caller's own review. 204. 404 if none. |
 | GET | `/me` | user | `meController.getMe` | `{ user: { id, email, displayName, balance, role } }` |
 | POST | `/me/clicks` | user | `meController.flushClicks` | Body `{ delta: int > 0, elapsedMs: int > 0 }`. Credits up to `floor(effectiveElapsedMs / 1000) * 10 + 20` to `users.balance` (silently caps on excess), updates `last_click_flush_at`. Returns `{ balance, credited }`. 400 on invalid body. |
 | GET | `/cart` | user | `cartController.getCart` | `{ items: (CartItem & { product })[] }` |
@@ -117,6 +135,7 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 | POST | `/me/addresses` | user | `addressesController.createAddress` | Body `{ line1, line2?, city, state, postalCode, country }`. Strings trimmed; required fields non-empty. 201 `{ address }`. 400 on invalid field. |
 | PATCH | `/me/addresses/:id` | user | `addressesController.updateAddress` | Partial body of the above. 200 `{ address }`. 400 invalid field, 403 wrong owner, 404 missing. |
 | DELETE | `/me/addresses/:id` | user | `addressesController.deleteAddress` | 204. 403 wrong owner, 404 missing. Past orders retain their snapshot. |
+| PATCH | `/orders/:id/address` | user | `orderController.updateOrderAddress` | Body `{ addressId: uuid }`. Only allowed while `status = 'confirmed'` (409 otherwise). Verifies ownership of both the order and the address; copies the six shipping fields onto the order. 400 missing `addressId`, 403 wrong owner, 404 missing. Returns the updated order with items. |
 | POST | `/orders/:id/cancel` | user | `orderController.userCancel` | Body `{ reason?: string }`. From `confirmed` → `cancelled` (refund + stock). From `processing` → `cancel_requested`. 403 if not the owner. 404 missing. 409 invalid transition. |
 | POST | `/orders/:id/return` | user | `orderController.userReturn` | Body `{ reason?: string }`. From `delivered` → `return_requested` if within 48h of `deliveredAt`. 403 / 404 / 409 as above; 409 also on expired window. |
 
@@ -129,7 +148,7 @@ All admin routes are behind `requireAuth → requireAdmin`.
 | GET | `/admin/orders` | `adminOrdersController.listAllOrders` | Query `?status=<OrderStatus>`. Newest first. 400 on invalid status. |
 | GET | `/admin/orders/:id` | `adminOrdersController.getOrder` | Single order with items + user (including balance). 404 missing. |
 | POST | `/admin/orders/:id/transition` | `adminOrdersController.transitionOrder` | Body `{ action, reason? }`. `action ∈ { setProcessing, setShipped, setDelivered, approveCancel, denyCancel, approveReturn, denyReturn, forceCancel, forceReturn }`. Delegates to `services/orderStateMachine.transition`. 400 unknown action / missing required reason, 404 missing order, 409 invalid transition / expired window. |
-| GET | `/admin/products` | `adminProductsController.listProducts` | Query `?includeArchived=true` to include archived. Newest first. |
+| GET | `/admin/products` | `adminProductsController.listProducts` | Query `?includeArchived=true` to include archived. Newest first. Response rows include `avgRating` + `reviewCount` for the admin Reviews drawer and popularity sort. |
 | POST | `/admin/products` | `adminProductsController.createProduct` | Body `{ name, description, imageUrl, type, price, stock }`. 201 with product. 400 on validation failure. |
 | PATCH | `/admin/products/:id` | `adminProductsController.updateProduct` | Partial body of the above (same validators, optional fields). Works on archived products (editing history is fine). 404 missing. |
 | POST | `/admin/products/:id/archive` | `adminProductsController.archiveProduct` | Sets `archived_at = now()`. 404 missing. |

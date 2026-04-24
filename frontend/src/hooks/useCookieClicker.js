@@ -42,6 +42,7 @@ function writeGuestClicks(pending, firstClickAt) {
 }
 
 export function useCookieClicker() {
+
     const { session, profile, authedFetch, refreshProfile } = useAuth();
     const accessToken = session?.access_token ?? null;
     const isAuthenticated = Boolean(accessToken);

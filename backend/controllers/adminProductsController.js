@@ -15,13 +15,48 @@ function validateProductPayload(body, { partial = false } = {}) {
     if (errors.length) throw httpError(400, errors.join('; '));
 }
 
+const ADMIN_PRODUCT_SELECT = {
+    id: true,
+    name: true,
+    description: true,
+    imageUrl: true,
+    type: true,
+    price: true,
+    stock: true,
+    archivedAt: true,
+    createdAt: true,
+    _count: { select: { reviews: true } },
+};
+
+async function withAdminRatings(products) {
+    const aggs = await prisma.review.groupBy({
+        by: ['productId'],
+        _avg: { rating: true },
+    });
+    const avgMap = Object.fromEntries(aggs.map(a => [a.productId, a._avg.rating]));
+    return products.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        imageUrl: p.imageUrl,
+        type: p.type,
+        price: p.price,
+        stock: p.stock,
+        archivedAt: p.archivedAt,
+        createdAt: p.createdAt,
+        avgRating: avgMap[p.id] ?? null,
+        reviewCount: p._count.reviews,
+    }));
+}
+
 export async function listProducts(req, res) {
     const includeArchived = req.query.includeArchived === 'true';
     const products = await prisma.product.findMany({
         where: includeArchived ? undefined : { archivedAt: null },
         orderBy: { createdAt: 'desc' },
+        select: ADMIN_PRODUCT_SELECT,
     });
-    res.json({ products });
+    res.json({ products: await withAdminRatings(products) });
 }
 
 export async function createProduct(req, res) {

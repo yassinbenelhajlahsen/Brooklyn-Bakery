@@ -1,8 +1,33 @@
 import { useState } from 'react';
 import { useAdminProducts } from '../../hooks/admin/useAdminProducts.js';
 import ProductEditModal from './ProductEditModal.jsx';
+import ProductReviewsDrawer from './ProductReviewsDrawer.jsx';
 
-const COLUMNS = ['', 'Name', 'Type', 'Price', 'Stock', 'Status', 'Actions'];
+const COLUMNS = ['', 'Name', 'Type', 'Price', 'Stock', 'Rating', 'Status', 'Actions'];
+
+const SORT_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  { value: 'popularity', label: 'Popularity' },
+];
+
+function sortProducts(products, sortBy) {
+  if (sortBy !== 'popularity') return products;
+  return [...products].sort((a, b) => {
+    if (a.avgRating === null && b.avgRating === null) return 0;
+    if (a.avgRating === null) return 1;
+    if (b.avgRating === null) return -1;
+    return b.avgRating - a.avgRating;
+  });
+}
+
+function StarDisplay({ avgRating, reviewCount }) {
+  if (!reviewCount) return <span className="text-muted text-xs">—</span>;
+  return (
+    <span className="text-sm text-ink">
+      ★ {Number(avgRating).toFixed(1)} ({reviewCount})
+    </span>
+  );
+}
 
 function SkeletonRow() {
   return (
@@ -12,8 +37,9 @@ function SkeletonRow() {
       <td className="px-4 py-3"><div className="h-4 bg-cream rounded w-16" /></td>
       <td className="px-4 py-3"><div className="h-4 bg-cream rounded w-16" /></td>
       <td className="px-4 py-3"><div className="h-4 bg-cream rounded w-10" /></td>
+      <td className="px-4 py-3"><div className="h-4 bg-cream rounded w-16" /></td>
       <td className="px-4 py-3"><div className="h-5 bg-cream rounded-full w-16" /></td>
-      <td className="px-4 py-3"><div className="h-8 bg-cream rounded w-28" /></td>
+      <td className="px-4 py-3"><div className="h-8 bg-cream rounded w-36" /></td>
     </tr>
   );
 }
@@ -31,8 +57,10 @@ export default function ProductsTab() {
     unarchive,
   } = useAdminProducts();
 
-  const [editing, setEditing] = useState(null); // { mode: 'create' | 'edit', product? }
-  const [mutating, setMutating] = useState(null); // product id being archived/unarchived
+  const [editing, setEditing] = useState(null);
+  const [mutating, setMutating] = useState(null);
+  const [reviewProduct, setReviewProduct] = useState(null);
+  const [sortBy, setSortBy] = useState('default');
 
   async function handleArchiveToggle(product) {
     if (mutating) return;
@@ -48,10 +76,12 @@ export default function ProductsTab() {
     }
   }
 
+  const visible = sortProducts(products, sortBy);
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <label className="flex items-center gap-2 text-sm text-ink cursor-pointer select-none">
           <input
             type="checkbox"
@@ -62,12 +92,27 @@ export default function ProductsTab() {
           Include archived
         </label>
 
-        <button
-          onClick={() => setEditing({ mode: 'create' })}
-          className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-dark transition-colors font-medium"
-        >
-          + New product
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted">
+            Sort by
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            onClick={() => setEditing({ mode: 'create' })}
+            className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-dark transition-colors font-medium"
+          >
+            + New product
+          </button>
+        </div>
       </div>
 
       {/* Error banner */}
@@ -95,14 +140,14 @@ export default function ProductsTab() {
           <tbody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-            ) : products.length === 0 ? (
+            ) : visible.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted">
+                <td colSpan={8} className="px-4 py-10 text-center text-muted">
                   No products.
                 </td>
               </tr>
             ) : (
-              products.map((product, idx) => (
+              visible.map((product, idx) => (
                 <tr
                   key={product.id}
                   className={`border-b border-line last:border-b-0 transition-colors duration-100 ${
@@ -134,6 +179,11 @@ export default function ProductsTab() {
                   {/* Stock */}
                   <td className="px-4 py-3 text-ink font-mono">{product.stock}</td>
 
+                  {/* Rating */}
+                  <td className="px-4 py-3">
+                    <StarDisplay avgRating={product.avgRating} reviewCount={product.reviewCount} />
+                  </td>
+
                   {/* Status */}
                   <td className="px-4 py-3">
                     {product.archivedAt ? (
@@ -150,6 +200,12 @@ export default function ProductsTab() {
                   {/* Actions */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setReviewProduct(product)}
+                        className="px-3 py-1 text-xs rounded border border-line hover:bg-cream text-ink transition-colors"
+                      >
+                        Reviews
+                      </button>
                       <button
                         onClick={() => setEditing({ mode: 'edit', product })}
                         className="px-3 py-1 text-xs rounded border border-line hover:bg-cream text-ink transition-colors"
@@ -180,7 +236,6 @@ export default function ProductsTab() {
         </table>
       </div>
 
-      {/* Modal — conditionally rendered so state resets between opens */}
       {editing && (
         <ProductEditModal
           mode={editing.mode}
@@ -188,6 +243,13 @@ export default function ProductsTab() {
           onClose={() => setEditing(null)}
           onCreate={create}
           onUpdate={update}
+        />
+      )}
+
+      {reviewProduct && (
+        <ProductReviewsDrawer
+          product={reviewProduct}
+          onClose={() => setReviewProduct(null)}
         />
       )}
     </div>

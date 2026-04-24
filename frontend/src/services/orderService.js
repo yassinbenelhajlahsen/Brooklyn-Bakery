@@ -5,16 +5,21 @@ export class PlaceOrderError extends Error {
   }
 }
 
-export async function placeOrder(authedFetch) {
-  const res = await authedFetch('/orders', { method: 'POST' });
+export async function placeOrder(authedFetch, { addressId }) {
+  const res = await authedFetch('/orders', {
+    method: 'POST',
+    body: JSON.stringify({ addressId }),
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const message =
       res.status === 402
         ? 'Not enough points to complete this order.'
         : res.status === 400
-          ? 'Your cart is empty.'
-          : (body.error ?? 'Something went wrong. Please try again.');
+          ? (body.error ?? 'Your cart is empty.')
+          : res.status === 403
+            ? 'That address is not available. Pick another.'
+            : (body.error ?? 'Something went wrong. Please try again.');
     throw new PlaceOrderError(res.status, message);
   }
   return res.json();
@@ -25,6 +30,24 @@ export async function fetchMyOrders(authedFetch) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? 'Could not load your order history.');
+  }
+  return res.json();
+}
+
+export async function updateOrderAddress(authedFetch, orderId, addressId) {
+  const res = await authedFetch(`/orders/${orderId}/address`, {
+    method: 'PATCH',
+    body: JSON.stringify({ addressId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const message =
+      res.status === 409
+        ? (body.error ?? 'Address cannot be edited after we have started processing.')
+        : res.status === 403 || res.status === 404
+          ? 'That address is not available.'
+          : (body.error ?? 'Could not update address.');
+    throw new Error(message);
   }
   return res.json();
 }

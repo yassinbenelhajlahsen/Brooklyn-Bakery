@@ -8,6 +8,7 @@ const SORT_OPTIONS = [
   { value: 'default', label: 'Featured' },
   { value: 'price-asc', label: 'Price: Low to High' },
   { value: 'price-desc', label: 'Price: High to Low' },
+  { value: 'top-rated', label: 'Top Rated' },
 ]
 
 function sortProducts(items, sortBy) {
@@ -20,6 +21,16 @@ function sortProducts(items, sortBy) {
 
   if (sortBy === 'price-desc') {
     sortedItems.sort((a, b) => b.price - a.price || a.name.localeCompare(b.name))
+    return sortedItems
+  }
+
+  if (sortBy === 'top-rated') {
+    sortedItems.sort((a, b) => {
+      if (a.avgRating === null && b.avgRating === null) return 0
+      if (a.avgRating === null) return 1
+      if (b.avgRating === null) return -1
+      return b.avgRating - a.avgRating
+    })
     return sortedItems
   }
 

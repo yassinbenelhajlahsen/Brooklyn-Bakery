@@ -49,6 +49,8 @@ model User {
 
   cartItems CartItem[]
   orders    Order[]
+  reviews   Review[]
+  addresses Address[]
 
   @@map("users")
 }
@@ -67,6 +69,7 @@ model Product {
 
   cartItems  CartItem[]
   orderItems OrderItem[]
+  reviews    Review[]
 
   @@index([type])
   @@map("products")
@@ -93,7 +96,13 @@ model Order {
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz(6)
   requestReason  String?   @map("request_reason")
-  decisionReason String?   @map("decision_reason")
+  decisionReason     String?   @map("decision_reason")
+  shippingLine1      String?   @map("shipping_line1")
+  shippingLine2      String?   @map("shipping_line2")
+  shippingCity       String?   @map("shipping_city")
+  shippingState      String?   @map("shipping_state")
+  shippingPostalCode String?   @map("shipping_postal_code")
+  shippingCountry    String?   @map("shipping_country")
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   items OrderItem[]
@@ -114,4 +123,37 @@ model OrderItem {
 
   @@index([orderId])
   @@map("order_items")
+}
+
+model Review {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  rating    Int
+  text      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@map("reviews")
+}
+
+model Address {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  postalCode String   @map("postal_code")
+  country    String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
 }

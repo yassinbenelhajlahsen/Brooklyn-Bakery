@@ -1,25 +1,11 @@
-import { useRef, useState } from 'react'
 import { useCookieClicker } from '../hooks/useCookieClicker.js'
 
 export default function CookieClicker() {
   const { displayPoints, handleClick, isAuthenticated, displayName } = useCookieClicker()
   const heading = displayName ? `${displayName}'s bakery` : 'Your bakery'
-  const [floatingTexts, setFloatingTexts] = useState([])
-  const idRef = useRef(0)
 
-  const handleCookieClick = (e) => {
-    const accepted = handleClick()
-    if (!accepted) return
-
-    const id = ++idRef.current
-    setFloatingTexts((prev) => [
-      ...prev,
-      { id, x: e.clientX, y: e.clientY, points: 1 },
-    ])
-  }
-
-  const removeFloater = (id) => {
-    setFloatingTexts((prev) => prev.filter((t) => t.id !== id))
+  const handleCookieClick = () => {
+    handleClick()
   }
 
   return (
@@ -32,7 +18,7 @@ export default function CookieClicker() {
         </div>
 
         <button
-          className="text-[16rem] bg-none border-none cursor-pointer p-0 transition-transform duration-100 ease-in-out select-none leading-none drop-shadow-[0_4px_12px_rgba(61,47,36,0.15)] hover:scale-105 active:animate-cookie-click"
+          className="text-[21rem] bg-none border-none cursor-pointer p-0 transition-transform duration-100 ease-in-out select-none leading-none drop-shadow-[0_4px_12px_rgba(61,47,36,0.15)] hover:scale-105 active:animate-cookie-click"
           onClick={handleCookieClick}
         >
           🍪
@@ -45,19 +31,6 @@ export default function CookieClicker() {
         )}
       </div>
 
-      {floatingTexts.map((text) => (
-        <div
-          key={text.id}
-          className="fixed pointer-events-none text-[1.75rem] font-bold text-accent animate-float-up [text-shadow:0_2px_4px_rgba(0,0,0,0.1)] font-display"
-          style={{
-            left: `${text.x}px`,
-            top: `${text.y}px`,
-          }}
-          onAnimationEnd={() => removeFloater(text.id)}
-        >
-          +{text.points}
-        </div>
-      ))}
     </>
   )
 }

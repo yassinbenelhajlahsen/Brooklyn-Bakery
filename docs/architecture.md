@@ -69,7 +69,11 @@ Errors thrown as `httpError(status, msg)` are translated by `sendHttpError`; une
 
 ## Checkout flow
 
-The cart drawer's Checkout button calls `AuthProvider.requestCheckout`, which either opens the login modal (signed-out) or navigates to `/checkout`. `CheckoutPage` (`frontend/src/pages/CheckoutPage.jsx`) renders the review state: line items with qty controls, subtotal, current balance, and balance-after-purchase. The "Place order" button is disabled when the cart is empty, submitting, profile is still loading, or the balance is insufficient. Order submission goes through the `usePlaceOrder` hook, which calls `orderService.placeOrder`, refreshes the profile on success, and invokes an `onSuccess` callback so the page can clear the local cart and swap to the success state. Errors render inline (no `alert`).
+The cart drawer's Checkout button calls `AuthProvider.requestCheckout`, which either opens the login modal (signed-out) or navigates to `/checkout`. `CheckoutPage` (`frontend/src/pages/CheckoutPage.jsx`) renders the review state: line items with qty controls, subtotal, current balance, balance-after-purchase, and an `AddressSelector` sourced from `/me/addresses`. The "Place order" button is disabled when the cart is empty, submitting, profile is still loading, the balance is insufficient, or no address is selected. Order submission goes through the `usePlaceOrder` hook, which passes the selected `addressId` into `orderService.placeOrder`, refreshes the profile on success, and invokes an `onSuccess` callback so the page can clear the local cart and swap to the success state. Errors render inline (no `alert`).
+
+### Address snapshotting
+
+Addresses live in their own table (`addresses`) with a CASCADE FK to `users`. At checkout, `createOrder` loads the selected address **inside** the order transaction and copies its six fields (`line1`, `line2`, `city`, `state`, `postal_code`, `country`) onto the new `orders` row via `lib/address.js::snapshotAddress`. The `order` → `address` relationship is intentionally a pure snapshot — no FK — so editing or deleting the source address later has no effect on historical orders. Users can change the shipping address on an order while it is still in `confirmed` (via `PATCH /orders/:id/address`); the same snapshot logic re-runs. After the order leaves `confirmed`, the address is frozen.
 
 The current balance is sourced from `GET /me`, which returns the authenticated user's profile. `AuthProvider` fetches it whenever the session's access token changes (initial load, sign-in, token refresh) and exposes `profile` + `refreshProfile()` on the context.
 
@@ -176,6 +180,14 @@ These don't use the state machine (there's no graph), but they share its transac
 - **Role change** (`PATCH /admin/users/:id/role`): inside a single `prisma.$transaction`, apply the update, then `SELECT count(*) FROM users WHERE role = 'admin'`. If zero, throw → rolls back. The acting-admin self-demotion check is a cheap guard at the controller level (`req.user.id === req.params.id`).
 - **Balance delta** (`POST /admin/users/:id/balance`): row-lock the target user (`SELECT balance … FOR UPDATE`), compute `next = current + delta`, throw 409 if `next < 0`, otherwise write.
 - **Product archive / unarchive**: just set / clear `archived_at`. Public `GET /products` filters `archived_at IS NULL`; the admin product list controls visibility via `?includeArchived`.
+
+## Product reviews
+
+Reviews live in a dedicated `reviews` table with a `UNIQUE (product_id, user_id)` constraint — one review per user per product, enforced at the DB. Endpoints are mounted under `/products/:id/reviews` (see `docs/data-and-api.md`); the authed endpoints look up by `(productId, userId)` rather than an opaque `reviewId`, which is why update / delete are `PATCH` / `DELETE` on the collection path, not on `:reviewId`.
+
+Rating is an integer 1–5 validated at the controller; text is optional (trimmed; empty → NULL). Both the public product list and the admin product list aggregate ratings in a single `prisma.review.groupBy` call per list fetch and attach `avgRating` + `reviewCount` to each product in the response. This powers the star row on `BakedGoodCard`, the "Top Rated" shop sort, the admin rating column, and the admin popularity sort. The admin panel exposes read-only review access through `ProductReviewsDrawer` (per-product) and the reviews tab inside `UserDetailDrawer` (per-user) — there is no admin moderation endpoint; admins cannot edit or delete other users' reviews.
+
+Design spec: [`superpowers/specs/2026-04-24-reviews-design.md`](superpowers/specs/2026-04-24-reviews-design.md).
 
 ## Authorization stance
 

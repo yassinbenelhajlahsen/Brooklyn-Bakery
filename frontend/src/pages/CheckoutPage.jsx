@@ -5,6 +5,7 @@ import { useAuth } from "../auth/useAuth.js";
 import { computeCartSubtotal } from "../lib/cart.js";
 import CartItemRow from "../components/CartItemRow.jsx";
 import Ornament from "../components/Ornament.jsx";
+import AddressSelector from "../components/AddressSelector.jsx";
 import { usePlaceOrder } from "../hooks/usePlaceOrder.js";
 
 const PLACE_BTN = clsx(
@@ -61,6 +62,7 @@ export default function CheckoutPage({
   const navigate = useNavigate();
 
   const [order, setOrder] = useState(null);
+  const [addressId, setAddressId] = useState(null);
   const { placeOrder, submitting, error } = usePlaceOrder({
     onSuccess: (created) => {
       clearCart();
@@ -152,6 +154,11 @@ export default function CheckoutPage({
 
         <aside className="bg-surface border border-line rounded-xl p-6 sticky top-6 flex flex-col gap-3.5 max-[880px]:static">
           <div className="font-sans text-[11px] tracking-[0.22em] uppercase text-muted mb-0.5">Summary</div>
+          <div>
+            <div className="font-sans text-[11px] tracking-[0.22em] uppercase text-muted mb-2">Ship to</div>
+            <AddressSelector selectedId={addressId} onSelect={setAddressId} />
+          </div>
+          <div className="h-px bg-line my-1" />
           <dl className="m-0 flex flex-col gap-2.5">
             <div className={SUMMARY_ROW}>
               <dt>Subtotal</dt>
@@ -192,12 +199,13 @@ export default function CheckoutPage({
           <div className="flex flex-col gap-2.5 mt-1.5">
             <button
               className={PLACE_BTN}
-              onClick={placeOrder}
+              onClick={() => placeOrder({ addressId })}
               disabled={
                 entries.length === 0 ||
                 submitting ||
                 profileLoading ||
-                insufficient
+                insufficient ||
+                !addressId
               }
             >
               {submitting ? "Placing order…" : "Place order"}

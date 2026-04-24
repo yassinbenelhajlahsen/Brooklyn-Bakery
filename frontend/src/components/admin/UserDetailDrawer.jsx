@@ -288,6 +288,46 @@ export default function UserDetailDrawer({
               )}
             </div>
 
+            {/* Reviews section */}
+            <div>
+              <SectionLabel>Reviews ({user.reviews?.length ?? 0})</SectionLabel>
+              {!user.reviews || user.reviews.length === 0 ? (
+                <p className="text-muted text-sm">No reviews yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {user.reviews.map((review) => (
+                    <li
+                      key={review.id}
+                      className="bg-cream/40 rounded-lg px-3 py-2 space-y-1"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-ink capitalize truncate">
+                          {review.product.name}
+                        </span>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {[...Array(5)].map((_, i) => (
+                            <svg
+                              key={i}
+                              className={`w-3 h-3 ${i < review.rating ? 'fill-accent' : 'fill-line'}`}
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      {review.text && (
+                        <p className="text-xs text-muted leading-relaxed">{review.text}</p>
+                      )}
+                      <p className="text-[11px] text-muted">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             {/* Orders section */}
             <div>
               <SectionLabel>Orders ({user.orders?.length ?? 0})</SectionLabel>

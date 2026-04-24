@@ -2,13 +2,16 @@ import { OrderStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { computeCartTotal } from '../lib/cart.js';
 import { httpError } from '../lib/httpError.js';
+import { snapshotAddress } from '../lib/address.js';
 import { sendConfirmationEmail } from './mailerService.js';
 import { supabaseAdmin } from '../lib/supabase.js';
 
-export async function placeOrder(userId) {
+export async function placeOrder(userId, { addressId } = {}) {
+    if (!addressId || typeof addressId !== 'string') {
+        throw httpError(400, 'addressId is required');
+    }
 
-    // Fetch auth user and display name before transaction to avoid timeout
-    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(userId);
 
     const userProfile = await prisma.user.findUnique({
         where: { id: userId },
@@ -16,6 +19,22 @@ export async function placeOrder(userId) {
     });
 
     const order = await prisma.$transaction(async (tx) => {
+        const address = await tx.address.findUnique({
+            where: { id: addressId },
+            select: {
+                userId: true,
+                line1: true,
+                line2: true,
+                city: true,
+                state: true,
+                postalCode: true,
+                country: true,
+            },
+        });
+        if (!address) throw httpError(404, 'Address not found');
+        if (address.userId !== userId) throw httpError(403, 'Forbidden');
+        const shipping = snapshotAddress(address);
+
         const cartItems = await tx.cartItem.findMany({
             where: { userId },
             include: { product: { select: { name: true, id: true, price: true } } },
@@ -65,6 +84,7 @@ export async function placeOrder(userId) {
                 userId,
                 total,
                 status: OrderStatus.confirmed,
+                ...shipping,
                 items: {
                     create: cartItems.map((ci) => ({
                         productId: ci.product.id,
@@ -81,7 +101,6 @@ export async function placeOrder(userId) {
         return { createdOrder: order, cartItems };
     });
 
-    // Send confirmation email AFTER transaction completes
     if (authUser?.email && userProfile) {
         try {
             await sendConfirmationEmail({
@@ -92,9 +111,9 @@ export async function placeOrder(userId) {
                     items: order.cartItems.map((item) => ({
                         name: item.product.name,
                         qty: item.quantity,
-                        price: item.product.price
+                        price: item.product.price,
                     })),
-                    total: order.createdOrder.total
+                    total: order.createdOrder.total,
                 },
             });
         } catch (emailErr) {
@@ -104,4 +123,3 @@ export async function placeOrder(userId) {
 
     return order.createdOrder;
 }
-

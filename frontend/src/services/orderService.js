@@ -34,6 +34,24 @@ export async function fetchMyOrders(authedFetch) {
   return res.json();
 }
 
+export async function updateOrderAddress(authedFetch, orderId, addressId) {
+  const res = await authedFetch(`/orders/${orderId}/address`, {
+    method: 'PATCH',
+    body: JSON.stringify({ addressId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const message =
+      res.status === 409
+        ? (body.error ?? 'Address cannot be edited after we have started processing.')
+        : res.status === 403 || res.status === 404
+          ? 'That address is not available.'
+          : (body.error ?? 'Could not update address.');
+    throw new Error(message);
+  }
+  return res.json();
+}
+
 export async function userCancelOrder(authedFetch, orderId, reason) {
   const res = await authedFetch(`/orders/${orderId}/cancel`, {
     method: 'POST',

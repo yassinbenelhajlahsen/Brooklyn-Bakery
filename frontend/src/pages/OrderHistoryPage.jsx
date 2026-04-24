@@ -5,7 +5,8 @@ import { useAuth } from '../auth/useAuth.js'
 import Ornament from '../components/Ornament.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 import ReasonPromptModal from '../components/ReasonPromptModal.jsx'
-import { fetchMyOrders, userCancelOrder, userReturnOrder } from '../services/orderService.js'
+import { fetchMyOrders, userCancelOrder, userReturnOrder, updateOrderAddress } from '../services/orderService.js'
+import AddressSelector from '../components/AddressSelector.jsx'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -40,6 +41,10 @@ export default function OrderHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(null)
+  const [editingAddressOrderId, setEditingAddressOrderId] = useState(null)
+  const [pendingAddressId, setPendingAddressId] = useState(null)
+  const [addressSaving, setAddressSaving] = useState(false)
+  const [addressError, setAddressError] = useState(null)
 
   async function refresh() {
     const data = await fetchMyOrders(authedFetch)
@@ -101,6 +106,37 @@ export default function OrderHistoryPage() {
       await refresh()
     } catch (err) {
       setError(err?.message ?? 'Request failed')
+    }
+  }
+
+  function startEditingAddress(order) {
+    setEditingAddressOrderId(order.id)
+    setPendingAddressId(null)
+    setAddressError(null)
+  }
+
+  function cancelEditingAddress() {
+    setEditingAddressOrderId(null)
+    setPendingAddressId(null)
+    setAddressError(null)
+  }
+
+  async function saveAddress(orderId) {
+    if (!pendingAddressId) {
+      setAddressError('Pick an address first.')
+      return
+    }
+    setAddressSaving(true)
+    setAddressError(null)
+    try {
+      const updated = await updateOrderAddress(authedFetch, orderId, pendingAddressId)
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)))
+      setEditingAddressOrderId(null)
+      setPendingAddressId(null)
+    } catch (err) {
+      setAddressError(err?.message ?? 'Could not update address.')
+    } finally {
+      setAddressSaving(false)
     }
   }
 
@@ -168,6 +204,61 @@ export default function OrderHistoryPage() {
                     </li>
                   ))}
                 </ul>
+
+                <div className="mt-4">
+                  <p className="m-0 mb-2 text-[11px] uppercase tracking-[0.18em] text-muted">Ship to</p>
+                  {editingAddressOrderId === order.id ? (
+                    <div className="space-y-2">
+                      <AddressSelector
+                        selectedId={pendingAddressId}
+                        onSelect={setPendingAddressId}
+                      />
+                      {addressError && (
+                        <p className="text-danger text-xs m-0">{addressError}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={addressSaving}
+                          onClick={() => saveAddress(order.id)}
+                          className="text-sm px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-dark disabled:opacity-50 transition-colors"
+                        >
+                          {addressSaving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={addressSaving}
+                          onClick={cancelEditingAddress}
+                          className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream disabled:opacity-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-3">
+                      {order.shippingLine1 ? (
+                        <div className="text-sm text-ink leading-relaxed">
+                          <div>{order.shippingLine1}</div>
+                          {order.shippingLine2 && <div>{order.shippingLine2}</div>}
+                          <div>{order.shippingCity}, {order.shippingState} {order.shippingPostalCode}</div>
+                          <div>{order.shippingCountry}</div>
+                        </div>
+                      ) : (
+                        <p className="m-0 text-sm text-muted">No address on file</p>
+                      )}
+                      {order.status === 'confirmed' && (
+                        <button
+                          type="button"
+                          onClick={() => startEditingAddress(order)}
+                          className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream transition-colors shrink-0"
+                        >
+                          Change
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {(order.requestReason || order.decisionReason) && (
                   <div className="mt-4 space-y-1 text-sm">

@@ -5,7 +5,8 @@ import { transition } from '../services/orderStateMachine.js';
 
 export async function createOrder(req, res) {
     try {
-        const order = await placeOrder(req.user.id);
+        const { addressId } = req.body ?? {};
+        const order = await placeOrder(req.user.id, { addressId });
         res.status(201).json(order);
     } catch (err) {
         if (err.http) return sendHttpError(res, err);

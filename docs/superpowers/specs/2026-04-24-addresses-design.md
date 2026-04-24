@@ -8,12 +8,11 @@ Let users save shipping addresses to their account, manage them from `/me`, and 
 
 - New `addresses` table, owned per-user
 - CRUD endpoints under `/api/me/addresses`
-- New "Addresses" section on the `/me` page
-- Address selector on the order/checkout page, required before placing an order
+- Address selector on the checkout page with inline add / edit / delete, required before placing an order
 - Six snapshot columns on `orders` populated at checkout
 - Admin `OrderDetailDrawer` displays the snapshot
 
-Out of scope: billing addresses, international format validation, default address flag, geocoding, address book sharing.
+Out of scope: billing addresses, international format validation, default address flag, geocoding, address book sharing, a dedicated `/me` profile page (deferred).
 
 ## Data model
 
@@ -77,18 +76,14 @@ Order responses (user-facing and admin) include the six `shipping*` fields.
 
 ## Frontend
 
-### `/me` — Addresses section
+### Checkout page — address selector with inline management
 
-New section under the existing profile content. Follows the visual pattern of the reviews list on the product page: stacked cards, each with Edit and Delete icon buttons. An "Add address" button reveals an inline form; Edit turns a card into that same form in place. Fields: line1, line2 (optional), city, state, postalCode, country. Submit POSTs/PATCHes and refreshes the list. Delete confirms via a small inline confirm (same pattern as review delete).
-
-### Order page — address selector
-
-Placed above the confirm-order button.
+Placed above the confirm-order button. This is the only surface for managing addresses in this iteration.
 
 - **Zero addresses:** render the inline "Add an address" form. The confirm button is disabled until the first address is saved.
-- **One or more:** radio-button list (line1 + city as the label, full address in small text below). First address preselected. A "Manage addresses" link goes to `/me`.
+- **One or more:** radio-button list (line1 + city as the label, full address in small text below), first address preselected. Each row exposes Edit and Delete icon buttons. Edit swaps the row into an inline form; Delete uses an inline confirm (same pattern as review delete). An "Add new" button reveals the same inline form to append another address.
 
-The selected `addressId` is sent with the order request. The confirm button is disabled while no address is selected.
+The selected `addressId` is sent with the order request. The confirm button is disabled while no address is selected. If the selected address is deleted, the selection falls back to the first remaining address, or to the add-form state if the list is empty.
 
 ### Admin `OrderDetailDrawer`
 

@@ -31,17 +31,15 @@
 - `frontend/src/services/addressesService.js` — `fetchAddresses`, `createAddress`, `updateAddress`, `deleteAddress`
 - `frontend/src/hooks/useAddresses.js` — load + mutate state hook
 - `frontend/src/components/AddressForm.jsx` — form used for both create and edit
-- `frontend/src/components/AddressCard.jsx` — read-only card with Edit/Delete buttons
-- `frontend/src/components/AddressSelector.jsx` — radio list used on checkout
-- `frontend/src/pages/MePage.jsx` — `/me` page containing the addresses section
+- `frontend/src/components/AddressSelector.jsx` — radio list with inline edit/delete used on checkout
 
 **Frontend — modify:**
-- `frontend/src/App.jsx` — add `/me` route
-- `frontend/src/components/ProfileMenu.jsx` — wire "Profile" menu item to `/me`
 - `frontend/src/services/orderService.js` — `placeOrder` takes `addressId`, sends JSON body
 - `frontend/src/hooks/usePlaceOrder.js` — accept `addressId`
 - `frontend/src/pages/CheckoutPage.jsx` — render `AddressSelector`, require selection
 - `frontend/src/components/admin/OrderDetailDrawer.jsx` — render shipping address section
+
+A dedicated `/me` profile page is intentionally deferred. Address management lives only on the checkout page in this iteration. `AddressCard` is not needed — `AddressSelector` renders each row itself with radio + edit/delete controls so the selection state stays co-located with the row affordances.
 
 ---
 
@@ -866,11 +864,10 @@ git commit -m "feat(addresses): add frontend service and useAddresses hook"
 
 ---
 
-## Task 6: AddressForm + AddressCard components
+## Task 6: AddressForm component
 
 **Files:**
 - Create: `frontend/src/components/AddressForm.jsx`
-- Create: `frontend/src/components/AddressCard.jsx`
 
 - [ ] **Step 1: Write `AddressForm`**
 
@@ -971,80 +968,33 @@ export default function AddressForm({ initial, submitLabel = 'Save', onSubmit, o
 }
 ```
 
-- [ ] **Step 2: Write `AddressCard`**
+- [ ] **Step 2: Commit**
 
-Create `frontend/src/components/AddressCard.jsx`:
+```bash
+git add frontend/src/components/AddressForm.jsx
+git commit -m "feat(addresses): add AddressForm component"
+```
+
+---
+
+## Task 7: Address selector on checkout
+
+**Files:**
+- Create: `frontend/src/components/AddressSelector.jsx`
+- Modify: `frontend/src/services/orderService.js`
+- Modify: `frontend/src/hooks/usePlaceOrder.js`
+- Modify: `frontend/src/pages/CheckoutPage.jsx`
+
+The selector renders the list, owns selection, and also exposes inline edit/delete on each row plus an inline add-new form. There is no separate profile page — this component is the entire UX for address management in this iteration.
+
+- [ ] **Step 1: Write `AddressSelector`**
+
+Create `frontend/src/components/AddressSelector.jsx`:
 
 ```jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAddresses } from '../hooks/useAddresses.js';
 import AddressForm from './AddressForm.jsx';
-
-export default function AddressCard({ address, onUpdate, onDelete }) {
-  const [editing, setEditing] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  if (editing) {
-    return (
-      <AddressForm
-        initial={address}
-        submitLabel="Save changes"
-        onSubmit={async (payload) => {
-          await onUpdate(address.id, payload);
-          setEditing(false);
-        }}
-        onCancel={() => setEditing(false)}
-      />
-    );
-  }
-
-  async function handleDelete() {
-    setBusy(true);
-    setError(null);
-    try {
-      await onDelete(address.id);
-    } catch (err) {
-      setError(err.message ?? 'Could not delete address');
-      setConfirmingDelete(false);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="bg-surface border border-line rounded-xl p-4 flex items-start justify-between gap-3">
-      <div className="text-sm text-ink leading-relaxed">
-        <div>{address.line1}</div>
-        {address.line2 && <div>{address.line2}</div>}
-        <div>{address.city}, {address.state} {address.postalCode}</div>
-        <div>{address.country}</div>
-        {error && <div className="text-danger text-xs mt-2">{error}</div>}
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {confirmingDelete ? (
-          <>
-            <button disabled={busy} onClick={handleDelete} className="text-xs px-2 py-1 rounded-md bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50">
-              {busy ? '…' : 'Confirm'}
-            </button>
-            <button disabled={busy} onClick={() => setConfirmingDelete(false)} className="text-xs px-2 py-1 rounded-md text-muted hover:text-ink">
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setEditing(true)} aria-label="Edit address" className="w-7 h-7 grid place-items-center rounded-md text-muted hover:text-accent hover:bg-cream transition-colors">
-              <PencilIcon />
-            </button>
-            <button onClick={() => setConfirmingDelete(true)} aria-label="Delete address" className="w-7 h-7 grid place-items-center rounded-md text-muted hover:text-danger hover:bg-danger/5 transition-colors">
-              <TrashIcon />
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function PencilIcon() {
   return (
@@ -1064,156 +1014,14 @@ function TrashIcon() {
     </svg>
   );
 }
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add frontend/src/components/AddressForm.jsx frontend/src/components/AddressCard.jsx
-git commit -m "feat(addresses): add AddressForm and AddressCard components"
-```
-
----
-
-## Task 7: `/me` page
-
-**Files:**
-- Create: `frontend/src/pages/MePage.jsx`
-- Modify: `frontend/src/App.jsx`
-- Modify: `frontend/src/components/ProfileMenu.jsx`
-
-- [ ] **Step 1: Write `MePage`**
-
-Create `frontend/src/pages/MePage.jsx`:
-
-```jsx
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../auth/useAuth.js';
-import { useAddresses } from '../hooks/useAddresses.js';
-import AddressCard from '../components/AddressCard.jsx';
-import AddressForm from '../components/AddressForm.jsx';
-
-export default function MePage() {
-  const { user, profile } = useAuth();
-  const { addresses, loading, error, create, update, remove } = useAddresses();
-  const [adding, setAdding] = useState(false);
-
-  if (!user) return <Navigate to="/" replace />;
-
-  return (
-    <main className="max-w-3xl mx-auto px-6 py-10">
-      <header className="mb-8">
-        <div className="font-sans text-[11px] tracking-[0.22em] uppercase text-muted mb-2">Account</div>
-        <h1 className="font-display text-[36px] leading-[1.1] text-ink m-0 [font-variation-settings:'opsz'_48]">
-          {profile?.displayName?.trim() || user.email}
-        </h1>
-      </header>
-
-      <section>
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="font-display text-[22px] text-ink m-0">Addresses</h2>
-          {!adding && (
-            <button onClick={() => setAdding(true)} className="text-sm px-3 py-1.5 rounded-lg border border-line text-ink hover:bg-cream transition-colors">
-              Add address
-            </button>
-          )}
-        </div>
-
-        {adding && (
-          <div className="mb-4">
-            <AddressForm
-              submitLabel="Add address"
-              onSubmit={async (payload) => {
-                await create(payload);
-                setAdding(false);
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          </div>
-        )}
-
-        {loading && <p className="text-muted text-sm">Loading addresses…</p>}
-        {error && <p className="text-danger text-sm">{error}</p>}
-
-        {!loading && addresses.length === 0 && !adding && (
-          <p className="text-muted text-sm">No addresses saved yet.</p>
-        )}
-
-        <div className="flex flex-col gap-3">
-          {addresses.map((a) => (
-            <AddressCard key={a.id} address={a} onUpdate={update} onDelete={remove} />
-          ))}
-        </div>
-      </section>
-    </main>
-  );
-}
-```
-
-- [ ] **Step 2: Register the route**
-
-Edit `frontend/src/App.jsx`. Find the sibling `<Route path="/orders" element={<OrderHistoryPage />} />` line. Import MePage at the top:
-
-```jsx
-import MePage from './pages/MePage.jsx';
-```
-
-And add a sibling route adjacent to `/orders`:
-
-```jsx
-<Route path="/me" element={<MePage />} />
-```
-
-- [ ] **Step 3: Wire the Profile menu item**
-
-Edit `frontend/src/components/ProfileMenu.jsx`. Replace the Profile menu item:
-
-```jsx
-<MenuItem
-  icon={<UserIcon className="w-[18px] h-[18px]" />}
-  label="Profile"
-  onClick={() => {
-    setOpen(false);
-    navigate('/me');
-  }}
-/>
-```
-
-- [ ] **Step 4: Manual verification**
-
-Run the app (`npm run dev` at repo root). Log in, open the profile menu, click Profile. Verify: the `/me` page loads, you can add an address, edit it inline, and delete it with the confirm step. Reload; addresses persist. Check another user's /me does not show your addresses (log out, log in as another user).
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add frontend/src/pages/MePage.jsx frontend/src/App.jsx frontend/src/components/ProfileMenu.jsx
-git commit -m "feat(addresses): add /me page with addresses section"
-```
-
----
-
-## Task 8: Address selector on checkout
-
-**Files:**
-- Create: `frontend/src/components/AddressSelector.jsx`
-- Modify: `frontend/src/services/orderService.js`
-- Modify: `frontend/src/hooks/usePlaceOrder.js`
-- Modify: `frontend/src/pages/CheckoutPage.jsx`
-
-- [ ] **Step 1: Write `AddressSelector`**
-
-Create `frontend/src/components/AddressSelector.jsx`:
-
-```jsx
-import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { useAddresses } from '../hooks/useAddresses.js';
-import AddressForm from './AddressForm.jsx';
 
 export default function AddressSelector({ selectedId, onSelect }) {
-  const { addresses, loading, error, create } = useAddresses();
+  const { addresses, loading, error, create, update, remove } = useAddresses();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const [rowError, setRowError] = useState(null);
+  const [rowBusy, setRowBusy] = useState(false);
 
   useEffect(() => {
     if (!selectedId && addresses.length > 0) {
@@ -1247,33 +1055,86 @@ export default function AddressSelector({ selectedId, onSelect }) {
     );
   }
 
+  async function handleDelete(id) {
+    setRowBusy(true);
+    setRowError(null);
+    try {
+      await remove(id);
+      setConfirmingDeleteId(null);
+    } catch (err) {
+      setRowError(err.message ?? 'Could not delete address');
+    } finally {
+      setRowBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <ul className="flex flex-col gap-2 list-none p-0 m-0">
-        {addresses.map((a) => (
-          <li key={a.id}>
-            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedId === a.id ? 'border-accent bg-cream/60' : 'border-line bg-surface hover:bg-cream/40'}`}>
-              <input
-                type="radio"
-                name="address"
-                value={a.id}
-                checked={selectedId === a.id}
-                onChange={() => onSelect(a.id)}
-                className="mt-1 accent-accent"
-              />
-              <div className="text-sm text-ink leading-relaxed">
-                <div className="font-medium">{a.line1}{a.line2 ? `, ${a.line2}` : ''}</div>
-                <div className="text-muted text-xs">{a.city}, {a.state} {a.postalCode} · {a.country}</div>
+        {addresses.map((a) => {
+          if (editingId === a.id) {
+            return (
+              <li key={a.id}>
+                <AddressForm
+                  initial={a}
+                  submitLabel="Save changes"
+                  onSubmit={async (payload) => {
+                    await update(a.id, payload);
+                    setEditingId(null);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              </li>
+            );
+          }
+          const isSelected = selectedId === a.id;
+          const isConfirming = confirmingDeleteId === a.id;
+          return (
+            <li key={a.id}>
+              <div className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${isSelected ? 'border-accent bg-cream/60' : 'border-line bg-surface'}`}>
+                <label className="flex items-start gap-3 flex-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="address"
+                    value={a.id}
+                    checked={isSelected}
+                    onChange={() => onSelect(a.id)}
+                    className="mt-1 accent-accent"
+                  />
+                  <div className="text-sm text-ink leading-relaxed">
+                    <div className="font-medium">{a.line1}{a.line2 ? `, ${a.line2}` : ''}</div>
+                    <div className="text-muted text-xs">{a.city}, {a.state} {a.postalCode} · {a.country}</div>
+                  </div>
+                </label>
+                <div className="flex items-center gap-1 shrink-0">
+                  {isConfirming ? (
+                    <>
+                      <button type="button" disabled={rowBusy} onClick={() => handleDelete(a.id)} className="text-xs px-2 py-1 rounded-md bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50">
+                        {rowBusy ? '…' : 'Confirm'}
+                      </button>
+                      <button type="button" disabled={rowBusy} onClick={() => { setConfirmingDeleteId(null); setRowError(null); }} className="text-xs px-2 py-1 rounded-md text-muted hover:text-ink">
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => setEditingId(a.id)} aria-label="Edit address" className="w-7 h-7 grid place-items-center rounded-md text-muted hover:text-accent hover:bg-cream transition-colors">
+                        <PencilIcon />
+                      </button>
+                      <button type="button" onClick={() => { setConfirmingDeleteId(a.id); setRowError(null); }} aria-label="Delete address" className="w-7 h-7 grid place-items-center rounded-md text-muted hover:text-danger hover:bg-danger/5 transition-colors">
+                        <TrashIcon />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            </label>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
-      <div className="flex justify-between items-center pt-1">
-        <Link to="/me" className="text-xs text-muted hover:text-accent underline underline-offset-2">
-          Manage addresses
-        </Link>
-        {showAddForm ? null : (
+      {rowError && <p className="text-danger text-xs">{rowError}</p>}
+      <div className="flex justify-end pt-1">
+        {!showAddForm && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
@@ -1404,7 +1265,7 @@ Add a new section immediately above the existing `<dl>` inside the `<aside>` sum
 
 - [ ] **Step 5: Manual verification**
 
-Run `npm run dev`. As a logged-in user with zero addresses, navigate to checkout: the inline "Add an address" form appears, Place order is disabled. Save an address; it pre-selects, Place order enables. Place an order; confirmation screen shows, order persists. In Studio, verify the new order row has the six `shipping_*` fields populated. As a second user, check that their addresses are not visible in the selector. Try a stale addressId (delete the selected address from /me in another tab, then place order) — expect a 403 surfaced as "That address is not available. Pick another."
+Run `npm run dev`. As a logged-in user with zero addresses, navigate to checkout: the inline "Add an address" form appears, Place order is disabled. Save an address; it pre-selects, Place order enables. Add a second address; the selection stays on the first. Edit an address inline; values persist. Delete an address via the inline confirm; if the deleted one was selected, selection falls back to the first remaining. Place an order; confirmation screen shows, order persists. In Studio, verify the new order row has the six `shipping_*` fields populated. As a second user, confirm their addresses are not visible in the selector.
 
 - [ ] **Step 6: Commit**
 
@@ -1415,7 +1276,7 @@ git commit -m "feat(checkout): require and snapshot a shipping address at order 
 
 ---
 
-## Task 9: Admin OrderDetailDrawer shows shipping address
+## Task 8: Admin OrderDetailDrawer shows shipping address
 
 **Files:**
 - Modify: `frontend/src/components/admin/OrderDetailDrawer.jsx`
@@ -1460,7 +1321,7 @@ git commit -m "feat(admin): show shipping address in order detail drawer"
 
 ---
 
-## Task 10: Documentation + verification sweep
+## Task 9: Documentation + verification sweep
 
 **Files:**
 - Modify: `docs/data-and-api.md` (if present)
@@ -1479,7 +1340,7 @@ Run all three concurrently (or sequentially):
 
 - [ ] **Step 3: End-to-end manual smoke**
 
-Log in as a new user → /me → add an address → edit it → delete it → add another. Add items to cart → checkout → confirm the selector preselects → place order → order confirmation. Log in as admin → Orders → open the new order → shipping address visible. Verify `orders.shipping_*` in Studio for that row.
+Log in as a new user → add items to cart → checkout. Confirm zero-address flow: inline form shows, Place order disabled. Add an address → selected, button enabled. Add a second, edit it, delete it — selection handled correctly. Place order → confirmation screen. Log in as admin → Orders → open the new order → shipping address visible. Verify `orders.shipping_*` in Studio for that row.
 
 - [ ] **Step 4: Commit docs if any**
 

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import BakedGoodCard from '../components/cards/BakedGoodCard.jsx'
+import BakedGoodCardSkeleton from '../components/cards/BakedGoodCardSkeleton.jsx'
+import Skeleton from '../components/Skeleton.jsx'
 import CategoryNav from '../components/CategoryNav.jsx'
 import { CATEGORIES } from '../lib/categories.js'
 
@@ -41,6 +43,7 @@ function sortProducts(items, sortBy) {
 export default function ShopPage({ cart, onIncrement, onDecrement }) {
   const [bakedGoods, setBakedGoods] = useState([])
   const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState(null)
   const [sortBy, setSortBy] = useState('default')
 
@@ -55,6 +58,8 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
         if (cancelled) return
         console.error('error: ', err)
         setError('Failed to load products.')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     })()
     return () => { cancelled = true }
@@ -80,14 +85,16 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
       <div className="p-8 max-sm:px-4 max-sm:py-5">
         {error ? (
           <p className={STATUS_CLS}>{error}</p>
-        ) : !bakedGoods.length ? (
-          <p className={STATUS_CLS}>Loading…</p>
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
-              <p className="m-0 text-sm text-muted">
-                {visible.length} item{visible.length === 1 ? '' : 's'}
-              </p>
+              {loading ? (
+                <Skeleton className="h-4 w-14" />
+              ) : (
+                <p className="m-0 text-sm text-muted">
+                  {visible.length} item{visible.length === 1 ? '' : 's'}
+                </p>
+              )}
               <label className="flex items-center gap-3 text-sm text-muted max-sm:justify-between">
                 <span>Sort by</span>
                 <select
@@ -104,15 +111,19 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
               </label>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-              {visible.map((item) => (
-                <BakedGoodCard
-                  key={item.id}
-                  item={item}
-                  qty={cart[item.id]?.qty ?? 0}
-                  onIncrement={() => onIncrement(item)}
-                  onDecrement={() => onDecrement(item)}
-                />
-              ))}
+              {loading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <BakedGoodCardSkeleton key={i} />
+                  ))
+                : visible.map((item) => (
+                    <BakedGoodCard
+                      key={item.id}
+                      item={item}
+                      qty={cart[item.id]?.qty ?? 0}
+                      onIncrement={() => onIncrement(item)}
+                      onDecrement={() => onDecrement(item)}
+                    />
+                  ))}
             </div>
           </>
         )}

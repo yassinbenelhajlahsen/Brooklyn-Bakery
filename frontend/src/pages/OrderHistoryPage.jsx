@@ -6,6 +6,7 @@ import Ornament from '../components/Ornament.jsx'
 import ReasonPromptModal from '../components/ReasonPromptModal.jsx'
 import { fetchMyOrders, userCancelOrder, userReturnOrder, updateOrderAddress } from '../services/orderService.js'
 import OrderCard from '../components/cards/OrderCard.jsx'
+import OrderCardSkeleton from '../components/cards/OrderCardSkeleton.jsx'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -146,8 +147,10 @@ export default function OrderHistoryPage() {
         </div>
 
         {loading ? (
-          <div className="bg-surface border border-line rounded-xl px-8 py-12 text-center text-muted">
-            Loading order history...
+          <div className="grid gap-5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <OrderCardSkeleton key={i} />
+            ))}
           </div>
         ) : error ? (
           <div className="bg-surface border border-line rounded-xl px-8 py-12 text-center text-danger">

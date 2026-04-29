@@ -18,7 +18,7 @@ export default function OrderCardSkeleton() {
 
       <ul className="mt-4 grid gap-3 list-none p-0 m-0">
         {[0, 1].map((i) => (
-          <li key={i} className="flex items-center gap-4 rounded-xl border border-line bg-cream/30 p-3">
+          <li key={i} className="flex items-center gap-4 rounded-xl border border-line bg-cream/30 p-3 max-sm:items-start">
             <Skeleton className="h-16 w-16 rounded-lg" />
             <div className="min-w-0 flex-1 flex flex-col gap-2">
               <Skeleton className="h-4 w-2/3" />

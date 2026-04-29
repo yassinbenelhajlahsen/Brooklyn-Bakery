@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import ReviewCard from './ReviewCard.jsx'
+import ReviewsSkeleton from './ReviewsSkeleton.jsx'
 
 function StarPicker({ value, onChange }) {
   const [hovered, setHovered] = useState(0)
@@ -29,6 +30,7 @@ function StarPicker({ value, onChange }) {
 
 export default function ReviewsSection({ productId, productName, authedFetch, isAuthenticated, openLogin, user }) {
   const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [formData, setFormData] = useState({ rating: 5, text: '' })
   const [formError, setFormError] = useState('')
@@ -36,10 +38,12 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${productId}/reviews`)
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setReviews(data.reviews) })
       .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [productId])
 
@@ -78,7 +82,7 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
       if (res.ok || res.status === 204) {
         setReviews((prev) => prev.filter((r) => r.id !== review.id))
       }
-    } catch {}
+    } catch { /* swallow */ }
   }
 
   const handleEdit = async (_review, { rating, text }) => {
@@ -193,7 +197,9 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
 
       {/* Reviews List */}
       <div className="space-y-3">
-        {reviews.length === 0 ? (
+        {loading ? (
+          <ReviewsSkeleton />
+        ) : reviews.length === 0 ? (
           <p className="text-muted text-[14px] py-4">
             No reviews yet. Be the first to review {productName}!
           </p>

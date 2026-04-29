@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import QuantityControl from '../components/QuantityControl.jsx'
 import ReviewsSection from '../components/ReviewsSection.jsx'
+import ProductDetailSkeleton from '../components/ProductDetailSkeleton.jsx'
 import { useAuth } from '../auth/useAuth.js'
 
 const BACK_BTN = clsx(
@@ -50,7 +51,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   if (loading) {
     return (
       <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
-        <p className="text-center text-muted py-12">Loading…</p>
+        <ProductDetailSkeleton />
       </main>
     )
   }

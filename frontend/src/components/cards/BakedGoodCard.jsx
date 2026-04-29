@@ -10,7 +10,7 @@ export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
 
   return (
     <article className="bg-surface border border-line rounded-xl overflow-hidden flex flex-col transition-[transform,box-shadow] duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-card cursor-pointer" onClick={handleCardClick}>
-      <div className="relative aspect-square bg-cream">
+      <div className="relative aspect-square bg-cream overflow-hidden">
         <img
           className="w-full h-full object-cover block"
           src={item.imageUrl}

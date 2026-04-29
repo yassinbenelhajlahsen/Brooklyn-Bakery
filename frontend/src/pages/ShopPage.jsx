@@ -89,7 +89,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
           <>
             <div className="mb-6 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
               {loading ? (
-                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-14" />
               ) : (
                 <p className="m-0 text-sm text-muted">
                   {visible.length} item{visible.length === 1 ? '' : 's'}

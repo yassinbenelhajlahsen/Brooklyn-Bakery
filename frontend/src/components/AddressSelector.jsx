@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAddresses } from '../hooks/useAddresses.js';
 import AddressForm from './AddressForm.jsx';
+import Skeleton from './Skeleton.jsx';
 
 function PencilIcon() {
   return (
@@ -39,7 +40,21 @@ export default function AddressSelector({ selectedId, onSelect }) {
   }, [addresses, selectedId, onSelect]);
 
   if (loading) {
-    return <p className="text-muted text-sm">Loading addresses…</p>;
+    return (
+      <ul className="flex flex-col gap-2 list-none p-0 m-0">
+        {[0, 1].map((i) => (
+          <li key={i}>
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-line bg-surface">
+              <Skeleton className="h-4 w-4 mt-1 rounded-full shrink-0" />
+              <div className="flex-1 flex flex-col gap-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
   }
 
   if (error) {

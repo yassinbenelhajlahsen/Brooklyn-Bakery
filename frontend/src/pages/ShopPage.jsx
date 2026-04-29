@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import BakedGoodCard from '../components/cards/BakedGoodCard.jsx'
 import BakedGoodCardSkeleton from '../components/cards/BakedGoodCardSkeleton.jsx'
+import Skeleton from '../components/Skeleton.jsx'
 import CategoryNav from '../components/CategoryNav.jsx'
 import { CATEGORIES } from '../lib/categories.js'
 
@@ -85,11 +86,17 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
         {error ? (
           <p className={STATUS_CLS}>{error}</p>
         ) : loading ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <BakedGoodCardSkeleton key={i} />
-            ))}
-          </div>
+          <>
+            <div className="mb-6 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-[39px] w-52 rounded-lg max-sm:w-full" />
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <BakedGoodCardSkeleton key={i} />
+              ))}
+            </div>
+          </>
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">

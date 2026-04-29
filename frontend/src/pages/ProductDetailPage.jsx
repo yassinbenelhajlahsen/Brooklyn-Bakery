@@ -51,6 +51,11 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   if (loading) {
     return (
       <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
+        <div className="mb-6 flex justify-start">
+          <button onClick={() => navigate('/')} className={BACK_BTN}>
+            Back to Shop
+          </button>
+        </div>
         <ProductDetailSkeleton />
       </main>
     )

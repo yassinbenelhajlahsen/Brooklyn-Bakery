@@ -85,24 +85,16 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
       <div className="p-8 max-sm:px-4 max-sm:py-5">
         {error ? (
           <p className={STATUS_CLS}>{error}</p>
-        ) : loading ? (
-          <>
-            <div className="mb-6 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-[39px] w-52 rounded-lg max-sm:w-full" />
-            </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <BakedGoodCardSkeleton key={i} />
-              ))}
-            </div>
-          </>
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
-              <p className="m-0 text-sm text-muted">
-                {visible.length} item{visible.length === 1 ? '' : 's'}
-              </p>
+              {loading ? (
+                <Skeleton className="h-4 w-20" />
+              ) : (
+                <p className="m-0 text-sm text-muted">
+                  {visible.length} item{visible.length === 1 ? '' : 's'}
+                </p>
+              )}
               <label className="flex items-center gap-3 text-sm text-muted max-sm:justify-between">
                 <span>Sort by</span>
                 <select
@@ -119,15 +111,19 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
               </label>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-              {visible.map((item) => (
-                <BakedGoodCard
-                  key={item.id}
-                  item={item}
-                  qty={cart[item.id]?.qty ?? 0}
-                  onIncrement={() => onIncrement(item)}
-                  onDecrement={() => onDecrement(item)}
-                />
-              ))}
+              {loading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <BakedGoodCardSkeleton key={i} />
+                  ))
+                : visible.map((item) => (
+                    <BakedGoodCard
+                      key={item.id}
+                      item={item}
+                      qty={cart[item.id]?.qty ?? 0}
+                      onIncrement={() => onIncrement(item)}
+                      onDecrement={() => onDecrement(item)}
+                    />
+                  ))}
             </div>
           </>
         )}

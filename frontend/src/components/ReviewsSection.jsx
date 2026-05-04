@@ -28,7 +28,7 @@ function StarPicker({ value, onChange }) {
   )
 }
 
-export default function ReviewsSection({ productId, productName, authedFetch, isAuthenticated, openLogin, user }) {
+export default function ReviewsSection({ productSlug, productName, authedFetch, isAuthenticated, openLogin, user }) {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
@@ -39,20 +39,20 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${productId}/reviews`)
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${productSlug}/reviews`)
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setReviews(data.reviews) })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [productId])
+  }, [productSlug])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
     setSubmitting(true)
     try {
-      const res = await authedFetch(`/products/${productId}/reviews`, {
+      const res = await authedFetch(`/products/${productSlug}/reviews`, {
         method: 'POST',
         body: JSON.stringify({ rating: formData.rating, text: formData.text.trim() || null }),
       })
@@ -78,7 +78,7 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
 
   const handleDelete = async (review) => {
     try {
-      const res = await authedFetch(`/products/${productId}/reviews`, { method: 'DELETE' })
+      const res = await authedFetch(`/products/${productSlug}/reviews`, { method: 'DELETE' })
       if (res.ok || res.status === 204) {
         setReviews((prev) => prev.filter((r) => r.id !== review.id))
       }
@@ -86,7 +86,7 @@ export default function ReviewsSection({ productId, productName, authedFetch, is
   }
 
   const handleEdit = async (_review, { rating, text }) => {
-    const res = await authedFetch(`/products/${productId}/reviews`, {
+    const res = await authedFetch(`/products/${productSlug}/reviews`, {
       method: 'PATCH',
       body: JSON.stringify({ rating, text: text.trim() || null }),
     })

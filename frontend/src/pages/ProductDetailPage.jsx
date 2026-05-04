@@ -15,7 +15,7 @@ const BACK_BTN = clsx(
 )
 
 export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
-  const { id } = useParams()
+  const { slug } = useParams()
   const navigate = useNavigate()
   const { authedFetch, user, openLogin } = useAuth()
   const isAuthenticated = !!user
@@ -28,7 +28,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
     ;(async () => {
       try {
         setLoading(true)
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${id}`)
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${slug}`)
         if (!cancelled) {
           if (response.status === 404) {
             setError('Product not found.')
@@ -46,7 +46,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
       }
     })()
     return () => { cancelled = true }
-  }, [id])
+  }, [slug])
 
   if (loading) {
     return (
@@ -135,7 +135,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
           </div>
 
           <ReviewsSection
-            productId={product.id}
+            productSlug={slug}
             productName={product.name}
             authedFetch={authedFetch}
             isAuthenticated={isAuthenticated}

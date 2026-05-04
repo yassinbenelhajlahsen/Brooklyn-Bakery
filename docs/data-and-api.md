@@ -117,12 +117,12 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 
 | Method | Path | Auth | Controller | Contract |
 | --- | --- | --- | --- | --- |
-| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name`. Filters `archived_at IS NULL`. Each product includes `avgRating` (float or null) and `reviewCount` (int). |
-| GET | `/products/:id` | public | `productsController.getProduct` | Single product with `avgRating` + `reviewCount`. 404 if missing or archived. |
-| GET | `/products/:id/reviews` | public | `reviewsController.getProductReviews` | `{ reviews: Review[] }` newest first, each with `user.displayName`. |
-| POST | `/products/:id/reviews` | user | `reviewsController.createReview` | Body `{ rating: 1..5, text?: string }`. Text is trimmed; blank → null. 201 with review. 400 invalid rating. 409 if caller already reviewed this product. |
-| PATCH | `/products/:id/reviews` | user | `reviewsController.updateReview` | Updates the caller's own review for this product. Same body. 404 if they have none. |
-| DELETE | `/products/:id/reviews` | user | `reviewsController.deleteReview` | Deletes the caller's own review. 204. 404 if none. |
+| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`. Filters `archived_at IS NULL`. Each product includes `avgRating` (float or null), `reviewCount` (int), and `createdAt` (ISO timestamp). Optional `?search=<string>` (trimmed; case-insensitive substring) filters by name OR description; matched items also carry a `score` field (`2` = name match, `1` = description-only) so the client can rank by relevance. When `search` is absent, items are ordered by `type, name`. When `search` is present, server ordering is unspecified — the client orders by `score`. |
+| GET | `/products/:slug` | public | `productsController.getProduct` | Single product with `avgRating` + `reviewCount`. `:slug` is a name-based slug (e.g. `almond-croissant`); products with duplicate names get an 8-char UUID prefix suffix (e.g. `almond-croissant-a0c0708f`). 404 if missing or archived. |
+| GET | `/products/:slug/reviews` | public | `reviewsController.getProductReviews` | `{ reviews: Review[] }` newest first, each with `user.displayName`. |
+| POST | `/products/:slug/reviews` | user | `reviewsController.createReview` | Body `{ rating: 1..5, text?: string }`. Text is trimmed; blank → null. 201 with review. 400 invalid rating. 409 if caller already reviewed this product. |
+| PATCH | `/products/:slug/reviews` | user | `reviewsController.updateReview` | Updates the caller's own review for this product. Same body. 404 if they have none. |
+| DELETE | `/products/:slug/reviews` | user | `reviewsController.deleteReview` | Deletes the caller's own review. 204. 404 if none. |
 | GET | `/me` | user | `meController.getMe` | `{ user: { id, email, displayName, balance, role } }` |
 | POST | `/me/clicks` | user | `meController.flushClicks` | Body `{ delta: int > 0, elapsedMs: int > 0 }`. Credits up to `floor(effectiveElapsedMs / 1000) * 10 + 20` to `users.balance` (silently caps on excess), updates `last_click_flush_at`. Returns `{ balance, credited }`. 400 on invalid body. |
 | GET | `/cart` | user | `cartController.getCart` | `{ items: (CartItem & { product })[] }` |

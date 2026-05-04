@@ -49,7 +49,7 @@ export default function App() {
         </Route>
 
         <Route
-          path="/product/:id"
+          path="/product/:slug"
           element={
             <ProductDetailPage
               cart={cart}

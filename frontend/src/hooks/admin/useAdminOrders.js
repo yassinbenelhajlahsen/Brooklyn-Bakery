@@ -18,6 +18,7 @@ export function useAdminOrders() {
   const refresh = useCallback(async () => {
     const reqId = ++requestIdRef.current;
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
     try {
       const args = { take: PAGE_SIZE, skip: 0, ...(status ? { status } : {}) };

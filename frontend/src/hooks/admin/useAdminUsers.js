@@ -17,6 +17,7 @@ export function useAdminUsers() {
   const refresh = useCallback(async () => {
     const reqId = ++requestIdRef.current;
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
     try {
       const data = await api.listUsers(authedFetch, { take: PAGE_SIZE, skip: 0 });

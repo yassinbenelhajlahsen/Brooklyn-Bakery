@@ -19,6 +19,7 @@ export function useAdminProducts() {
   const refresh = useCallback(async () => {
     const reqId = ++requestIdRef.current;
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
     try {
       const data = await api.listProducts(authedFetch, {

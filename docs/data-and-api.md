@@ -117,7 +117,7 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 
 | Method | Path | Auth | Controller | Contract |
 | --- | --- | --- | --- | --- |
-| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`, ordered by `type, name`. Filters `archived_at IS NULL`. Each product includes `avgRating` (float or null) and `reviewCount` (int). |
+| GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`. Filters `archived_at IS NULL`. Each product includes `avgRating` (float or null), `reviewCount` (int), and `createdAt` (ISO timestamp). Optional `?search=<string>` (trimmed; case-insensitive substring) filters by name OR description; matched items also carry a `score` field (`2` = name match, `1` = description-only) so the client can rank by relevance. When `search` is absent, items are ordered by `type, name`. When `search` is present, server ordering is unspecified — the client orders by `score`. |
 | GET | `/products/:slug` | public | `productsController.getProduct` | Single product with `avgRating` + `reviewCount`. `:slug` is a name-based slug (e.g. `almond-croissant`); products with duplicate names get an 8-char UUID prefix suffix (e.g. `almond-croissant-a0c0708f`). 404 if missing or archived. |
 | GET | `/products/:slug/reviews` | public | `reviewsController.getProductReviews` | `{ reviews: Review[] }` newest first, each with `user.displayName`. |
 | POST | `/products/:slug/reviews` | user | `reviewsController.createReview` | Body `{ rating: 1..5, text?: string }`. Text is trimmed; blank → null. 201 with review. 400 invalid rating. 409 if caller already reviewed this product. |

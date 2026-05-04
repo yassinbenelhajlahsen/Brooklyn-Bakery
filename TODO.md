@@ -1,10 +1,10 @@
 ## Missing from Tier 1:
-- [ ] Product search by name — no search bar in the UI and no backend ?search= query param. This is a core tier 1 requirement.
-- [ ] "Sort by newest arrivals" — you have price and top-rated, but not newest (by createdAt).
+- [x] Product search by name — no search bar in the UI and no backend ?search= query param. This is a core tier 1 requirement.
+- [x] "Sort by newest arrivals" — you have price and top-rated, but not newest (by createdAt).
 
 ## Missing from Tier 2:
 - [ ] Re-order button — order history page exists but there's no "re-order with one click" action (no frontend button, no backend endpoint).
-- [ ] User profile edit page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
+- [ ] User profile page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
 
 ## Missing from Tier 3:
 - [ ] Toast notifications — no library installed; wire to cart/checkout/order actions

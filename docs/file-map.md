@@ -25,7 +25,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `routes/adminRoutes.js` | Order routes inline (`GET /orders`, `GET /orders/:id`, `POST /orders/:id/transition`) and mounts `/products` + `/users` sub-routers |
 | `routes/adminProductsRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `POST /:id/archive`, `POST /:id/unarchive` |
 | `routes/adminUsersRoutes.js` | `GET /`, `GET /:id`, `PATCH /:id/role`, `POST /:id/balance` |
-| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; attaches `avgRating` + `reviewCount` via a single `review.groupBy`; `getProduct` resolves the slug to a product via `findProductBySlug` |
+| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; attaches `avgRating` + `reviewCount` via a single `review.groupBy`; `getProducts` accepts `?search=` and delegates the where-clause + per-row scoring to `lib/products.js`; `getProduct` resolves the slug to a product via `findProductBySlug` |
 | `controllers/reviewsController.js` | `getProductReviews` (public), `createReview` / `updateReview` / `deleteReview` (authed, one review per product per user, enforced by unique index); all handlers resolve the slug param to a `productId` via an internal `resolveProductId` helper |
 | `controllers/addressesController.js` | `listAddresses`, `createAddress`, `updateAddress`, `deleteAddress` — ownership enforced via `userId` from `req.user` |
 | `lib/address.js` | Pure helpers: `normalizeAddressInput` (trim + validate required fields) and `snapshotAddress` (copies the 6 shipping fields onto an order-update payload) |
@@ -45,6 +45,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `lib/prisma.js` | PrismaClient singleton (survives nodemon reload in dev) |
 | `lib/supabase.js` | Admin Supabase client (uses `SUPABASE_SECRET_KEY`) |
 | `lib/cart.js` | Pure functions: `mergeCartItems`, `computeCartTotal` |
+| `lib/products.js` | Pure helpers for product search: `normalizeSearch` (trim/coerce), `buildProductWhere(search)` (Prisma where with OR over name + description, `mode: 'insensitive'`), `scoreProductMatch(product, search)` (`2` = name match, `1` = description-only, `null` otherwise) |
 | `lib/slugUtils.js` | `toNameSlug(name)` (kebab-case helper) and `findProductBySlug(slug, products)` — resolves a slug to a product object by name match first, then 8-char UUID prefix fallback |
 | `lib/clickCredit.js` | Pure rate-cap math: `computeCredit({ delta, elapsedMs, lastClickFlushAt, now })` + constants (`RATE_PER_SEC`, `BURST_BONUS`, `MAX_FIRST_WINDOW_MS`, `MAX_DELTA`, `MAX_ELAPSED_MS`) |
 | `lib/httpError.js` | `httpError(status, msg)` and `sendHttpError(res, err)` helpers |
@@ -63,6 +64,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `tests/clickCredit.test.js` | Tests for `computeCredit` rate-cap math |
 | `tests/orderStateMachine.test.js` | Tests for `resolveTransition` + `checkReturnWindow` — the pure pieces of the state machine. The I/O wrapper (`transition`) is covered by manual QA per project test conventions. |
 | `tests/address.test.js` | Tests for `lib/address.js` (`normalizeAddressInput`, `snapshotAddress`) |
+| `tests/products.search.test.js` | Tests for `lib/products.js` (`normalizeSearch`, `buildProductWhere`, `scoreProductMatch` — name vs description scoring, case-insensitivity, empty/whitespace handling) |
 
 ## `frontend/`
 
@@ -110,7 +112,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 
 | Path | Purpose |
 | --- | --- |
-| `src/pages/ShopPage.jsx` | Product grid at `/`; fetches `GET /products` on mount; supports category filter + sort (name / price asc-desc / Top Rated — sorts by `avgRating`, tie-breaks on `reviewCount`); computes each product's slug via `toProductSlug` (accounting for duplicate names) and passes it to `BakedGoodCard` |
+| `src/pages/ShopPage.jsx` | Product grid at `/`; debounced search input bound to `?q=` via `useSearchParams`; refetches `GET /products?search=…` whenever `q` changes (or `/products` when empty); category filter; sort options Featured / Newest arrivals (`createdAt desc`) / Price asc-desc / Top Rated, plus a Relevance option that appears only while `q` is non-empty (sorts by backend-supplied `score`). Auto-flips between Featured ↔ Relevance on `q` empty/non-empty transitions and on initial mount; preserves any explicitly chosen sort. Empty result with active query renders a "No products match…" message. Computes each product's slug via `toProductSlug`. |
 | `src/pages/ProductDetailPage.jsx` | `/product/:slug` — passes slug directly to `GET /products/:slug`, renders full description, qty control, and mounts `ReviewsSection` below |
 | `src/pages/EarnPage.jsx` | `/earn` — hosts the `<CookieClicker />` |
 | `src/pages/CheckoutPage.jsx` | Checkout review page: line items, balance, balance-after, `AddressSelector` (required before place-order), place-order |

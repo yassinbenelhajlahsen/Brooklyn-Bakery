@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { parseProductSlug } from '../lib/slugUtils.js';
+import { findProductBySlug } from '../lib/slugUtils.js';
 
 const PRODUCT_SELECT = {
   id: true,
@@ -41,12 +41,11 @@ export async function getProducts(_req, res) {
 }
 
 export async function getProduct(req, res) {
-  const id = parseProductSlug(req.params.slug);
-  if (!id) return res.status(404).json({ error: 'Product not found.' });
-  const product = await prisma.product.findFirst({
-    where: { id, archivedAt: null },
+  const allProducts = await prisma.product.findMany({
+    where: { archivedAt: null },
     select: PRODUCT_SELECT,
   });
+  const product = findProductBySlug(req.params.slug, allProducts);
   if (!product) return res.status(404).json({ error: 'Product not found.' });
   const [formatted] = await withRatings([product]);
   res.json(formatted);

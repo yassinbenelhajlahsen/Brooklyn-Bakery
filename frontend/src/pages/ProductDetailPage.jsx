@@ -5,7 +5,6 @@ import QuantityControl from '../components/QuantityControl.jsx'
 import ReviewsSection from '../components/ReviewsSection.jsx'
 import ProductDetailSkeleton from '../components/ProductDetailSkeleton.jsx'
 import { useAuth } from '../auth/useAuth.js'
-import { parseProductSlug } from '../lib/slugUtils.js'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -17,7 +16,6 @@ const BACK_BTN = clsx(
 
 export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   const { slug } = useParams()
-  const id = parseProductSlug(slug)
   const navigate = useNavigate()
   const { authedFetch, user, openLogin } = useAuth()
   const isAuthenticated = !!user
@@ -28,11 +26,6 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      if (!id) {
-        setError('Product not found.')
-        setLoading(false)
-        return
-      }
       try {
         setLoading(true)
         const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${slug}`)
@@ -53,7 +46,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
       }
     })()
     return () => { cancelled = true }
-  }, [slug, id])
+  }, [slug])
 
   if (loading) {
     return (

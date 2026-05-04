@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import BakedGoodCard from '../components/cards/BakedGoodCard.jsx'
+import { toProductSlug } from '../lib/slugUtils.js'
 import BakedGoodCardSkeleton from '../components/cards/BakedGoodCardSkeleton.jsx'
 import Skeleton from '../components/Skeleton.jsx'
 import CategoryNav from '../components/CategoryNav.jsx'
@@ -119,6 +120,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
                     <BakedGoodCard
                       key={item.id}
                       item={item}
+                      slug={toProductSlug(item.name, item.id, bakedGoods)}
                       qty={cart[item.id]?.qty ?? 0}
                       onIncrement={() => onIncrement(item)}
                       onDecrement={() => onDecrement(item)}

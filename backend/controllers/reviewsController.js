@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { parseProductSlug } from '../lib/slugUtils.js';
+import { findProductBySlug } from '../lib/slugUtils.js';
 
 const REVIEW_SELECT = {
   id: true,
@@ -10,8 +10,16 @@ const REVIEW_SELECT = {
   user: { select: { displayName: true } },
 };
 
+async function resolveProductId(slug) {
+  const products = await prisma.product.findMany({
+    where: { archivedAt: null },
+    select: { id: true, name: true },
+  });
+  return findProductBySlug(slug, products)?.id ?? null;
+}
+
 export async function getProductReviews(req, res) {
-  const productId = parseProductSlug(req.params.slug);
+  const productId = await resolveProductId(req.params.slug);
   if (!productId) return res.status(404).json({ error: 'Product not found.' });
   const reviews = await prisma.review.findMany({
     where: { productId },
@@ -23,7 +31,7 @@ export async function getProductReviews(req, res) {
 
 export async function createReview(req, res) {
   const { rating, text } = req.body;
-  const productId = parseProductSlug(req.params.slug);
+  const productId = await resolveProductId(req.params.slug);
   if (!productId) return res.status(404).json({ error: 'Product not found.' });
   const userId = req.user.id;
 
@@ -49,7 +57,7 @@ export async function createReview(req, res) {
 
 export async function updateReview(req, res) {
   const { rating, text } = req.body;
-  const productId = parseProductSlug(req.params.slug);
+  const productId = await resolveProductId(req.params.slug);
   if (!productId) return res.status(404).json({ error: 'Product not found.' });
   const userId = req.user.id;
 
@@ -75,7 +83,7 @@ export async function updateReview(req, res) {
 }
 
 export async function deleteReview(req, res) {
-  const productId = parseProductSlug(req.params.slug);
+  const productId = await resolveProductId(req.params.slug);
   if (!productId) return res.status(404).json({ error: 'Product not found.' });
   const userId = req.user.id;
 

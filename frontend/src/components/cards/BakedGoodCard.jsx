@@ -1,12 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import QuantityControl from '../QuantityControl.jsx'
-import { toProductSlug } from '../../lib/slugUtils.js'
 
-export default function BakedGoodCard({ item, qty, onIncrement, onDecrement }) {
+export default function BakedGoodCard({ item, slug, qty, onIncrement, onDecrement }) {
   const navigate = useNavigate()
 
   const handleCardClick = () => {
-    navigate(`/product/${toProductSlug(item.name, item.id)}`)
+    navigate(`/product/${slug}`)
   }
 
   return (

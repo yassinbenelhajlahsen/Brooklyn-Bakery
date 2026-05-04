@@ -1,33 +1,44 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseProductSlug } from '../lib/slugUtils.js';
+import { toNameSlug, findProductBySlug } from '../lib/slugUtils.js';
 
-const VALID_UUID = 'af521793-1234-5678-abcd-123456789abc';
-const HEX = 'af52179312345678abcd123456789abc'; // UUID with hyphens stripped
+const P1 = { id: 'a0c0708f-ecd9-4639-9b5c-0b3d4624520d', name: 'Almond Croissant' };
+const P2 = { id: 'b1d1819e-0000-0000-0000-000000000000', name: 'Chocolate Croissant' };
+const P3 = { id: 'c2e2920f-0000-0000-0000-000000000000', name: 'Almond Croissant' };
 
-test('parseProductSlug: extracts UUID from well-formed slug', () => {
-  assert.equal(parseProductSlug(`country-sourdough-loaf-${HEX}`), VALID_UUID);
+test('toNameSlug: converts name to kebab case', () => {
+  assert.equal(toNameSlug('Country Sourdough Loaf'), 'country-sourdough-loaf');
 });
 
-test('parseProductSlug: works when name slug has numbers', () => {
-  assert.equal(parseProductSlug(`product-42-${HEX}`), VALID_UUID);
+test('toNameSlug: strips special characters', () => {
+  assert.equal(toNameSlug('Olive & Rosemary Focaccia'), 'olive-rosemary-focaccia');
 });
 
-test('parseProductSlug: returns null when slug is too short', () => {
-  assert.equal(parseProductSlug('short'), null);
+test('toNameSlug: strips leading and trailing hyphens', () => {
+  assert.equal(toNameSlug("  Honey Whole Wheat  "), 'honey-whole-wheat');
 });
 
-test('parseProductSlug: returns null when last 32 chars contain non-hex', () => {
-  const badHex = 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'; // 32 non-hex chars
-  assert.equal(parseProductSlug(`some-product-${badHex}`), null);
+test('findProductBySlug: finds unique product by name slug', () => {
+  const result = findProductBySlug('almond-croissant', [P1, P2]);
+  assert.equal(result.id, P1.id);
 });
 
-test('parseProductSlug: returns null for non-string input', () => {
-  assert.equal(parseProductSlug(null), null);
-  assert.equal(parseProductSlug(undefined), null);
-  assert.equal(parseProductSlug(42), null);
+test('findProductBySlug: finds duplicate product by UUID prefix suffix', () => {
+  const result = findProductBySlug('almond-croissant-c2e2920f', [P1, P2, P3]);
+  assert.equal(result.id, P3.id);
 });
 
-test('parseProductSlug: returns null for bare 32-char hex with no name prefix', () => {
-  assert.equal(parseProductSlug(HEX), null);
+test('findProductBySlug: prefers name match over prefix match when slug is ambiguous', () => {
+  // P4 name slug is exactly 'product-a0c0708f' — name match wins over treating 'a0c0708f' as prefix
+  const P4 = { id: 'ffffffff-0000-0000-0000-000000000000', name: 'Product A0c0708f' };
+  const result = findProductBySlug('product-a0c0708f', [P1, P4]);
+  assert.equal(result.id, P4.id);
+});
+
+test('findProductBySlug: returns null for unknown slug', () => {
+  assert.equal(findProductBySlug('unknown-product', [P1, P2]), null);
+});
+
+test('findProductBySlug: returns null for empty products list', () => {
+  assert.equal(findProductBySlug('almond-croissant', []), null);
 });

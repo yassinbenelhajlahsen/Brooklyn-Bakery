@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/useAuth.js';
 import { computeCartSubtotal } from '../lib/cart.js';
 import { ICON_BTN } from '../lib/styles.js';
 import CartItemRow from './CartItemRow.jsx';
+
+const ROW_EXIT_MS = 320;
 
 export default function CartDrawer({
   open,
@@ -15,6 +17,41 @@ export default function CartDrawer({
   const entries = Object.values(cart);
   const subtotal = computeCartSubtotal(cart);
   const { requestCheckout } = useAuth();
+
+  const [exitingIds, setExitingIds] = useState(() => new Set());
+  const timeoutsRef = useRef(new Map());
+
+  useEffect(() => {
+    const timeouts = timeoutsRef.current;
+    return () => {
+      timeouts.forEach((id) => clearTimeout(id));
+      timeouts.clear();
+    };
+  }, []);
+
+  const handleDecrement = (item) => {
+    const currentQty = cart[item.id]?.qty ?? 0;
+    if (currentQty > 1) {
+      onDecrement(item);
+      return;
+    }
+    if (timeoutsRef.current.has(item.id)) return;
+    setExitingIds((prev) => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
+    const tid = setTimeout(() => {
+      onDecrement(item);
+      timeoutsRef.current.delete(item.id);
+      setExitingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }, ROW_EXIT_MS);
+    timeoutsRef.current.set(item.id, tid);
+  };
 
   const handleCheckout = () => {
     onClose();
@@ -63,8 +100,9 @@ export default function CartDrawer({
                   key={item.id}
                   item={item}
                   qty={qty}
+                  isExiting={exitingIds.has(item.id)}
                   onIncrement={() => onIncrement(item)}
-                  onDecrement={() => onDecrement(item)}
+                  onDecrement={() => handleDecrement(item)}
                 />
               ))}
             </ul>

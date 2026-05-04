@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import QuantityControl from './QuantityControl.jsx';
 
 export default function CartItemRow({
@@ -7,6 +8,7 @@ export default function CartItemRow({
   onDecrement,
   onRemove,
   variant = 'drawer',
+  isExiting = false,
 }) {
   if (variant === 'checkout') {
     return (
@@ -41,7 +43,12 @@ export default function CartItemRow({
   }
 
   return (
-    <li className="grid grid-cols-[64px_1fr_auto] gap-3 items-center px-6 py-4 border-b border-line">
+    <li
+      className={clsx(
+        "grid grid-cols-[64px_1fr_auto] gap-3 items-center px-6 py-4 border-b border-line",
+        isExiting && "overflow-hidden pointer-events-none animate-cart-row-exit motion-reduce:animate-none",
+      )}
+    >
       <img
         className="w-16 h-16 object-cover rounded-lg"
         src={item.imageUrl}

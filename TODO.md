@@ -4,7 +4,7 @@
 
 ## Missing from Tier 2:
 - [x] Re-order button — order history page exists but there's no "re-order with one click" action (no frontend button, no backend endpoint).
-- [ ] User profile page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
+- [x] User profile page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
 
 ## Missing from Tier 3:
 - [ ] Toast notifications — no library installed; wire to cart/checkout/order actions

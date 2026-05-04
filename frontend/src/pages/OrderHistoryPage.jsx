@@ -184,7 +184,7 @@ export default function OrderHistoryPage({ addItem }) {
     }
   }
 
-  if (!ready) return null
+  if (!ready) return <main className="flex-1" />
   if (!user) return <Navigate to="/" replace />
 
   return (

@@ -1,9 +1,16 @@
-export async function listOrders(authedFetch, { status } = {}) {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  const res = await authedFetch(`/admin/orders${qs}`);
+export async function listOrders(authedFetch, { status, take = 10, skip = 0 } = {}) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  params.set('take', String(take));
+  params.set('skip', String(skip));
+  const res = await authedFetch(`/admin/orders?${params}`);
   if (!res.ok) throw new Error('Failed to load orders');
   const body = await res.json();
-  return body.orders ?? [];
+  return {
+    items: body.items ?? [],
+    total: body.total ?? 0,
+    hasMore: body.hasMore ?? false,
+  };
 }
 
 export async function getOrder(authedFetch, id) {

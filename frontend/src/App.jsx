@@ -4,6 +4,7 @@ import Header from './components/Header.jsx'
 import ShopEarnShell from './components/ShopEarnShell.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
 import OrderHistoryPage from './pages/OrderHistoryPage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
 import ProductDetailPage from './pages/ProductDetailPage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/contact" element={<main className={MAIN_CLS}><ContactPage /></main>} />
         <Route path="/faq" element={<main className={MAIN_CLS}><FaqPage /></main>} />
         <Route path="/help" element={<main className={MAIN_CLS}><HelpPage /></main>} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/orders" element={<OrderHistoryPage addItem={addItem} />} />
         <Route
           path="/admin"

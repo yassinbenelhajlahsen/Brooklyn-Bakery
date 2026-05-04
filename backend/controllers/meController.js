@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { httpError, sendHttpError } from '../lib/httpError.js';
 import { creditClicks } from '../services/clickService.js';
+import { normalizeDisplayName } from '../lib/displayName.js';
 
 export async function getMe(req, res) {
     try {
@@ -18,6 +19,29 @@ export async function getMe(req, res) {
     } catch (err) {
         console.error('getMe failed:', err);
         res.status(500).json({ error: 'Failed to load profile' });
+    }
+}
+
+export async function updateMe(req, res) {
+    try {
+        const result = normalizeDisplayName(req.body?.displayName);
+        if (!result.ok) {
+            return sendHttpError(res, httpError(400, result.error));
+        }
+        const profile = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { displayName: result.value },
+            select: {
+                id: true,
+                displayName: true,
+                balance: true,
+                role: true,
+            },
+        });
+        res.json({ user: { ...profile, email: req.user.email } });
+    } catch (err) {
+        console.error('updateMe failed:', err);
+        res.status(500).json({ error: 'Failed to update profile' });
     }
 }
 

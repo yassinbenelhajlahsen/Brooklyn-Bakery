@@ -82,6 +82,7 @@ export function useCart() {
   const increment = (item) => setQty(item, (cart[item.id]?.qty ?? 0) + 1)
   const decrement = (item) => setQty(item, (cart[item.id]?.qty ?? 0) - 1)
   const removeItem = (item) => setQty(item, 0)
+  const addItem = (item, qty) => setQty(item, (cart[item.id]?.qty ?? 0) + qty)
   const clearCart = () => {
     setCart({})
     if (session?.access_token) {
@@ -91,5 +92,5 @@ export function useCart() {
 
   const itemCount = useMemo(() => computeCartItemCount(cart), [cart])
 
-  return { cart, itemCount, increment, decrement, removeItem, clearCart }
+  return { cart, itemCount, increment, decrement, removeItem, addItem, clearCart }
 }

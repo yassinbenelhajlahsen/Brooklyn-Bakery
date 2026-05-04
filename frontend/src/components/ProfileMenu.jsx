@@ -105,7 +105,10 @@ export default function ProfileMenu() {
           <MenuItem
             icon={<UserIcon className="w-[18px] h-[18px]" />}
             label="Profile"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              navigate('/profile');
+            }}
           />
           <MenuItem
             icon={<PackageIcon className="w-[18px] h-[18px]" />}

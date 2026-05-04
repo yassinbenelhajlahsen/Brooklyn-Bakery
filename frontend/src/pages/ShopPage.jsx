@@ -9,6 +9,7 @@ import { CATEGORIES } from '../lib/categories.js'
 
 const STATUS_CLS = "text-center text-muted py-12"
 const SEARCH_DEBOUNCE_MS = 250
+const PAGE_SIZE = 20
 
 const SORT_OPTIONS = [
   { value: 'relevance', label: 'Relevance', searchOnly: true },
@@ -74,6 +75,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
   const [activeCategory, setActiveCategory] = useState(null)
   const [sortBy, setSortBy] = useState(urlQuery.trim() ? 'relevance' : 'default')
   const [inputValue, setInputValue] = useState(urlQuery)
+  const [limit, setLimit] = useState(PAGE_SIZE)
 
   const prevHasQueryRef = useRef(urlQuery.trim().length > 0)
 
@@ -92,6 +94,10 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
     }, SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(handle)
   }, [inputValue, urlQuery, setSearchParams])
+
+  useEffect(() => {
+    setLimit(PAGE_SIZE)
+  }, [urlQuery, activeCategory])
 
   useEffect(() => {
     const hasQuery = urlQuery.trim().length > 0
@@ -140,6 +146,9 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
 
   const hasQuery = urlQuery.trim().length > 0
   const sortOptions = SORT_OPTIONS.filter((opt) => !opt.searchOnly || hasQuery)
+  const paged = visible.slice(0, limit)
+  const hasMore = visible.length > limit
+  const gridSig = `${activeCategory ?? 'all'}|${sortBy}|${urlQuery.trim()}`
 
   return (
     <>
@@ -191,22 +200,39 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
             {!loading && hasQuery && visible.length === 0 ? (
               <p className={STATUS_CLS}>No products match &ldquo;{urlQuery.trim()}&rdquo;.</p>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-                {loading
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <ProductCardSkeleton key={i} />
-                    ))
-                  : visible.map((item) => (
-                      <ProductCard
-                        key={item.id}
-                        item={item}
-                        slug={toProductSlug(item.name, item.id, bakedGoods)}
-                        qty={cart[item.id]?.qty ?? 0}
-                        onIncrement={() => onIncrement(item)}
-                        onDecrement={() => onDecrement(item)}
-                      />
-                    ))}
-              </div>
+              <>
+                <div
+                  key={loading ? 'loading' : gridSig}
+                  className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6"
+                >
+                  {loading
+                    ? Array.from({ length: 8 }).map((_, i) => (
+                        <ProductCardSkeleton key={i} />
+                      ))
+                    : paged.map((item, i) => (
+                        <ProductCard
+                          key={item.id}
+                          item={item}
+                          slug={toProductSlug(item.name, item.id, bakedGoods)}
+                          qty={cart[item.id]?.qty ?? 0}
+                          onIncrement={() => onIncrement(item)}
+                          onDecrement={() => onDecrement(item)}
+                          className="animate-card-rise motion-reduce:animate-none"
+                          style={{ animationDelay: `${Math.min(i, 11) * 35}ms` }}
+                        />
+                      ))}
+                </div>
+                {!loading && hasMore && (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      className="rounded-lg border border-line bg-surface px-6 py-2.5 text-sm text-ink transition-shadow hover:shadow-card"
+                      onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+                    >
+                      See more
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

@@ -3,8 +3,8 @@
 - [x] "Sort by newest arrivals" — you have price and top-rated, but not newest (by createdAt).
 
 ## Missing from Tier 2:
-- [ ] Re-order button — order history page exists but there's no "re-order with one click" action (no frontend button, no backend endpoint).
-- [ ] User profile page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
+- [x] Re-order button — order history page exists but there's no "re-order with one click" action (no frontend button, no backend endpoint).
+- [x] User profile page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
 
 ## Missing from Tier 3:
 - [ ] Toast notifications — no library installed; wire to cart/checkout/order actions
@@ -12,7 +12,7 @@
 - [ ] OAuth login — no Google/GitHub/Apple provider (Supabase supports it, needs UI)
 - [ ] Out-of-stock subscription — no way to notify users when a product is restocked
 - [ ] Customer support chatbot
-- [ ] Pagination — all products load at once, no page-based or infinite scroll
+- [x] Pagination — all products load at once, no page-based or infinite scroll
 - [ ] Wishlist / favorites
 - [ ] Product comparison
 - [ ] Promo codes / discounts

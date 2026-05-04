@@ -58,7 +58,7 @@ export default function CheckoutPage({
   removeItem,
   clearCart,
 }) {
-  const { user, profile } = useAuth();
+  const { user, profile, ready } = useAuth();
   const navigate = useNavigate();
 
   const [order, setOrder] = useState(null);
@@ -70,6 +70,7 @@ export default function CheckoutPage({
     },
   });
 
+  if (!ready) return null;
   if (!user) return <Navigate to="/" replace />;
 
   const entries = Object.values(cart);
@@ -82,7 +83,7 @@ export default function CheckoutPage({
   if (order) {
     const shortId = order.id.slice(-8);
     return (
-      <div className="w-full animate-checkout-rise motion-reduce:animate-none">
+      <div className="w-full">
         <CheckoutHeader
           eyebrow="Confirmed"
           title="Order placed"
@@ -111,7 +112,7 @@ export default function CheckoutPage({
 
   if (entries.length === 0) {
     return (
-      <div className="w-full animate-checkout-rise motion-reduce:animate-none">
+      <div className="w-full">
         <CheckoutHeader
           eyebrow="Checkout"
           title="Nothing to review yet"
@@ -130,7 +131,7 @@ export default function CheckoutPage({
   }
 
   return (
-    <div className="w-full animate-checkout-rise motion-reduce:animate-none">
+    <div className="w-full">
       <CheckoutHeader
         eyebrow="Checkout"
         title="Review your order"

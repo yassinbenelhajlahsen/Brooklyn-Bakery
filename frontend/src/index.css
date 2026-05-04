@@ -43,6 +43,9 @@
     --animate-float-up: floatUp 1s ease-out forwards;
     --animate-checkout-rise: checkout-rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
     --animate-checkout-rise-quick: checkout-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    --animate-page-rise: page-rise 460ms var(--ease-rise) both;
+    --animate-card-rise: card-rise 360ms var(--ease-rise) both;
+    --animate-cart-row-exit: cart-row-exit 320ms var(--ease-rise) both;
     --animate-shimmer: shimmer 1.4s infinite linear;
 }
 
@@ -82,6 +85,40 @@
 @keyframes checkout-rise {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes page-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes card-rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cart-row-exit {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+        max-height: 140px;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-bottom-width: 1px;
+    }
+    40% {
+        opacity: 0;
+        transform: translateX(48px);
+        max-height: 140px;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-bottom-width: 1px;
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(48px);
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom-width: 0;
+    }
 }
 @keyframes shimmer {
     0%   { background-position: -200% 0; }

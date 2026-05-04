@@ -27,8 +27,8 @@ function OrderHeader() {
   )
 }
 
-export default function OrderHistoryPage() {
-  const { user, authedFetch } = useAuth()
+export default function OrderHistoryPage({ addItem }) {
+  const { user, ready, authedFetch } = useAuth()
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,6 +38,9 @@ export default function OrderHistoryPage() {
   const [pendingAddressId, setPendingAddressId] = useState(null)
   const [addressSaving, setAddressSaving] = useState(false)
   const [addressError, setAddressError] = useState(null)
+  const [productMap, setProductMap] = useState(null)
+  const [productsError, setProductsError] = useState(null)
+  const [skippedByOrderId, setSkippedByOrderId] = useState({})
 
   async function refresh() {
     const data = await fetchMyOrders(authedFetch)
@@ -68,6 +71,54 @@ export default function OrderHistoryPage() {
     loadOrders()
     return () => { cancelled = true }
   }, [user, authedFetch])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const data = await response.json()
+        if (cancelled) return
+        const map = new Map((data.items ?? []).map((p) => [p.id, p]))
+        setProductMap(map)
+        setProductsError(null)
+      } catch (err) {
+        if (cancelled) return
+        console.error('Failed to load products for reorder', err)
+        setProductsError(err?.message ?? 'Could not load products.')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  function handleReorder(order) {
+    if (!productMap) return
+    let skipped = 0
+    let added = 0
+    for (const entry of order.items) {
+      const product = productMap.get(entry.productId)
+      if (product) {
+        addItem(product, entry.quantity)
+        added += 1
+      } else {
+        skipped += 1
+      }
+    }
+    if (skipped > 0) {
+      setSkippedByOrderId((prev) => ({ ...prev, [order.id]: skipped }))
+    } else {
+      setSkippedByOrderId((prev) => {
+        if (!(order.id in prev)) return prev
+        const next = { ...prev }
+        delete next[order.id]
+        return next
+      })
+    }
+    if (added > 0) {
+      navigate('/checkout')
+    }
+  }
 
   async function handleCancel(order) {
     if (order.status === 'confirmed') {
@@ -133,11 +184,12 @@ export default function OrderHistoryPage() {
     }
   }
 
+  if (!ready) return <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5" />
   if (!user) return <Navigate to="/" replace />
 
   return (
     <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
-      <div className="w-full animate-checkout-rise motion-reduce:animate-none">
+      <div className="w-full">
         <OrderHeader />
 
         <div className="mb-6 flex justify-start">
@@ -147,8 +199,8 @@ export default function OrderHistoryPage() {
         </div>
 
         {loading ? (
-          <div className="grid gap-5">
-            {Array.from({ length: 3 }).map((_, i) => (
+          <div className="grid gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
               <OrderCardSkeleton key={i} />
             ))}
           </div>
@@ -161,7 +213,7 @@ export default function OrderHistoryPage() {
             You have not placed any orders yet.
           </div>
         ) : (
-          <div className="grid gap-5">
+          <div className="grid gap-4 md:grid-cols-2">
             {orders.map((order) => (
               <OrderCard
                 key={order.id}
@@ -176,6 +228,15 @@ export default function OrderHistoryPage() {
                 onSaveAddress={saveAddress}
                 onCancel={handleCancel}
                 onReturn={handleReturn}
+                onReorder={handleReorder}
+                reorderDisabledReason={
+                  productsError
+                    ? 'Could not load products — refresh to try again.'
+                    : !productMap
+                      ? 'Loading products…'
+                      : null
+                }
+                skippedCount={skippedByOrderId[order.id] ?? 0}
               />
             ))}
           </div>

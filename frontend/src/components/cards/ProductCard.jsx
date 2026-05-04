@@ -1,7 +1,8 @@
+import clsx from 'clsx'
 import { useNavigate } from 'react-router-dom'
 import QuantityControl from '../QuantityControl.jsx'
 
-export default function ProductCard({ item, slug, qty, onIncrement, onDecrement }) {
+export default function ProductCard({ item, slug, qty, onIncrement, onDecrement, className, style }) {
   const navigate = useNavigate()
 
   const handleCardClick = () => {
@@ -9,7 +10,14 @@ export default function ProductCard({ item, slug, qty, onIncrement, onDecrement 
   }
 
   return (
-    <article className="bg-surface border border-line rounded-xl overflow-hidden flex flex-col transition-[transform,box-shadow] duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-card cursor-pointer" onClick={handleCardClick}>
+    <article
+      className={clsx(
+        "bg-surface border border-line rounded-xl overflow-hidden flex flex-col transition-[transform,box-shadow] duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-card cursor-pointer",
+        className,
+      )}
+      style={style}
+      onClick={handleCardClick}
+    >
       <div className="relative aspect-square bg-cream overflow-hidden">
         <img
           className="w-full h-full object-cover block"

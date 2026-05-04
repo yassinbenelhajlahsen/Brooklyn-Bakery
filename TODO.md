@@ -12,7 +12,7 @@
 - [ ] OAuth login — no Google/GitHub/Apple provider (Supabase supports it, needs UI)
 - [ ] Out-of-stock subscription — no way to notify users when a product is restocked
 - [ ] Customer support chatbot
-- [ ] Pagination — all products load at once, no page-based or infinite scroll
+- [x] Pagination — all products load at once, no page-based or infinite scroll
 - [ ] Wishlist / favorites
 - [ ] Product comparison
 - [ ] Promo codes / discounts

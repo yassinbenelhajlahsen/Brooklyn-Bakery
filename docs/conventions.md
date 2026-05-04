@@ -33,13 +33,21 @@
 
 - **`services/`** — pure async API functions. Signature: `(authedFetch, ...args) => Promise<T>`. No React, no context, no module-level fetch client. Errors either return `null` (best-effort) or throw a typed error (e.g. `PlaceOrderError` in `orderService.js`).
 - **`hooks/`** — stateful wrappers. A hook reads `authedFetch` from `useAuth()` on each render and passes it into services at call time — don't snapshot `authedFetch` into a ref or closure, or token refresh breaks.
-- **`lib/`** — pure helpers (math, transforms, constants). No React imports. Mirror backend helper names where parallel (`computeCartSubtotal` ↔ `computeCartTotal`).
+- **`lib/`** — pure helpers (math, transforms, constants). No React imports. Mirror backend helper names where parallel (`computeCartSubtotal` ↔ `computeCartTotal`, `toNameSlug` ↔ `toNameSlug`).
 - **Components** consume hooks; they don't import from `services/` directly.
 - **Subdirectories for large feature surfaces.** When a feature adds three or more service/hook files, nest them under a subdirectory (`services/admin/`, `hooks/admin/`). Small features stay flat. `components/admin/` and `components/icons/` follow the same rule. The default is still flat — only nest when the feature has its own vocabulary.
 
 ### Admin mutation pattern (in-place list updates)
 
 Admin hooks don't refetch the full list after a mutation — the backend returns the updated entity and the hook splices it into local state. If an active filter would exclude the updated item (e.g. status filter on orders, `includeArchived=false` on a newly-archived product), drop it from the list instead. Initial loads and explicit "Refresh" clicks still call the list endpoint. Pattern lives in `hooks/admin/useAdminOrders.js`, `useAdminProducts.js`, `useAdminUsers.js` — copy the shape when adding new admin mutations.
+
+## Product URL slugs
+
+Product detail pages use name-based slugs (`/product/almond-croissant`) rather than UUIDs. When two products share the same name, an 8-character UUID prefix is appended to disambiguate (`/product/almond-croissant-a0c0708f`). Key invariants:
+
+- `frontend/src/lib/slugUtils.toProductSlug(name, id, allProducts)` generates the slug — it checks `allProducts` for name collisions before deciding whether to append the suffix.
+- `backend/lib/slugUtils.findProductBySlug(slug, products)` resolves a slug back to a product: name match wins; if no name match and the slug ends with 8 hex chars, it falls back to a UUID prefix scan on the loaded product list.
+- If a product is renamed its URL changes. There is no slug column in the DB; slugs are derived on the fly.
 
 ## Environment variables
 

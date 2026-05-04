@@ -17,7 +17,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | --- | --- |
 | `server.js` | Express app, middleware, route mounts |
 | `.env.example` | Backend env template (`PORT`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`) |
-| `routes/productsRoutes.js` | `GET /`, `GET /:id`, plus per-product review endpoints (`GET /:id/reviews` public; `POST` / `PATCH` / `DELETE /:id/reviews` authed) |
+| `routes/productsRoutes.js` | `GET /`, `GET /:slug`, plus per-product review endpoints (`GET /:slug/reviews` public; `POST` / `PATCH` / `DELETE /:slug/reviews` authed) |
 | `routes/addressesRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` — mounted at `/me/addresses` |
 | `routes/cartRoutes.js` | `GET`, `DELETE`, `POST /merge`, `PUT /items/:productId` |
 | `routes/meRoutes.js` | `GET /`, `POST /clicks` |
@@ -25,8 +25,8 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `routes/adminRoutes.js` | Order routes inline (`GET /orders`, `GET /orders/:id`, `POST /orders/:id/transition`) and mounts `/products` + `/users` sub-routers |
 | `routes/adminProductsRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `POST /:id/archive`, `POST /:id/unarchive` |
 | `routes/adminUsersRoutes.js` | `GET /`, `GET /:id`, `PATCH /:id/role`, `POST /:id/balance` |
-| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; attaches `avgRating` + `reviewCount` via a single `review.groupBy` |
-| `controllers/reviewsController.js` | `getProductReviews` (public), `createReview` / `updateReview` / `deleteReview` (authed, one review per product per user, enforced by unique index) |
+| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; attaches `avgRating` + `reviewCount` via a single `review.groupBy`; `getProduct` resolves the slug to a product via `findProductBySlug` |
+| `controllers/reviewsController.js` | `getProductReviews` (public), `createReview` / `updateReview` / `deleteReview` (authed, one review per product per user, enforced by unique index); all handlers resolve the slug param to a `productId` via an internal `resolveProductId` helper |
 | `controllers/addressesController.js` | `listAddresses`, `createAddress`, `updateAddress`, `deleteAddress` — ownership enforced via `userId` from `req.user` |
 | `lib/address.js` | Pure helpers: `normalizeAddressInput` (trim + validate required fields) and `snapshotAddress` (copies the 6 shipping fields onto an order-update payload) |
 | `controllers/cartController.js` | Cart CRUD; `mergeCart` delegates to `services/cartService` |
@@ -45,6 +45,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `lib/prisma.js` | PrismaClient singleton (survives nodemon reload in dev) |
 | `lib/supabase.js` | Admin Supabase client (uses `SUPABASE_SECRET_KEY`) |
 | `lib/cart.js` | Pure functions: `mergeCartItems`, `computeCartTotal` |
+| `lib/slugUtils.js` | `toNameSlug(name)` (kebab-case helper) and `findProductBySlug(slug, products)` — resolves a slug to a product object by name match first, then 8-char UUID prefix fallback |
 | `lib/clickCredit.js` | Pure rate-cap math: `computeCredit({ delta, elapsedMs, lastClickFlushAt, now })` + constants (`RATE_PER_SEC`, `BURST_BONUS`, `MAX_FIRST_WINDOW_MS`, `MAX_DELTA`, `MAX_ELAPSED_MS`) |
 | `lib/httpError.js` | `httpError(status, msg)` and `sendHttpError(res, err)` helpers |
 | `prisma/schema.prisma` | Data model (User, Product, CartItem, Order, OrderItem, Review, Address) + enums (`OrderStatus`, `ProductType`, `UserRole`) |
@@ -57,6 +58,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `prisma/migrations/20260424053144_add_reviews/` | Creates `reviews` table with `(product_id, user_id)` unique index |
 | `prisma/migrations/20260424000001_make_review_text_optional/` | Makes `reviews.text` nullable (rating-only reviews) |
 | `prisma/migrations/20260424120000_add_addresses_and_order_shipping/` | Creates `addresses` table; adds six nullable `shipping_*` snapshot columns to `orders` |
+| `tests/slugUtils.test.js` | Tests for `toNameSlug` and `findProductBySlug` (node:test) |
 | `tests/cart.test.js` | Tests for pure cart helpers (node:test) |
 | `tests/clickCredit.test.js` | Tests for `computeCredit` rate-cap math |
 | `tests/orderStateMachine.test.js` | Tests for `resolveTransition` + `checkReturnWindow` — the pure pieces of the state machine. The I/O wrapper (`transition`) is covered by manual QA per project test conventions. |
@@ -73,7 +75,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `eslint.config.js` | ESLint flat config with React hooks + refresh rules |
 | `index.html` | Vite HTML entry |
 | `src/main.jsx` | React root; wraps `<App />` in `<BrowserRouter>` and `<AuthProvider>` |
-| `src/App.jsx` | Top-level layout + routes (`/`, `/earn`, `/checkout`, `/product/:id`, `/about`, `/story`, `/contact`, `/faq`, `/help`, `/orders`, `/admin`); owns cart state and cart-drawer visibility for the shop shell |
+| `src/App.jsx` | Top-level layout + routes (`/`, `/earn`, `/checkout`, `/product/:slug`, `/about`, `/story`, `/contact`, `/faq`, `/help`, `/orders`, `/admin`); owns cart state and cart-drawer visibility for the shop shell |
 | `src/index.css` | Base resets and CSS custom properties (color tokens: `--color-ink`, `--color-cream`, etc.) |
 
 ### Auth + hooks + services + lib
@@ -100,6 +102,7 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `src/services/admin/adminUsersService.js` | `listUsers`, `getUser(id)`, `updateRole(id, role)`, `adjustBalance(id, delta)` |
 | `src/lib/supabase.js` | Browser Supabase client (publishable key) |
 | `src/lib/cart.js` | Pure helpers: `computeCartSubtotal`, `computeCartItemCount`, `toHydratedCart` |
+| `src/lib/slugUtils.js` | `toNameSlug(name)` (kebab-case) and `toProductSlug(name, id, allProducts)` — appends an 8-char UUID prefix only when another product in the list has the same name slug |
 | `src/lib/categories.js` | `CATEGORIES` constant |
 | `src/lib/styles.js` | Shared Tailwind class-string constants (e.g. `ICON_BTN`) |
 
@@ -107,8 +110,8 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 
 | Path | Purpose |
 | --- | --- |
-| `src/pages/ShopPage.jsx` | Product grid at `/`; fetches `GET /products` on mount; supports category filter + sort (name / price asc-desc / Top Rated — sorts by `avgRating`, tie-breaks on `reviewCount`) |
-| `src/pages/ProductDetailPage.jsx` | `/product/:id` — fetches product via `GET /products/:id`, renders full description, qty control, and mounts `ReviewsSection` below |
+| `src/pages/ShopPage.jsx` | Product grid at `/`; fetches `GET /products` on mount; supports category filter + sort (name / price asc-desc / Top Rated — sorts by `avgRating`, tie-breaks on `reviewCount`); computes each product's slug via `toProductSlug` (accounting for duplicate names) and passes it to `BakedGoodCard` |
+| `src/pages/ProductDetailPage.jsx` | `/product/:slug` — passes slug directly to `GET /products/:slug`, renders full description, qty control, and mounts `ReviewsSection` below |
 | `src/pages/EarnPage.jsx` | `/earn` — hosts the `<CookieClicker />` |
 | `src/pages/CheckoutPage.jsx` | Checkout review page: line items, balance, balance-after, `AddressSelector` (required before place-order), place-order |
 | `src/pages/OrderHistoryPage.jsx` | `/orders` — customer order list with `StatusBadge`, shipping-address snapshot, "Change address" action while `confirmed` (uses `AddressSelector`), conditional Cancel / Request-cancellation / Request-return buttons per status, hides Request-* when `decisionReason` is set, enforces 48h return window, prompts for reason via `ReasonPromptModal` |
@@ -134,8 +137,9 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `src/components/StatusBadge.jsx` | Colored pill for any `OrderStatus`; used by both customer (`OrderHistoryPage`) and admin surfaces |
 | `src/components/ReasonPromptModal.jsx` | Fixed-overlay modal with a textarea + Cancel/Submit. `required` prop rejects empty submit with inline error. ESC closes. Used on customer side only for cancel/return prompts — admin uses an inline textarea inside the drawer. |
 | `src/components/CookieClicker.jsx` | Cookie clicker UI; consumes `useCookieClicker`, renders the floating `+1` animation, shows "Log in to save your points" for guests |
-| `src/components/cards/BakedGoodCard.jsx` | Product card with qty controls; renders `avgRating` star row + review count; links to `/product/:id` |
-| `src/components/ReviewsSection.jsx` | Per-product reviews block: list + star-picker composer. Handles create / inline edit / delete of the caller's own review via `/products/:id/reviews` endpoints. |
+| `src/components/cards/ProductCard.jsx` | Product card with qty controls; renders `avgRating` star row + review count; accepts a `slug` prop and navigates to `/product/:slug` on click |
+| `src/components/cards/ProductCardSkeleton.jsx` | Loading skeleton matching `ProductCard` layout |
+| `src/components/ReviewsSection.jsx` | Per-product reviews block: list + star-picker composer. Handles create / inline edit / delete of the caller's own review via `/products/:slug/reviews` endpoints; receives `productSlug` prop. |
 | `src/components/ReviewCard.jsx` | Single review row (display name, stars, text, created date); owner sees inline edit + delete icon buttons |
 | `src/components/AddressForm.jsx` | Address create / edit form (line1, line2?, city, state, postalCode, country) with trim + required-field validation; tolerates null `line2` on edit |
 | `src/components/AddressSelector.jsx` | Radio list of the caller's saved addresses + "New address" button; embeds `AddressForm` for create / edit. Used by checkout and by order-history "change address". |

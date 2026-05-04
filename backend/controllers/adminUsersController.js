@@ -1,27 +1,40 @@
 import { prisma } from '../lib/prisma.js';
 import { sendHttpError, httpError } from '../lib/httpError.js';
+import { parsePagination } from '../lib/pagination.js';
 
-export async function listUsers(_req, res) {
-    const users = await prisma.user.findMany({
-        orderBy: { createdAt: 'desc' },
-        select: {
-            id: true,
-            displayName: true,
-            role: true,
-            balance: true,
-            createdAt: true,
-            _count: { select: { orders: true } },
-        },
-    });
-    const shaped = users.map((u) => ({
-        id: u.id,
-        displayName: u.displayName,
-        role: u.role,
-        balance: u.balance,
-        createdAt: u.createdAt,
-        orderCount: u._count.orders,
-    }));
-    res.json({ users: shaped });
+export async function listUsers(req, res) {
+    try {
+        const { take, skip } = parsePagination(req.query);
+        const [rawItems, total] = await Promise.all([
+            prisma.user.findMany({
+                orderBy: { createdAt: 'desc' },
+                take,
+                skip,
+                select: {
+                    id: true,
+                    displayName: true,
+                    role: true,
+                    balance: true,
+                    createdAt: true,
+                    _count: { select: { orders: true } },
+                },
+            }),
+            prisma.user.count(),
+        ]);
+        const items = rawItems.map((u) => ({
+            id: u.id,
+            displayName: u.displayName,
+            role: u.role,
+            balance: u.balance,
+            createdAt: u.createdAt,
+            orderCount: u._count.orders,
+        }));
+        res.json({ items, total, hasMore: skip + items.length < total });
+    } catch (err) {
+        if (err.http) return sendHttpError(res, err);
+        console.error('listUsers failed:', err);
+        res.status(500).json({ error: 'Failed to load users' });
+    }
 }
 
 export async function getUser(req, res) {

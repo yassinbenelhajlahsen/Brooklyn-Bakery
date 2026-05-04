@@ -42,10 +42,12 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        <div className="grid gap-5 max-w-3xl">
+        <div className="grid gap-5 max-w-5xl">
           <AccountSection />
-          <AddressesSection />
-          <SecuritySection />
+          <div className="grid gap-5 md:grid-cols-2">
+            <AddressesSection />
+            <SecuritySection />
+          </div>
         </div>
       </div>
     </main>

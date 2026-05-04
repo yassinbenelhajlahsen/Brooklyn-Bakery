@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import BakedGoodCard from '../components/cards/BakedGoodCard.jsx'
+import ProductCard from '../components/cards/ProductCard.jsx'
 import { toProductSlug } from '../lib/slugUtils.js'
-import BakedGoodCardSkeleton from '../components/cards/BakedGoodCardSkeleton.jsx'
+import ProductCardSkeleton from '../components/cards/ProductCardSkeleton.jsx'
 import Skeleton from '../components/Skeleton.jsx'
 import CategoryNav from '../components/CategoryNav.jsx'
 import { CATEGORIES } from '../lib/categories.js'
@@ -114,10 +114,10 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
               {loading
                 ? Array.from({ length: 8 }).map((_, i) => (
-                    <BakedGoodCardSkeleton key={i} />
+                    <ProductCardSkeleton key={i} />
                   ))
                 : visible.map((item) => (
-                    <BakedGoodCard
+                    <ProductCard
                       key={item.id}
                       item={item}
                       slug={toProductSlug(item.name, item.id, bakedGoods)}

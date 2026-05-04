@@ -1,6 +1,6 @@
 import Skeleton from '../Skeleton.jsx'
 
-export default function BakedGoodCardSkeleton() {
+export default function ProductCardSkeleton() {
   return (
     <article className="bg-surface border border-line rounded-xl overflow-hidden flex flex-col">
       <Skeleton className="aspect-square w-full rounded-none" />

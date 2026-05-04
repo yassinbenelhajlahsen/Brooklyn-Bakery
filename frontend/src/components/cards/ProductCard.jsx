@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import QuantityControl from '../QuantityControl.jsx'
 
-export default function BakedGoodCard({ item, slug, qty, onIncrement, onDecrement }) {
+export default function ProductCard({ item, slug, qty, onIncrement, onDecrement }) {
   const navigate = useNavigate()
 
   const handleCardClick = () => {

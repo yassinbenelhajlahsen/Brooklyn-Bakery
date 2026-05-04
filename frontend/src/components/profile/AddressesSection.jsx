@@ -1,11 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../../auth/useAuth.js';
-import {
-  fetchAddresses,
-  createAddress,
-  updateAddress,
-  deleteAddress,
-} from '../../services/addressesService.js';
+import { useState } from 'react';
+import { useAddresses } from '../../hooks/useAddresses.js';
 import AddressForm from '../AddressForm.jsx';
 
 const SECTION_CLS = 'bg-surface border border-line rounded-xl p-6';
@@ -25,45 +19,20 @@ function formatAddress(a) {
 }
 
 export default function AddressesSection() {
-  const { authedFetch } = useAuth();
-  const [addresses, setAddresses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  const { addresses, loading, error: loadError, create, update, remove } = useAddresses();
   const [actionError, setActionError] = useState(null);
   const [mode, setMode] = useState({ kind: 'idle' });
   const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const data = await fetchAddresses(authedFetch);
-        if (!cancelled) setAddresses(data ?? []);
-      } catch (err) {
-        if (!cancelled) setLoadError(err?.message ?? 'Could not load addresses.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [authedFetch]);
-
   async function handleCreate(payload) {
     setActionError(null);
-    const created = await createAddress(authedFetch, payload);
-    setAddresses((prev) => [...prev, created]);
+    await create(payload);
     setMode({ kind: 'idle' });
   }
 
   async function handleUpdate(id, payload) {
     setActionError(null);
-    const updated = await updateAddress(authedFetch, id, payload);
-    setAddresses((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    await update(id, payload);
     setMode({ kind: 'idle' });
   }
 
@@ -71,8 +40,7 @@ export default function AddressesSection() {
     setActionError(null);
     setBusyId(id);
     try {
-      await deleteAddress(authedFetch, id);
-      setAddresses((prev) => prev.filter((a) => a.id !== id));
+      await remove(id);
     } catch (err) {
       setActionError(err?.message ?? 'Could not delete address.');
     } finally {
@@ -125,8 +93,8 @@ export default function AddressesSection() {
                   ) : (
                     <div className="flex items-start justify-between gap-3">
                       <div className="text-sm text-ink leading-snug">
-                        {formatAddress(a).map((line, i) => (
-                          <div key={i}>{line}</div>
+                        {formatAddress(a).map((line) => (
+                          <div key={line}>{line}</div>
                         ))}
                       </div>
                       <div className="flex gap-2 shrink-0">

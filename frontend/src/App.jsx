@@ -33,17 +33,7 @@ export default function App() {
   const { cart, itemCount, increment, decrement, removeItem, addItem, clearCart } = useCart()
 
   const shellLayout = (
-    <>
-      <ShopEarnShell cart={cart} onIncrement={increment} onDecrement={decrement} />
-      <CartDrawer
-        open={cartOpen}
-        cart={cart}
-        onClose={() => setCartOpen(false)}
-        onIncrement={increment}
-        onDecrement={decrement}
-        onClear={clearCart}
-      />
-    </>
+    <ShopEarnShell cart={cart} onIncrement={increment} onDecrement={decrement} />
   )
 
   return (
@@ -103,6 +93,14 @@ export default function App() {
         </Routes>
       </PageTransition>
       <Footer />
+      <CartDrawer
+        open={cartOpen}
+        cart={cart}
+        onClose={() => setCartOpen(false)}
+        onIncrement={increment}
+        onDecrement={decrement}
+        onClear={clearCart}
+      />
       <LoginModal />
     </div>
   )

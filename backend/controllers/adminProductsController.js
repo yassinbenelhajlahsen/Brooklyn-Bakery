@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { sendHttpError, httpError } from '../lib/httpError.js';
+import { parsePagination } from '../lib/pagination.js';
 
 const PRODUCT_TYPES = new Set(['bread', 'pastry', 'cake', 'cookie', 'drink']);
 
@@ -29,8 +30,11 @@ const ADMIN_PRODUCT_SELECT = {
 };
 
 async function withAdminRatings(products) {
+    if (products.length === 0) return [];
+    const productIds = products.map(p => p.id);
     const aggs = await prisma.review.groupBy({
         by: ['productId'],
+        where: { productId: { in: productIds } },
         _avg: { rating: true },
     });
     const avgMap = Object.fromEntries(aggs.map(a => [a.productId, a._avg.rating]));
@@ -49,14 +53,39 @@ async function withAdminRatings(products) {
     }));
 }
 
+const PRODUCT_SORTS = {
+    newest:     [{ createdAt: 'desc' }],
+    popularity: [{ reviews: { _count: 'desc' } }, { createdAt: 'desc' }],
+};
+
 export async function listProducts(req, res) {
-    const includeArchived = req.query.includeArchived === 'true';
-    const products = await prisma.product.findMany({
-        where: includeArchived ? undefined : { archivedAt: null },
-        orderBy: { createdAt: 'desc' },
-        select: ADMIN_PRODUCT_SELECT,
-    });
-    res.json({ products: await withAdminRatings(products) });
+    try {
+        const includeArchived = req.query.includeArchived === 'true';
+        const sortKey = req.query.sort ?? 'newest';
+        if (!PRODUCT_SORTS[sortKey]) {
+            throw httpError(400, 'Invalid sort');
+        }
+        const { take, skip } = parsePagination(req.query);
+        const where = includeArchived ? undefined : { archivedAt: null };
+
+        const [rawItems, total] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                orderBy: PRODUCT_SORTS[sortKey],
+                take,
+                skip,
+                select: ADMIN_PRODUCT_SELECT,
+            }),
+            prisma.product.count({ where }),
+        ]);
+
+        const items = await withAdminRatings(rawItems);
+        res.json({ items, total, hasMore: skip + items.length < total });
+    } catch (err) {
+        if (err.http) return sendHttpError(res, err);
+        console.error('listProducts failed:', err);
+        res.status(500).json({ error: 'Failed to load products' });
+    }
 }
 
 export async function createProduct(req, res) {

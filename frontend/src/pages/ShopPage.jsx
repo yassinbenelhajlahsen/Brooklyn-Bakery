@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/cards/ProductCard.jsx'
 import { toProductSlug } from '../lib/slugUtils.js'
 import ProductCardSkeleton from '../components/cards/ProductCardSkeleton.jsx'
@@ -7,8 +8,12 @@ import CategoryNav from '../components/CategoryNav.jsx'
 import { CATEGORIES } from '../lib/categories.js'
 
 const STATUS_CLS = "text-center text-muted py-12"
+const SEARCH_DEBOUNCE_MS = 250
+
 const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Relevance', searchOnly: true },
   { value: 'default', label: 'Featured' },
+  { value: 'newest', label: 'Newest arrivals' },
   { value: 'price-asc', label: 'Price: Low to High' },
   { value: 'price-desc', label: 'Price: High to Low' },
   { value: 'top-rated', label: 'Top Rated' },
@@ -16,6 +21,24 @@ const SORT_OPTIONS = [
 
 function sortProducts(items, sortBy) {
   const sortedItems = [...items]
+
+  if (sortBy === 'relevance') {
+    sortedItems.sort((a, b) => {
+      const sa = a.score ?? 0
+      const sb = b.score ?? 0
+      return sb - sa || a.name.localeCompare(b.name)
+    })
+    return sortedItems
+  }
+
+  if (sortBy === 'newest') {
+    sortedItems.sort((a, b) => {
+      const da = new Date(a.createdAt).getTime()
+      const db = new Date(b.createdAt).getTime()
+      return db - da || a.name.localeCompare(b.name)
+    })
+    return sortedItems
+  }
 
   if (sortBy === 'price-asc') {
     sortedItems.sort((a, b) => a.price - b.price || a.name.localeCompare(b.name))
@@ -42,19 +65,60 @@ function sortProducts(items, sortBy) {
 }
 
 export default function ShopPage({ cart, onIncrement, onDecrement }) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlQuery = searchParams.get('q') ?? ''
+
   const [bakedGoods, setBakedGoods] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState(null)
-  const [sortBy, setSortBy] = useState('default')
+  const [sortBy, setSortBy] = useState(urlQuery.trim() ? 'relevance' : 'default')
+  const [inputValue, setInputValue] = useState(urlQuery)
+
+  const prevHasQueryRef = useRef(urlQuery.trim().length > 0)
+
+  useEffect(() => {
+    if (inputValue === urlQuery) return
+    const handle = setTimeout(() => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (inputValue.trim()) next.set('q', inputValue)
+          else next.delete('q')
+          return next
+        },
+        { replace: true },
+      )
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(handle)
+  }, [inputValue, urlQuery, setSearchParams])
+
+  useEffect(() => {
+    const hasQuery = urlQuery.trim().length > 0
+    const prevHadQuery = prevHasQueryRef.current
+    if (!prevHadQuery && hasQuery) {
+      setSortBy((current) => (current === 'default' ? 'relevance' : current))
+    } else if (prevHadQuery && !hasQuery) {
+      setSortBy((current) => (current === 'relevance' ? 'default' : current))
+    }
+    prevHasQueryRef.current = hasQuery
+  }, [urlQuery])
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     ;(async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
+        const trimmed = urlQuery.trim()
+        const url = trimmed
+          ? `${import.meta.env.VITE_BACKEND_URL}/products?search=${encodeURIComponent(trimmed)}`
+          : `${import.meta.env.VITE_BACKEND_URL}/products`
+        const response = await fetch(url)
         const data = await response.json()
-        if (!cancelled) setBakedGoods(data.items)
+        if (!cancelled) {
+          setBakedGoods(data.items)
+          setError(null)
+        }
       } catch (err) {
         if (cancelled) return
         console.error('error: ', err)
@@ -64,7 +128,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
       }
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [urlQuery])
 
   const visible = useMemo(() => {
     const filteredItems = activeCategory
@@ -73,6 +137,9 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
 
     return sortProducts(filteredItems, sortBy)
   }, [bakedGoods, activeCategory, sortBy])
+
+  const hasQuery = urlQuery.trim().length > 0
+  const sortOptions = SORT_OPTIONS.filter((opt) => !opt.searchOnly || hasQuery)
 
   return (
     <>
@@ -96,37 +163,51 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
                   {visible.length} item{visible.length === 1 ? '' : 's'}
                 </p>
               )}
-              <label className="flex items-center gap-3 text-sm text-muted max-sm:justify-between">
-                <span>Sort by</span>
-                <select
-                  className="min-w-52 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
-                  value={sortBy}
-                  onChange={(event) => setSortBy(event.target.value)}
-                >
-                  {SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
+                <input
+                  type="search"
+                  placeholder="Search products…"
+                  className="min-w-56 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card max-sm:min-w-0"
+                  value={inputValue}
+                  onChange={(event) => setInputValue(event.target.value)}
+                  aria-label="Search products"
+                />
+                <label className="flex items-center gap-3 text-sm text-muted max-sm:justify-between">
+                  <span>Sort by</span>
+                  <select
+                    className="min-w-52 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
+                    value={sortBy}
+                    onChange={(event) => setSortBy(event.target.value)}
+                  >
+                    {sortOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-              {loading
-                ? Array.from({ length: 8 }).map((_, i) => (
-                    <ProductCardSkeleton key={i} />
-                  ))
-                : visible.map((item) => (
-                    <ProductCard
-                      key={item.id}
-                      item={item}
-                      slug={toProductSlug(item.name, item.id, bakedGoods)}
-                      qty={cart[item.id]?.qty ?? 0}
-                      onIncrement={() => onIncrement(item)}
-                      onDecrement={() => onDecrement(item)}
-                    />
-                  ))}
-            </div>
+            {!loading && hasQuery && visible.length === 0 ? (
+              <p className={STATUS_CLS}>No products match &ldquo;{urlQuery.trim()}&rdquo;.</p>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
+                {loading
+                  ? Array.from({ length: 8 }).map((_, i) => (
+                      <ProductCardSkeleton key={i} />
+                    ))
+                  : visible.map((item) => (
+                      <ProductCard
+                        key={item.id}
+                        item={item}
+                        slug={toProductSlug(item.name, item.id, bakedGoods)}
+                        qty={cart[item.id]?.qty ?? 0}
+                        onIncrement={() => onIncrement(item)}
+                        onDecrement={() => onDecrement(item)}
+                      />
+                    ))}
+              </div>
+            )}
           </>
         )}
       </div>

@@ -37,9 +37,12 @@ export default function ProfilePage() {
       <div className="w-full animate-checkout-rise motion-reduce:animate-none">
         <ProfileHeader />
 
-        <div className="mb-6 flex justify-start">
+        <div className="mb-6 flex justify-between items-center">
           <button className={BACK_BTN} onClick={() => navigate('/')}>
             Back to home
+          </button>
+          <button className={BACK_BTN} onClick={() => navigate('/orders')}>
+            See recent orders
           </button>
         </div>
 

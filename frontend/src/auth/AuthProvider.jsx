@@ -11,12 +11,24 @@ const API_BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:3000';
 export function AuthProvider({ children }) {
     const [session, setSession] = useState(null);
     const [user, setUser] = useState(null);
+    const [ready, setReady] = useState(false);
     const [loginOpen, setLoginOpen] = useState(false);
     const [loginReason, setLoginReason] = useState(null);
     const [profile, setProfile] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
+        let cancelled = false;
+
+        // Seed from the persisted session before the listener fires, so guards
+        // don't see user=null on hard refresh and bounce to '/'.
+        supabase.auth.getSession().then(({ data }) => {
+            if (cancelled) return;
+            setSession(data.session ?? null);
+            setUser(data.session?.user ?? null);
+            setReady(true);
+        });
+
         const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
             setSession(next);
             setUser(next?.user ?? null);
@@ -30,7 +42,10 @@ export function AuthProvider({ children }) {
             }
         });
 
-        return () => listener.subscription.unsubscribe();
+        return () => {
+            cancelled = true;
+            listener.subscription.unsubscribe();
+        };
     }, []);
 
     useEffect(() => {
@@ -103,6 +118,7 @@ export function AuthProvider({ children }) {
     const value = useMemo(() => ({
         user,
         session,
+        ready,
         profile,
         loginOpen,
         loginReason,
@@ -117,6 +133,7 @@ export function AuthProvider({ children }) {
     }), [
         user,
         session,
+        ready,
         profile,
         loginOpen,
         loginReason,

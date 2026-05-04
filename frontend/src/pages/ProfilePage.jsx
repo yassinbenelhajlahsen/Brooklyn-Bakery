@@ -26,9 +26,10 @@ function ProfileHeader() {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const navigate = useNavigate();
 
+  if (!ready) return null;
   if (!user) return <Navigate to="/" replace />;
 
   return (

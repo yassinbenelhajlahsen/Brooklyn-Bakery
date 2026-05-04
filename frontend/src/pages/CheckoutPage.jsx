@@ -58,7 +58,7 @@ export default function CheckoutPage({
   removeItem,
   clearCart,
 }) {
-  const { user, profile } = useAuth();
+  const { user, profile, ready } = useAuth();
   const navigate = useNavigate();
 
   const [order, setOrder] = useState(null);
@@ -70,6 +70,7 @@ export default function CheckoutPage({
     },
   });
 
+  if (!ready) return null;
   if (!user) return <Navigate to="/" replace />;
 
   const entries = Object.values(cart);

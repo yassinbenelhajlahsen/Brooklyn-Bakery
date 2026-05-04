@@ -28,7 +28,7 @@ function OrderHeader() {
 }
 
 export default function OrderHistoryPage({ addItem }) {
-  const { user, authedFetch } = useAuth()
+  const { user, ready, authedFetch } = useAuth()
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -184,6 +184,7 @@ export default function OrderHistoryPage({ addItem }) {
     }
   }
 
+  if (!ready) return null
   if (!user) return <Navigate to="/" replace />
 
   return (

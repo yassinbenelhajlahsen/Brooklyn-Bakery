@@ -142,7 +142,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
           </div>
 
           <ReviewsSection
-            productId={product.id}
+            productSlug={slug}
             productName={product.name}
             authedFetch={authedFetch}
             isAuthenticated={isAuthenticated}

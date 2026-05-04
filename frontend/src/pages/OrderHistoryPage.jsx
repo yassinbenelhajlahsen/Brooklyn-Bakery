@@ -189,7 +189,7 @@ export default function OrderHistoryPage({ addItem }) {
 
   return (
     <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
-      <div className="w-full animate-checkout-rise motion-reduce:animate-none">
+      <div className="w-full">
         <OrderHeader />
 
         <div className="mb-6 flex justify-start">

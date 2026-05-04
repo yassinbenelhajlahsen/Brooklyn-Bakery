@@ -27,3 +27,7 @@ test('parseProductSlug: returns null for non-string input', () => {
   assert.equal(parseProductSlug(undefined), null);
   assert.equal(parseProductSlug(42), null);
 });
+
+test('parseProductSlug: returns null for bare 32-char hex with no name prefix', () => {
+  assert.equal(parseProductSlug(HEX), null);
+});

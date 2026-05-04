@@ -3,7 +3,7 @@
 - [x] "Sort by newest arrivals" — you have price and top-rated, but not newest (by createdAt).
 
 ## Missing from Tier 2:
-- [ ] Re-order button — order history page exists but there's no "re-order with one click" action (no frontend button, no backend endpoint).
+- [x] Re-order button — order history page exists but there's no "re-order with one click" action (no frontend button, no backend endpoint).
 - [ ] User profile page — the profile menu item navigates nowhere. There's a /me endpoint but no page to view/edit display name, etc.
 
 ## Missing from Tier 3:

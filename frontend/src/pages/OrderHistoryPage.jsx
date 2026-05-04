@@ -27,7 +27,7 @@ function OrderHeader() {
   )
 }
 
-export default function OrderHistoryPage() {
+export default function OrderHistoryPage({ addItem }) {
   const { user, authedFetch } = useAuth()
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
@@ -38,6 +38,9 @@ export default function OrderHistoryPage() {
   const [pendingAddressId, setPendingAddressId] = useState(null)
   const [addressSaving, setAddressSaving] = useState(false)
   const [addressError, setAddressError] = useState(null)
+  const [productMap, setProductMap] = useState(null)
+  const [productsError, setProductsError] = useState(null)
+  const [skippedByOrderId, setSkippedByOrderId] = useState({})
 
   async function refresh() {
     const data = await fetchMyOrders(authedFetch)
@@ -68,6 +71,54 @@ export default function OrderHistoryPage() {
     loadOrders()
     return () => { cancelled = true }
   }, [user, authedFetch])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const data = await response.json()
+        if (cancelled) return
+        const map = new Map((data.items ?? []).map((p) => [p.id, p]))
+        setProductMap(map)
+        setProductsError(null)
+      } catch (err) {
+        if (cancelled) return
+        console.error('Failed to load products for reorder', err)
+        setProductsError(err?.message ?? 'Could not load products.')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  function handleReorder(order) {
+    if (!productMap) return
+    let skipped = 0
+    let added = 0
+    for (const entry of order.items) {
+      const product = productMap.get(entry.productId)
+      if (product) {
+        addItem(product, entry.quantity)
+        added += 1
+      } else {
+        skipped += 1
+      }
+    }
+    if (skipped > 0) {
+      setSkippedByOrderId((prev) => ({ ...prev, [order.id]: skipped }))
+    } else {
+      setSkippedByOrderId((prev) => {
+        if (!(order.id in prev)) return prev
+        const next = { ...prev }
+        delete next[order.id]
+        return next
+      })
+    }
+    if (added > 0) {
+      navigate('/checkout')
+    }
+  }
 
   async function handleCancel(order) {
     if (order.status === 'confirmed') {
@@ -176,6 +227,15 @@ export default function OrderHistoryPage() {
                 onSaveAddress={saveAddress}
                 onCancel={handleCancel}
                 onReturn={handleReturn}
+                onReorder={handleReorder}
+                reorderDisabledReason={
+                  productsError
+                    ? 'Could not load products — refresh to try again.'
+                    : !productMap
+                      ? 'Loading products…'
+                      : null
+                }
+                skippedCount={skippedByOrderId[order.id] ?? 0}
               />
             ))}
           </div>

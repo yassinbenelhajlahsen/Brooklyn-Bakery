@@ -20,6 +20,9 @@ export default function OrderCard({
   onSaveAddress,
   onCancel,
   onReturn,
+  onReorder,
+  reorderDisabledReason,
+  skippedCount,
 }) {
   const isEditingAddress = editingAddressOrderId === order.id
 
@@ -127,6 +130,14 @@ export default function OrderCard({
         </div>
       )}
 
+      {skippedCount > 0 && (
+        <p className="mt-4 text-sm text-danger m-0">
+          {skippedCount === 1
+            ? "1 item couldn't be added — it's no longer available."
+            : `${skippedCount} items couldn't be added — they're no longer available.`}
+        </p>
+      )}
+
       <div className="mt-4 flex gap-2">
         {order.status === 'confirmed' && (
           <button
@@ -157,6 +168,15 @@ export default function OrderCard({
             Request return
           </button>
         )}
+        <button
+          type="button"
+          disabled={Boolean(reorderDisabledReason)}
+          title={reorderDisabledReason ?? undefined}
+          onClick={() => onReorder(order)}
+          className="text-sm px-3 py-1.5 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        >
+          Reorder
+        </button>
       </div>
     </article>
   )

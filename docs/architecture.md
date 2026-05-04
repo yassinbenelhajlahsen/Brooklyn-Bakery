@@ -47,7 +47,7 @@ Cart state lives in `frontend/src/hooks/useCart.js`.
 2. **Login / user switch.** `useCart` watches `user?.id` and compares against `localStorage.cartOwner`:
    - Owner changed (or first sign-in) → `POST /cart/merge` with the local cart. The server additively merges `[existing + incoming]` per product, replaces the DB cart in one transaction, and returns the hydrated list. The frontend then stamps `cartOwner = user.id`.
    - Same owner → `GET /cart` and hydrate from the server.
-3. **Signed-in mutations.** `increment` / `decrement` fire `PUT /cart/items/:productId` with the new absolute quantity. `quantity === 0` triggers a delete (204). `clearCart` calls `DELETE /cart`.
+3. **Signed-in mutations.** `increment` / `decrement` / `addItem(item, qty)` all funnel through `setQty`, which fires `PUT /cart/items/:productId` with the new absolute quantity (capped at 99). `quantity === 0` triggers a delete (204). `clearCart` calls `DELETE /cart`. `addItem` is the bulk-merge entry point used by the order-history Reorder action.
 4. **Sign-out.** Local cart is left in `localStorage`; `cartOwner` is cleared so the next sign-in re-merges.
 
 Source-of-truth rule: server once signed in, `localStorage` otherwise.

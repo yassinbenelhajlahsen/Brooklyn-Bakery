@@ -22,7 +22,7 @@ const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 
 export default function App() {
   const [cartOpen, setCartOpen] = useState(false)
-  const { cart, itemCount, increment, decrement, removeItem, clearCart } = useCart()
+  const { cart, itemCount, increment, decrement, removeItem, addItem, clearCart } = useCart()
 
   const shellLayout = (
     <>
@@ -78,7 +78,7 @@ export default function App() {
         <Route path="/contact" element={<main className={MAIN_CLS}><ContactPage /></main>} />
         <Route path="/faq" element={<main className={MAIN_CLS}><FaqPage /></main>} />
         <Route path="/help" element={<main className={MAIN_CLS}><HelpPage /></main>} />
-        <Route path="/orders" element={<OrderHistoryPage />} />
+        <Route path="/orders" element={<OrderHistoryPage addItem={addItem} />} />
         <Route
           path="/admin"
           element={

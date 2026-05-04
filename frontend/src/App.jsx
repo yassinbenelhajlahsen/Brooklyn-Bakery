@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Header from './components/Header.jsx'
 import ShopEarnShell from './components/ShopEarnShell.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
@@ -21,6 +21,12 @@ import AdminRoute from './components/admin/AdminRoute.jsx';
 
 const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
 export default function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const { cart, itemCount, increment, decrement, removeItem, addItem, clearCart } = useCart()
@@ -41,6 +47,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <ScrollToTop />
       <Header cartCount={itemCount} onCartClick={() => setCartOpen(true)} />
       <Routes>
 

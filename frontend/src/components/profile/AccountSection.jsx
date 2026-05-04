@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth.js';
 import { updateMyProfile } from '../../services/profileService.js';
 
@@ -16,6 +17,7 @@ const SUCCESS_TIMEOUT_MS = 3000;
 
 export default function AccountSection() {
   const { user, profile, authedFetch, refreshProfile } = useAuth();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -80,9 +82,14 @@ export default function AccountSection() {
 
   return (
     <section className={SECTION_CLS} aria-labelledby="account-heading">
-      <h3 id="account-heading" className="font-display text-[22px] text-ink mb-4">
-        Account
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 id="account-heading" className="font-display text-[22px] text-ink">
+          Account
+        </h3>
+        <button type="button" className={SECONDARY_BTN} onClick={() => navigate('/orders')}>
+          See recent orders
+        </button>
+      </div>
 
       <div className="grid gap-4">
         <div>

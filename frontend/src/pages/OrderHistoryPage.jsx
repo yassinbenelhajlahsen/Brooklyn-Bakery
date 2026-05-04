@@ -198,8 +198,8 @@ export default function OrderHistoryPage({ addItem }) {
         </div>
 
         {loading ? (
-          <div className="grid gap-5">
-            {Array.from({ length: 3 }).map((_, i) => (
+          <div className="grid gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
               <OrderCardSkeleton key={i} />
             ))}
           </div>
@@ -212,7 +212,7 @@ export default function OrderHistoryPage({ addItem }) {
             You have not placed any orders yet.
           </div>
         ) : (
-          <div className="grid gap-5">
+          <div className="grid gap-4 md:grid-cols-2">
             {orders.map((order) => (
               <OrderCard
                 key={order.id}

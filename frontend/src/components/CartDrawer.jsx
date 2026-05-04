@@ -57,7 +57,7 @@ export default function CartDrawer({
           </div>
         ) : (
           <>
-            <ul className="list-none p-0 m-0 flex-1 overflow-y-auto">
+            <ul className="list-none p-0 m-0 flex-1 min-h-0 overflow-y-auto">
               {entries.map(({ item, qty }) => (
                 <CartItemRow
                   key={item.id}

@@ -148,6 +148,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
   const sortOptions = SORT_OPTIONS.filter((opt) => !opt.searchOnly || hasQuery)
   const paged = visible.slice(0, limit)
   const hasMore = visible.length > limit
+  const gridSig = `${activeCategory ?? 'all'}|${sortBy}|${urlQuery.trim()}`
 
   return (
     <>
@@ -200,12 +201,15 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
               <p className={STATUS_CLS}>No products match &ldquo;{urlQuery.trim()}&rdquo;.</p>
             ) : (
               <>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
+                <div
+                  key={loading ? 'loading' : gridSig}
+                  className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6"
+                >
                   {loading
                     ? Array.from({ length: 8 }).map((_, i) => (
                         <ProductCardSkeleton key={i} />
                       ))
-                    : paged.map((item) => (
+                    : paged.map((item, i) => (
                         <ProductCard
                           key={item.id}
                           item={item}
@@ -213,6 +217,8 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
                           qty={cart[item.id]?.qty ?? 0}
                           onIncrement={() => onIncrement(item)}
                           onDecrement={() => onDecrement(item)}
+                          className="animate-card-rise motion-reduce:animate-none"
+                          style={{ animationDelay: `${Math.min(i, 11) * 35}ms` }}
                         />
                       ))}
                 </div>

@@ -70,7 +70,7 @@ export default function CheckoutPage({
     },
   });
 
-  if (!ready) return <main className="flex-1" />;
+  if (!ready) return null;
   if (!user) return <Navigate to="/" replace />;
 
   const entries = Object.values(cart);

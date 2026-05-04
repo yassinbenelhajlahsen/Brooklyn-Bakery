@@ -29,7 +29,7 @@ export default function ProfilePage() {
   const { user, ready } = useAuth();
   const navigate = useNavigate();
 
-  if (!ready) return <main className="flex-1" />;
+  if (!ready) return <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5" />;
   if (!user) return <Navigate to="/" replace />;
 
   return (

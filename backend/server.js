@@ -15,11 +15,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware:
-app.use(cors({
-    origin: [
+const allowedOrigins = [
+    'https://brooklyn-bakery.pages.dev/',
+    ...(process.env.NODE_ENV !== 'production' ? [
         'http://127.0.0.1:5173',
-        'http://localhost:5173'
-    ], // this is the root of our frontend
+        'http://localhost:5173',
+    ] : []),
+];
+
+app.use(cors({
+    origin: allowedOrigins,
     credentials: true
 }))
 

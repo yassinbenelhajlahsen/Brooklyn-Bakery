@@ -1,6 +1,6 @@
 # Brooklyn Bakery
 
-A small e-commerce demo where signed-in users buy baked goods with integer "points" from their account balance.
+A small e-commerce app where signed-in users buy baked goods with integer "points" from their account balance.
 
 - **Frontend:** React 19 + Vite (`frontend/`)
 - **Backend:** Express 5 + Prisma (`backend/`)

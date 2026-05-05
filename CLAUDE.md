@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Brooklyn Bakery is a small e-commerce demo: a React/Vite frontend and an Express/Prisma backend backed by Supabase (Postgres + Auth). Users buy baked goods by spending integer points from their account balance.
+Brooklyn Bakery is a small e-commerce app: a React/Vite frontend and an Express/Prisma backend backed by Supabase (Postgres + Auth). Users buy baked goods by spending integer points from their account balance.
 
 ## Commands
 

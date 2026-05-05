@@ -234,7 +234,7 @@ export default function OrderHistoryPage({ addItem }) {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
               {items.map((order) => (
                 <OrderCard
                   key={order.id}

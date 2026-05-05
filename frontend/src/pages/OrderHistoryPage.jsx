@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth.js'
 import Ornament from '../components/Ornament.jsx'
 import ReasonPromptModal from '../components/ReasonPromptModal.jsx'
+import LoadMoreFooter from '../components/LoadMoreFooter.jsx'
 import { fetchMyOrders, userCancelOrder, userReturnOrder, updateOrderAddress } from '../services/orderService.js'
 import OrderCard from '../components/cards/OrderCard.jsx'
 import OrderCardSkeleton from '../components/cards/OrderCardSkeleton.jsx'
+
+const PAGE_SIZE = 10
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -30,8 +33,11 @@ function OrderHeader() {
 export default function OrderHistoryPage({ addItem }) {
   const { user, ready, authedFetch } = useAuth()
   const navigate = useNavigate()
-  const [orders, setOrders] = useState([])
+  const [items, setItems] = useState([])
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(null)
   const [editingAddressOrderId, setEditingAddressOrderId] = useState(null)
@@ -41,36 +47,48 @@ export default function OrderHistoryPage({ addItem }) {
   const [productMap, setProductMap] = useState(null)
   const [productsError, setProductsError] = useState(null)
   const [skippedByOrderId, setSkippedByOrderId] = useState({})
+  const requestIdRef = useRef(0)
 
-  async function refresh() {
-    const data = await fetchMyOrders(authedFetch)
-    setOrders(data.orders ?? [])
-  }
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadOrders() {
-      if (!user) return
-
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await fetchMyOrders(authedFetch)
-        if (!cancelled) setOrders(data.orders ?? [])
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Failed to load order history', err)
-          setError(err?.message ?? 'Could not load your order history.')
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+  const refresh = useCallback(async () => {
+    if (!user) return
+    const reqId = ++requestIdRef.current
+    setLoading(true)
+    setLoadingMore(false)
+    setError(null)
+    try {
+      const data = await fetchMyOrders(authedFetch, { take: PAGE_SIZE, skip: 0 })
+      if (requestIdRef.current !== reqId) return
+      setItems(data.items)
+      setTotal(data.total)
+      setHasMore(data.hasMore)
+    } catch (err) {
+      if (requestIdRef.current !== reqId) return
+      console.error('Failed to load order history', err)
+      setError(err?.message ?? 'Could not load your order history.')
+    } finally {
+      if (requestIdRef.current === reqId) setLoading(false)
     }
-
-    loadOrders()
-    return () => { cancelled = true }
   }, [user, authedFetch])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMore) return
+    const reqId = requestIdRef.current
+    setLoadingMore(true)
+    try {
+      const data = await fetchMyOrders(authedFetch, { take: PAGE_SIZE, skip: items.length })
+      if (requestIdRef.current !== reqId) return
+      setItems((prev) => [...prev, ...data.items])
+      setTotal(data.total)
+      setHasMore(data.hasMore)
+    } catch (err) {
+      if (requestIdRef.current !== reqId) return
+      setError(err?.message ?? 'Could not load more orders.')
+    } finally {
+      if (requestIdRef.current === reqId) setLoadingMore(false)
+    }
+  }, [authedFetch, hasMore, loadingMore, items.length])
 
   useEffect(() => {
     let cancelled = false
@@ -91,6 +109,10 @@ export default function OrderHistoryPage({ addItem }) {
     })()
     return () => { cancelled = true }
   }, [])
+
+  function patchOrder(updated) {
+    setItems((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+  }
 
   function handleReorder(order) {
     if (!productMap) return
@@ -123,8 +145,8 @@ export default function OrderHistoryPage({ addItem }) {
   async function handleCancel(order) {
     if (order.status === 'confirmed') {
       try {
-        await userCancelOrder(authedFetch, order.id, '')
-        await refresh()
+        const updated = await userCancelOrder(authedFetch, order.id, '')
+        patchOrder(updated)
       } catch (err) {
         setError(err?.message ?? 'Cancel failed')
       }
@@ -142,12 +164,10 @@ export default function OrderHistoryPage({ addItem }) {
     const { kind, orderId } = modal
     setModal(null)
     try {
-      if (kind === 'cancel') {
-        await userCancelOrder(authedFetch, orderId, reason)
-      } else {
-        await userReturnOrder(authedFetch, orderId, reason)
-      }
-      await refresh()
+      const updated = kind === 'cancel'
+        ? await userCancelOrder(authedFetch, orderId, reason)
+        : await userReturnOrder(authedFetch, orderId, reason)
+      patchOrder(updated)
     } catch (err) {
       setError(err?.message ?? 'Request failed')
     }
@@ -174,7 +194,7 @@ export default function OrderHistoryPage({ addItem }) {
     setAddressError(null)
     try {
       const updated = await updateOrderAddress(authedFetch, orderId, pendingAddressId)
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)))
+      setItems((prev) => prev.map((o) => (o.id === orderId ? updated : o)))
       setEditingAddressOrderId(null)
       setPendingAddressId(null)
     } catch (err) {
@@ -208,38 +228,51 @@ export default function OrderHistoryPage({ addItem }) {
           <div className="bg-surface border border-line rounded-xl px-8 py-12 text-center text-danger">
             {error}
           </div>
-        ) : orders.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="bg-surface border border-line rounded-xl px-8 py-12 text-center text-muted">
             You have not placed any orders yet.
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {orders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                editingAddressOrderId={editingAddressOrderId}
-                pendingAddressId={pendingAddressId}
-                addressSaving={addressSaving}
-                addressError={addressError}
-                onPendingAddressChange={setPendingAddressId}
-                onStartEditAddress={startEditingAddress}
-                onCancelEditAddress={cancelEditingAddress}
-                onSaveAddress={saveAddress}
-                onCancel={handleCancel}
-                onReturn={handleReturn}
-                onReorder={handleReorder}
-                reorderDisabledReason={
-                  productsError
-                    ? 'Could not load products — refresh to try again.'
-                    : !productMap
-                      ? 'Loading products…'
-                      : null
-                }
-                skippedCount={skippedByOrderId[order.id] ?? 0}
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              {items.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  editingAddressOrderId={editingAddressOrderId}
+                  pendingAddressId={pendingAddressId}
+                  addressSaving={addressSaving}
+                  addressError={addressError}
+                  onPendingAddressChange={setPendingAddressId}
+                  onStartEditAddress={startEditingAddress}
+                  onCancelEditAddress={cancelEditingAddress}
+                  onSaveAddress={saveAddress}
+                  onCancel={handleCancel}
+                  onReturn={handleReturn}
+                  onReorder={handleReorder}
+                  reorderDisabledReason={
+                    productsError
+                      ? 'Could not load products — refresh to try again.'
+                      : !productMap
+                        ? 'Loading products…'
+                        : null
+                  }
+                  skippedCount={skippedByOrderId[order.id] ?? 0}
+                />
+              ))}
+            </div>
+
+            <div className="mt-6">
+              <LoadMoreFooter
+                shown={items.length}
+                total={total}
+                hasMore={hasMore}
+                loading={loading}
+                loadingMore={loadingMore}
+                onLoadMore={loadMore}
               />
-            ))}
-          </div>
+            </div>
+          </>
         )}
       </div>
 

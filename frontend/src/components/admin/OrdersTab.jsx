@@ -3,6 +3,7 @@ import { useAdminOrders } from '../../hooks/admin/useAdminOrders.js';
 import StatusBadge from '../StatusBadge.jsx';
 import StatusFilter from './StatusFilter.jsx';
 import OrderDetailDrawer from './OrderDetailDrawer.jsx';
+import LoadMoreFooter from '../LoadMoreFooter.jsx';
 
 const COLUMNS = ['Order', 'Customer', 'Items', 'Total', 'Status', 'Date'];
 
@@ -20,7 +21,11 @@ function SkeletonRow() {
 }
 
 export default function OrdersTab() {
-  const { orders, status, setStatus, loading, error, refresh, transition } = useAdminOrders();
+  const {
+    items, total, hasMore, status,
+    loading, loadingMore, error,
+    refresh, loadMore, setStatus, transition,
+  } = useAdminOrders();
   const [selected, setSelected] = useState(null);
 
   return (
@@ -58,7 +63,15 @@ export default function OrdersTab() {
 
       {/* Table */}
       <div className="rounded-xl border border-line bg-surface overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col style={{ width: '8rem'  }} />
+            <col />
+            <col style={{ width: '4rem'  }} />
+            <col style={{ width: '6rem'  }} />
+            <col style={{ width: '9rem'  }} />
+            <col style={{ width: '12rem' }} />
+          </colgroup>
           <thead>
             <tr className="bg-cream/60 border-b border-line">
               {COLUMNS.map((col) => (
@@ -74,14 +87,14 @@ export default function OrdersTab() {
           <tbody>
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
-            ) : orders.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-muted">
                   No orders found.
                 </td>
               </tr>
             ) : (
-              orders.map((order, idx) => (
+              items.map((order, idx) => (
                 <tr
                   key={order.id}
                   onClick={() => setSelected(order)}
@@ -89,10 +102,10 @@ export default function OrdersTab() {
                     idx % 2 === 1 ? 'bg-cream/30' : 'bg-surface'
                   }`}
                 >
-                  <td className="px-4 py-3 font-mono text-muted">
+                  <td className="px-4 py-3 font-mono text-muted truncate">
                     #{order.id.slice(-8)}
                   </td>
-                  <td className="px-4 py-3 text-ink">
+                  <td className="px-4 py-3 text-ink truncate">
                     {order.user?.displayName || '—'}
                   </td>
                   <td className="px-4 py-3 text-ink">{order.items.length}</td>
@@ -100,7 +113,7 @@ export default function OrdersTab() {
                   <td className="px-4 py-3">
                     <StatusBadge status={order.status} />
                   </td>
-                  <td className="px-4 py-3 text-muted">
+                  <td className="px-4 py-3 text-muted truncate">
                     {new Date(order.createdAt).toLocaleString()}
                   </td>
                 </tr>
@@ -109,6 +122,15 @@ export default function OrdersTab() {
           </tbody>
         </table>
       </div>
+
+      <LoadMoreFooter
+        shown={items.length}
+        total={total}
+        hasMore={hasMore}
+        loading={loading}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
+      />
 
       {selected && (
         <OrderDetailDrawer

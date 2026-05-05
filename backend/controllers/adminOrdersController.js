@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { sendHttpError, httpError } from '../lib/httpError.js';
 import { transition } from '../services/orderStateMachine.js';
+import { parsePagination } from '../lib/pagination.js';
 
 const STATUS_VALUES = new Set([
     'confirmed', 'processing', 'shipped', 'delivered',
@@ -8,19 +9,34 @@ const STATUS_VALUES = new Set([
 ]);
 
 export async function listAllOrders(req, res) {
-    const { status } = req.query;
-    if (status && !STATUS_VALUES.has(status)) {
-        return res.status(400).json({ error: 'Invalid status filter' });
+    try {
+        const { status } = req.query;
+        if (status && !STATUS_VALUES.has(status)) {
+            return res.status(400).json({ error: 'Invalid status filter' });
+        }
+        const { take, skip } = parsePagination(req.query);
+        const where = status ? { status } : undefined;
+
+        const [items, total] = await Promise.all([
+            prisma.order.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take,
+                skip,
+                include: {
+                    user: { select: { id: true, displayName: true } },
+                    items: { include: { product: { select: { name: true, imageUrl: true } } } },
+                },
+            }),
+            prisma.order.count({ where }),
+        ]);
+
+        res.json({ items, total, hasMore: skip + items.length < total });
+    } catch (err) {
+        if (err.http) return sendHttpError(res, err);
+        console.error('listAllOrders failed:', err);
+        res.status(500).json({ error: 'Failed to load orders' });
     }
-    const orders = await prisma.order.findMany({
-        where: status ? { status } : undefined,
-        orderBy: { createdAt: 'desc' },
-        include: {
-            user: { select: { id: true, displayName: true } },
-            items: { include: { product: { select: { name: true, imageUrl: true } } } },
-        },
-    });
-    res.json({ orders });
 }
 
 export async function getOrder(req, res) {

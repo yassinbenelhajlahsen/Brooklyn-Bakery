@@ -1,8 +1,13 @@
-export async function listUsers(authedFetch) {
-  const res = await authedFetch('/admin/users');
+export async function listUsers(authedFetch, { take = 10, skip = 0 } = {}) {
+  const params = new URLSearchParams({ take: String(take), skip: String(skip) });
+  const res = await authedFetch(`/admin/users?${params}`);
   if (!res.ok) throw new Error('Failed to load users');
   const body = await res.json();
-  return body.users ?? [];
+  return {
+    items: body.items ?? [],
+    total: body.total ?? 0,
+    hasMore: body.hasMore ?? false,
+  };
 }
 
 export async function getUser(authedFetch, id) {

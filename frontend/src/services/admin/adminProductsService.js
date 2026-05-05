@@ -1,9 +1,17 @@
-export async function listProducts(authedFetch, { includeArchived = false } = {}) {
-  const qs = includeArchived ? '?includeArchived=true' : '';
-  const res = await authedFetch(`/admin/products${qs}`);
+export async function listProducts(authedFetch, { includeArchived = false, sort = 'newest', take = 10, skip = 0 } = {}) {
+  const params = new URLSearchParams();
+  if (includeArchived) params.set('includeArchived', 'true');
+  params.set('sort', sort);
+  params.set('take', String(take));
+  params.set('skip', String(skip));
+  const res = await authedFetch(`/admin/products?${params}`);
   if (!res.ok) throw new Error('Failed to load products');
   const body = await res.json();
-  return body.products ?? [];
+  return {
+    items: body.items ?? [],
+    total: body.total ?? 0,
+    hasMore: body.hasMore ?? false,
+  };
 }
 
 export async function createProduct(authedFetch, data) {

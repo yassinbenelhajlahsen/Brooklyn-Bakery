@@ -25,13 +25,19 @@ export async function placeOrder(authedFetch, { addressId }) {
   return res.json();
 }
 
-export async function fetchMyOrders(authedFetch) {
-  const res = await authedFetch('/orders');
+export async function fetchMyOrders(authedFetch, { take = 10, skip = 0 } = {}) {
+  const params = new URLSearchParams({ take: String(take), skip: String(skip) });
+  const res = await authedFetch(`/orders?${params}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? 'Could not load your order history.');
   }
-  return res.json();
+  const body = await res.json();
+  return {
+    items: body.items ?? [],
+    total: body.total ?? 0,
+    hasMore: body.hasMore ?? false,
+  };
 }
 
 export async function updateOrderAddress(authedFetch, orderId, addressId) {

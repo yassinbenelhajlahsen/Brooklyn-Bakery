@@ -102,23 +102,23 @@ export async function placeOrder(userId, { addressId } = {}) {
     });
 
     if (authUser?.email && userProfile) {
-        try {
-            await sendConfirmationEmail({
-                to: authUser.email,
-                customerName: userProfile.displayName || 'Customer',
-                orderDetails: {
-                    orderId: order.createdOrder.id,
-                    items: order.cartItems.map((item) => ({
-                        name: item.product.name,
-                        qty: item.quantity,
-                        price: item.product.price,
-                    })),
-                    total: order.createdOrder.total,
-                },
-            });
-        } catch (emailErr) {
+        // Fire-and-forget: never block the order response on email delivery.
+        // The transaction has already committed; the order is real regardless.
+        sendConfirmationEmail({
+            to: authUser.email,
+            customerName: userProfile.displayName || 'Customer',
+            orderDetails: {
+                orderId: order.createdOrder.id,
+                items: order.cartItems.map((item) => ({
+                    name: item.product.name,
+                    qty: item.quantity,
+                    price: item.product.price,
+                })),
+                total: order.createdOrder.total,
+            },
+        }).catch((emailErr) => {
             console.error('Email failed to send, but order was created:', emailErr.message);
-        }
+        });
     }
 
     return order.createdOrder;

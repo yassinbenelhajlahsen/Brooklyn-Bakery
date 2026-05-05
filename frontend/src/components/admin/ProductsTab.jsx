@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAdminProducts } from '../../hooks/admin/useAdminProducts.js';
 import ProductEditModal from './ProductEditModal.jsx';
 import ProductReviewsDrawer from './ProductReviewsDrawer.jsx';
-import LoadMoreFooter from './LoadMoreFooter.jsx';
+import LoadMoreFooter from '../LoadMoreFooter.jsx';
 
 const COLUMNS = ['', 'Name', 'Type', 'Price', 'Stock', 'Rating', 'Status', 'Actions'];
 

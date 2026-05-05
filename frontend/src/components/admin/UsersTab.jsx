@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAdminUsers } from '../../hooks/admin/useAdminUsers.js';
 import { useAuth } from '../../auth/useAuth.js';
 import UserDetailDrawer from './UserDetailDrawer.jsx';
-import LoadMoreFooter from './LoadMoreFooter.jsx';
+import LoadMoreFooter from '../LoadMoreFooter.jsx';
 
 const COLUMNS = ['Display name', 'Role', 'Balance', 'Orders', 'Joined'];
 

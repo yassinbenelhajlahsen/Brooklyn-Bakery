@@ -3,7 +3,7 @@ import { useAdminOrders } from '../../hooks/admin/useAdminOrders.js';
 import StatusBadge from '../StatusBadge.jsx';
 import StatusFilter from './StatusFilter.jsx';
 import OrderDetailDrawer from './OrderDetailDrawer.jsx';
-import LoadMoreFooter from './LoadMoreFooter.jsx';
+import LoadMoreFooter from '../LoadMoreFooter.jsx';
 
 const COLUMNS = ['Order', 'Customer', 'Items', 'Total', 'Status', 'Date'];
 

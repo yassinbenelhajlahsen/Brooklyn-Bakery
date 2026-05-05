@@ -3,6 +3,7 @@ import { httpError, sendHttpError } from '../lib/httpError.js';
 import { placeOrder } from '../services/orderService.js';
 import { transition } from '../services/orderStateMachine.js';
 import { snapshotAddress } from '../lib/address.js';
+import { parsePagination } from '../lib/pagination.js';
 
 export async function createOrder(req, res) {
     try {
@@ -17,16 +18,29 @@ export async function createOrder(req, res) {
 }
 
 export async function listMyOrders(req, res) {
-    const orders = await prisma.order.findMany({
-        where: { userId: req.user.id },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            items: {
-                include: { product: { select: { name: true, imageUrl: true } } },
-            },
-        },
-    });
-    res.json({ orders });
+    try {
+        const { take, skip } = parsePagination(req.query);
+        const where = { userId: req.user.id };
+        const [items, total] = await Promise.all([
+            prisma.order.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take,
+                skip,
+                include: {
+                    items: {
+                        include: { product: { select: { name: true, imageUrl: true } } },
+                    },
+                },
+            }),
+            prisma.order.count({ where }),
+        ]);
+        res.json({ items, total, hasMore: skip + items.length < total });
+    } catch (err) {
+        if (err.http) return sendHttpError(res, err);
+        console.error('listMyOrders failed:', err);
+        res.status(500).json({ error: 'Failed to load orders' });
+    }
 }
 
 export async function userCancel(req, res) {

@@ -8,7 +8,7 @@
 
 ## Missing from Tier 3:
 - [ ] Toast notifications — no library installed; wire to cart/checkout/order actions
-- [ ] Catch-all 404 route — no `<Route path="*" />` for undefined routes
+- [x] Catch-all 404 route — no `<Route path="*" />` for undefined routes
 - [ ] OAuth login — no Google/GitHub/Apple provider (Supabase supports it, needs UI)
 - [ ] Out-of-stock subscription — no way to notify users when a product is restocked
 - [ ] Customer support chatbot

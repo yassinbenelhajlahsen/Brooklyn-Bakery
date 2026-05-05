@@ -19,6 +19,7 @@ import FaqPage from './pages/FAQPage.jsx';
 import HelpPage from './pages/HelpPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import AdminRoute from './components/admin/AdminRoute.jsx';
+import NotFoundPage from './pages/NotFoundPage.jsx';
 
 const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 
@@ -90,6 +91,7 @@ export default function App() {
               </AdminRoute>
             }
           />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </PageTransition>
       <Footer />

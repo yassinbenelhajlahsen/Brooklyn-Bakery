@@ -2,6 +2,8 @@
 
 A small e-commerce app where signed-in users buy baked goods with integer "points" from their account balance.
 
+**Visit:** https://brooklyn-bakery.pages.dev
+
 - **Frontend:** React 19 + Vite (`frontend/`)
 - **Backend:** Express 5 + Prisma (`backend/`)
 - **Data & Auth:** Supabase (Postgres + Auth)
@@ -66,6 +68,13 @@ That runs backend (`http://127.0.0.1:3000`) and frontend (`http://127.0.0.1:5173
 | `frontend/` | `npm run build` | Production build |
 | `frontend/` | `npm run lint` | ESLint |
 | `frontend/` | `npm run preview` | Preview production build |
+
+## Deployment
+
+- **Frontend:** Cloudflare Pages (Vite static build, root directory: `frontend/`)
+- **Backend:** Railway (Express, root directory: `backend/`)
+
+Environment variables are set in each platform's dashboard. The frontend requires `VITE_BACKEND_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` at build time. The backend requires `PORT`, `NODE_ENV`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, and `SUPABASE_SECRET_KEY` at runtime.
 
 ## Documentation
 

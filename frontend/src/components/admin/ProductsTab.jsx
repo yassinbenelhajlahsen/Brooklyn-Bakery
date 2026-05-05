@@ -2,23 +2,14 @@ import { useState } from 'react';
 import { useAdminProducts } from '../../hooks/admin/useAdminProducts.js';
 import ProductEditModal from './ProductEditModal.jsx';
 import ProductReviewsDrawer from './ProductReviewsDrawer.jsx';
+import LoadMoreFooter from './LoadMoreFooter.jsx';
 
 const COLUMNS = ['', 'Name', 'Type', 'Price', 'Stock', 'Rating', 'Status', 'Actions'];
 
 const SORT_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'popularity', label: 'Popularity' },
+  { value: 'newest',     label: 'Newest' },
+  { value: 'popularity', label: 'Popularity (most reviews)' },
 ];
-
-function sortProducts(products, sortBy) {
-  if (sortBy !== 'popularity') return products;
-  return [...products].sort((a, b) => {
-    if (a.avgRating === null && b.avgRating === null) return 0;
-    if (a.avgRating === null) return 1;
-    if (b.avgRating === null) return -1;
-    return b.avgRating - a.avgRating;
-  });
-}
 
 function StarDisplay({ avgRating, reviewCount }) {
   if (!reviewCount) return <span className="text-muted text-xs">—</span>;
@@ -46,21 +37,17 @@ function SkeletonRow() {
 
 export default function ProductsTab() {
   const {
-    products,
-    includeArchived,
-    setIncludeArchived,
-    loading,
-    error,
-    create,
-    update,
-    archive,
-    unarchive,
+    items, total, hasMore,
+    includeArchived, setIncludeArchived,
+    sort, setSort,
+    loading, loadingMore, error,
+    loadMore,
+    create, update, archive, unarchive,
   } = useAdminProducts();
 
   const [editing, setEditing] = useState(null);
   const [mutating, setMutating] = useState(null);
   const [reviewProduct, setReviewProduct] = useState(null);
-  const [sortBy, setSortBy] = useState('default');
 
   async function handleArchiveToggle(product) {
     if (mutating) return;
@@ -75,8 +62,6 @@ export default function ProductsTab() {
       setMutating(null);
     }
   }
-
-  const visible = sortProducts(products, sortBy);
 
   return (
     <div className="space-y-4">
@@ -96,8 +81,8 @@ export default function ProductsTab() {
           <label className="flex items-center gap-2 text-sm text-muted">
             Sort by
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
               className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
             >
               {SORT_OPTIONS.map((o) => (
@@ -124,7 +109,17 @@ export default function ProductsTab() {
 
       {/* Table */}
       <div className="rounded-xl border border-line bg-surface overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col style={{ width: '3.5rem' }} />
+            <col />
+            <col style={{ width: '6rem'  }} />
+            <col style={{ width: '5rem'  }} />
+            <col style={{ width: '5rem'  }} />
+            <col style={{ width: '7rem'  }} />
+            <col style={{ width: '6rem'  }} />
+            <col style={{ width: '15rem' }} />
+          </colgroup>
           <thead>
             <tr className="bg-cream/60 border-b border-line">
               {COLUMNS.map((col, i) => (
@@ -140,21 +135,20 @@ export default function ProductsTab() {
           <tbody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-            ) : visible.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted">
                   No products.
                 </td>
               </tr>
             ) : (
-              visible.map((product, idx) => (
+              items.map((product, idx) => (
                 <tr
                   key={product.id}
                   className={`border-b border-line last:border-b-0 transition-colors duration-100 ${
                     idx % 2 === 1 ? 'bg-cream/30' : 'bg-surface'
                   } ${product.archivedAt ? 'opacity-60' : ''}`}
                 >
-                  {/* Thumbnail */}
                   <td className="px-4 py-3">
                     {product.imageUrl ? (
                       <img
@@ -167,24 +161,18 @@ export default function ProductsTab() {
                     )}
                   </td>
 
-                  {/* Name */}
-                  <td className="px-4 py-3 font-medium text-ink">{product.name}</td>
+                  <td className="px-4 py-3 font-medium text-ink truncate">{product.name}</td>
 
-                  {/* Type */}
                   <td className="px-4 py-3 text-muted capitalize">{product.type}</td>
 
-                  {/* Price */}
                   <td className="px-4 py-3 text-ink font-mono">{product.price} pts</td>
 
-                  {/* Stock */}
                   <td className="px-4 py-3 text-ink font-mono">{product.stock}</td>
 
-                  {/* Rating */}
                   <td className="px-4 py-3">
                     <StarDisplay avgRating={product.avgRating} reviewCount={product.reviewCount} />
                   </td>
 
-                  {/* Status */}
                   <td className="px-4 py-3">
                     {product.archivedAt ? (
                       <span className="text-muted text-xs uppercase tracking-widest">
@@ -197,7 +185,6 @@ export default function ProductsTab() {
                     )}
                   </td>
 
-                  {/* Actions */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
@@ -235,6 +222,15 @@ export default function ProductsTab() {
           </tbody>
         </table>
       </div>
+
+      <LoadMoreFooter
+        shown={items.length}
+        total={total}
+        hasMore={hasMore}
+        loading={loading}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
+      />
 
       {editing && (
         <ProductEditModal

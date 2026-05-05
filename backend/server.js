@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware:
 const allowedOrigins = [
-    'https://brooklyn-bakery.pages.dev/',
+    'https://brooklyn-bakery.pages.dev',
     ...(process.env.NODE_ENV !== 'production' ? [
         'http://127.0.0.1:5173',
         'http://localhost:5173',

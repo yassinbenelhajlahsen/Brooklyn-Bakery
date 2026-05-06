@@ -1,25 +1,26 @@
-import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth.js';
 import { placeOrder as placeOrderService } from '../services/orderService.js';
+import { queryKeys } from '../lib/queryKeys.js';
 
 export function usePlaceOrder({ onSuccess } = {}) {
   const { authedFetch, refreshProfile } = useAuth();
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
 
-  const placeOrder = async ({ addressId }) => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const created = await placeOrderService(authedFetch, { addressId });
+  const mutation = useMutation({
+    mutationFn: ({ addressId }) => placeOrderService(authedFetch, { addressId }),
+    onSuccess: async (created) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
       await refreshProfile();
       if (onSuccess) onSuccess(created);
-    } catch (err) {
-      setError(err?.message ?? 'Could not reach the server. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+  });
 
-  return { placeOrder, submitting, error };
+  const placeOrder = (input) => mutation.mutate(input);
+
+  return {
+    placeOrder,
+    submitting: mutation.isPending,
+    error: mutation.error?.message ?? null,
+  };
 }

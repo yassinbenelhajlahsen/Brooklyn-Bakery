@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { apiGet } from '../../lib/apiFetch.js'
+import { queryKeys } from '../../lib/queryKeys.js'
 
 const ANIM_MS = 250
 
@@ -19,11 +22,18 @@ function StarRow({ rating }) {
 }
 
 export default function ProductReviewsDrawer({ product, onClose }) {
-  const [reviews, setReviews] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [entered, setEntered] = useState(false)
   const [leaving, setLeaving] = useState(false)
+
+  const reviewsQuery = useQuery({
+    queryKey: queryKeys.reviewsById(product.id),
+    queryFn: () => apiGet(`/products/${product.id}/reviews`),
+    enabled: !!product?.id,
+  })
+
+  const reviews = reviewsQuery.data?.reviews ?? []
+  const loading = reviewsQuery.isLoading
+  const error = reviewsQuery.isError ? 'Failed to load reviews.' : null
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setEntered(true))
@@ -40,15 +50,6 @@ export default function ProductReviewsDrawer({ product, onClose }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [closeWithAnim])
-
-  useEffect(() => {
-    let cancelled = false
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${product.id}/reviews`)
-      .then((r) => r.json())
-      .then((data) => { if (!cancelled) { setReviews(data.reviews); setLoading(false) } })
-      .catch(() => { if (!cancelled) { setError('Failed to load reviews.'); setLoading(false) } })
-    return () => { cancelled = true }
-  }, [product.id])
 
   const visible = entered && !leaving
 

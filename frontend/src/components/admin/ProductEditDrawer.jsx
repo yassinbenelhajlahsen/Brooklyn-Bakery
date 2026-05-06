@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const TYPES = ['bread', 'pastry', 'cake', 'cookie', 'drink'];
+const ANIM_MS = 250;
 
 function FieldError({ msg }) {
   if (!msg) return null;
   return <p className="text-danger text-xs mt-1">{msg}</p>;
 }
 
-export default function ProductEditModal({ mode, product, onClose, onCreate, onUpdate }) {
+export default function ProductEditDrawer({ mode, product, onClose, onCreate, onUpdate }) {
   const [name, setName] = useState(product?.name ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '');
@@ -18,13 +20,31 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState(null);
 
+  const [entered, setEntered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
   const isEdit = mode === 'edit';
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  const closeWithAnim = useCallback(() => {
+    setLeaving(true);
+    setTimeout(onClose, ANIM_MS);
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeWithAnim(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [closeWithAnim]);
 
   const validate = () => {
     const e = {};
@@ -61,7 +81,7 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
       };
       if (isEdit) await onUpdate(product.id, data);
       else await onCreate(data);
-      onClose();
+      closeWithAnim();
     } catch (err) {
       setServerError(err.message ?? 'Save failed');
     } finally {
@@ -69,45 +89,51 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
     }
   };
 
+  const visible = entered && !leaving;
+
   const inputBase =
     'w-full border border-line rounded-md px-3 py-1.5 text-sm text-ink bg-surface focus:outline-none focus:border-accent transition-colors placeholder:text-muted';
   const labelBase =
     'text-[10px] uppercase tracking-widest text-muted block mb-1';
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <form
-        className="bg-surface rounded-xl shadow-card w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
+  return createPortal(
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={closeWithAnim}
+        aria-hidden="true"
+      />
+
+      <aside
+        className={`fixed top-0 right-0 bottom-0 w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 grid grid-rows-[auto_1fr_auto] overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
+        role="dialog"
+        aria-label={isEdit ? 'Edit product' : 'New product'}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-display text-ink">
+        <div className="px-6 py-4 border-b border-line bg-cream/40 flex items-center justify-between shrink-0">
+          <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
             {isEdit ? 'Edit product' : 'New product'}
-          </h2>
+          </span>
           <button
             type="button"
-            onClick={onClose}
-            aria-label="Close modal"
+            onClick={closeWithAnim}
+            aria-label="Close drawer"
             className="w-8 h-8 rounded-full hover:bg-line flex items-center justify-center text-muted hover:text-ink transition-colors text-xl leading-none"
           >
             ×
           </button>
         </div>
 
-        {/* Server error */}
-        {serverError && (
-          <div className="mb-4 border border-danger/30 bg-danger/10 text-danger rounded-lg px-4 py-2.5 text-sm">
-            {serverError}
-          </div>
-        )}
+        <form
+          id="product-edit-form"
+          onSubmit={handleSubmit}
+          className="overflow-y-auto px-6 py-5 space-y-4"
+        >
+          {serverError && (
+            <div className="border border-danger/30 bg-danger/10 text-danger rounded-lg px-4 py-2.5 text-sm">
+              {serverError}
+            </div>
+          )}
 
-        <div className="space-y-4">
-          {/* Name */}
           <div>
             <label className={labelBase}>Name</label>
             <input
@@ -120,7 +146,6 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
             <FieldError msg={errors.name} />
           </div>
 
-          {/* Description */}
           <div>
             <label className={labelBase}>Description</label>
             <textarea
@@ -133,7 +158,6 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
             <FieldError msg={errors.description} />
           </div>
 
-          {/* Image URL */}
           <div>
             <label className={labelBase}>Image URL</label>
             <input
@@ -146,7 +170,6 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
             <FieldError msg={errors.imageUrl} />
           </div>
 
-          {/* Type */}
           <div>
             <label className={labelBase}>Type</label>
             <select
@@ -163,7 +186,6 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
             <FieldError msg={errors.type} />
           </div>
 
-          {/* Price + Stock side-by-side */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelBase}>Price (pts)</label>
@@ -190,26 +212,27 @@ export default function ProductEditModal({ mode, product, onClose, onCreate, onU
               <FieldError msg={errors.stock} />
             </div>
           </div>
-        </div>
+        </form>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 mt-6">
+        <div className="px-6 py-4 border-t border-line bg-surface shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWithAnim}
             className="px-3 py-1.5 text-sm rounded-lg border border-line hover:bg-cream text-ink transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
+            form="product-edit-form"
             disabled={submitting}
             className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
           >
             {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
           </button>
         </div>
-      </form>
-    </div>
+      </aside>
+    </>,
+    document.body
   );
 }

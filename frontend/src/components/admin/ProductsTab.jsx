@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAdminProducts } from '../../hooks/admin/useAdminProducts.js';
-import ProductEditModal from './ProductEditModal.jsx';
+import ProductEditDrawer from './ProductEditDrawer.jsx';
 import ProductReviewsDrawer from './ProductReviewsDrawer.jsx';
 import LoadMoreFooter from '../LoadMoreFooter.jsx';
 
@@ -233,7 +233,7 @@ export default function ProductsTab() {
       />
 
       {editing && (
-        <ProductEditModal
+        <ProductEditDrawer
           mode={editing.mode}
           product={editing.product}
           onClose={() => setEditing(null)}

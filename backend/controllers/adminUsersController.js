@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { supabaseAdmin } from '../lib/supabase.js';
 import { httpError } from '../lib/httpError.js';
 import { parsePagination } from '../lib/pagination.js';
 
@@ -52,7 +53,9 @@ export async function getUser(req, res) {
         },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+
+    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(req.params.id);
+    res.json({ ...user, email: authData?.user?.email ?? null });
 }
 
 export async function updateRole(req, res, next) {

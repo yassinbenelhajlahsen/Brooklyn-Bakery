@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import StatusBadge from '../StatusBadge.jsx';
 
 const ANIM_MS = 250;
@@ -11,28 +12,49 @@ function SectionLabel({ children }) {
 
 function DrawerSkeleton() {
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 animate-pulse">
+    <div className="overflow-y-auto px-6 py-5 space-y-5">
       <div className="grid grid-cols-2 gap-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-cream/50 rounded-lg px-3 py-2.5 space-y-1.5">
-            <div className="h-2.5 bg-cream rounded w-16" />
-            <div className="h-4 bg-cream rounded w-24" />
-          </div>
-        ))}
+        <div className="bg-cream/50 rounded-lg px-3 py-2.5">
+          <SectionLabel>Display name</SectionLabel>
+          <div className="h-4 bg-cream rounded w-24 animate-pulse" />
+        </div>
+        <div className="bg-cream/50 rounded-lg px-3 py-2.5">
+          <SectionLabel>Joined</SectionLabel>
+          <div className="h-4 bg-cream rounded w-20 animate-pulse" />
+        </div>
+        <div className="bg-cream/50 rounded-lg px-3 py-2.5 col-span-2">
+          <SectionLabel>Email</SectionLabel>
+          <div className="h-4 bg-cream rounded w-56 animate-pulse" />
+        </div>
+        <div className="bg-cream/50 rounded-lg px-3 py-2.5 col-span-2">
+          <SectionLabel>User ID</SectionLabel>
+          <div className="h-4 bg-cream rounded w-20 animate-pulse" />
+        </div>
       </div>
-      <div className="bg-cream/50 rounded-lg px-3 py-2.5 space-y-1.5">
-        <div className="h-2.5 bg-cream rounded w-12" />
-        <div className="h-8 bg-cream rounded w-48" />
+      <div>
+        <SectionLabel>Role</SectionLabel>
+        <div className="h-9 bg-cream/60 rounded-lg w-52 animate-pulse" />
       </div>
-      <div className="bg-cream/50 rounded-lg px-3 py-2.5 space-y-1.5">
-        <div className="h-2.5 bg-cream rounded w-16" />
-        <div className="h-8 bg-cream rounded w-64" />
+      <div>
+        <SectionLabel>Balance</SectionLabel>
+        <div className="h-5 bg-cream rounded w-20 mb-2 animate-pulse" />
+        <div className="h-9 bg-cream/60 rounded-lg w-44 animate-pulse" />
       </div>
-      <div className="space-y-2">
-        <div className="h-2.5 bg-cream rounded w-20" />
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-10 bg-cream/40 rounded-lg" />
-        ))}
+      <div>
+        <SectionLabel>Reviews</SectionLabel>
+        <ul className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <li key={i} className="h-12 bg-cream/40 rounded-lg animate-pulse" />
+          ))}
+        </ul>
+      </div>
+      <div>
+        <SectionLabel>Orders</SectionLabel>
+        <ul className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <li key={i} className="h-10 bg-cream/40 rounded-lg animate-pulse" />
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -64,6 +86,11 @@ export default function UserDetailDrawer({
   useEffect(() => {
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
   }, []);
 
   const closeWithAnim = useCallback(() => {
@@ -148,16 +175,16 @@ export default function UserDetailDrawer({
   const shortId = userId.slice(0, 8);
   const visible = entered && !leaving;
 
-  return (
+  return createPortal(
     <>
       <div
-        className={`fixed inset-0 h-dvh z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
         onClick={closeWithAnim}
         aria-hidden="true"
       />
 
       <aside
-        className={`fixed top-0 right-0 h-dvh w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 flex flex-col overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 bottom-0 w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 grid grid-rows-[auto_1fr] overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
         role="dialog"
         aria-label={`User ${user?.displayName ?? shortId} details`}
       >
@@ -182,13 +209,13 @@ export default function UserDetailDrawer({
         {fetchLoading ? (
           <DrawerSkeleton />
         ) : fetchError ? (
-          <div className="flex-1 px-6 py-5">
+          <div className="overflow-y-auto px-6 py-5">
             <div className="border border-line bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm">
               {fetchError}
             </div>
           </div>
         ) : user ? (
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div className="overflow-y-auto px-6 py-5 space-y-5">
 
             {/* Identity grid */}
             <div className="grid grid-cols-2 gap-3">
@@ -201,6 +228,10 @@ export default function UserDetailDrawer({
                 <p className="text-sm font-medium text-ink">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </p>
+              </div>
+              <div className="bg-cream/50 rounded-lg px-3 py-2.5 col-span-2">
+                <SectionLabel>Email</SectionLabel>
+                <p className="text-sm text-ink truncate">{user.email || '—'}</p>
               </div>
               <div className="bg-cream/50 rounded-lg px-3 py-2.5 col-span-2">
                 <SectionLabel>User ID</SectionLabel>
@@ -363,6 +394,7 @@ export default function UserDetailDrawer({
           </div>
         ) : null}
       </aside>
-    </>
+    </>,
+    document.body
   );
 }

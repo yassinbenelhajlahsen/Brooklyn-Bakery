@@ -2,96 +2,46 @@ import { Link } from 'react-router-dom';
 
 export default function StoryPage() {
   return (
-    <main className="flex-1 p-8 max-w-4xl mx-auto max-sm:px-4">
-      <h1 className="text-4xl font-heading font-bold text-ink mb-8">Our Story</h1>
+    <main className="flex-1 p-8 max-w-2xl mx-auto max-sm:px-4">
+      <h1
+        className="font-display italic text-[48px] leading-[1.1] text-ink mb-2 max-sm:text-[36px]"
+        style={{ fontVariationSettings: "'opsz' 48" }}
+      >
+        Our Story
+      </h1>
+      <p className="text-muted text-[14px] mb-10 tracking-wide uppercase font-medium">Brooklyn, NY · Est. 2025</p>
 
-      <div className="space-y-8">
-        <section className="bg-surface border border-line rounded-lg p-6">
-          <h3 className="text-xl font-heading font-bold text-ink mb-3">The Beginning</h3>
-          <p className="text-ink leading-relaxed">
-            Brooklyn Bakery started in a small kitchen in the heart of Brooklyn back in 2025. What began as a passion project between childhood friends has grown into a beloved community institution. Our founders, Group 1, spent countless hours perfecting their grandmother's secret recipes and creating new favorites that would become Brooklyn Bakery staples.
-          </p>
-        </section>
+      <div className="space-y-8 text-ink leading-relaxed">
+        <p>
+          Brooklyn Bakery started the way most good things do — in a small kitchen, with no plan and too much flour. A few friends who couldn't agree on much found common ground in bread: how it should smell, how the crust should crack, how it should feel to tear a warm loaf with someone at the table.
+        </p>
 
-        <section className="bg-surface border border-line rounded-lg p-6">
-          <h3 className="text-xl font-heading font-bold text-ink mb-3">Growing Together</h3>
-          <p className="text-ink leading-relaxed mb-4">
-            What started as cakes and croissants quickly expanded to a full-service bakery. Our neighbors became our regular customers, and their feedback helped us develop the diverse product line you see today. From rustic sourdough loaves to delicate French pastries, each item reflects our commitment to quality.
-          </p>
-          <p className="text-ink leading-relaxed">
-            In 2026, we launched our online ordering to serve our growing community beyond Brooklyn. Today, we ship fresh baked goods across the country and serve thousands of customers annually.
-          </p>
-        </section>
+        <p>
+          We opened our first counter in 2025. Word spread the old-fashioned way. Neighbors told neighbors. People started showing up on weekday mornings before work, then on Sundays with their kids. We kept baking.
+        </p>
 
-        <section className="bg-surface border border-line rounded-lg p-6">
-          <h3 className="text-xl font-heading font-bold text-ink mb-3">Our Values</h3>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-bold text-ink mb-2">🤝 Community</h4>
-              <p className="text-ink text-sm">
-                We believe in supporting local businesses, employing people from our neighborhood, and giving back to the community that has supported us.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-ink mb-2">🌍 Sustainability</h4>
-              <p className="text-ink text-sm">
-                From biodegradable packaging to sourcing ingredients locally, we're committed to reducing our environmental impact.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-ink mb-2">📖 Tradition</h4>
-              <p className="text-ink text-sm">
-                We honor baking traditions passed down through generations while embracing innovation and new flavors.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-ink mb-2">✨ Excellence</h4>
-              <p className="text-ink text-sm">
-                Every single item that leaves our kitchen meets our high standards. Quality is never compromised.
-              </p>
-            </div>
-          </div>
-        </section>
+        <p>
+          In 2026 we launched online ordering — not because we wanted to scale, but because people kept asking, and it felt wrong to say no. The points system came out of that too: a way to thank the people who kept coming back, in something other than a punch card.
+        </p>
 
-        <section className="bg-surface border border-line rounded-lg p-6">
-          <h3 className="text-xl font-heading font-bold text-ink mb-3">Today & Beyond</h3>
-          <p className="text-ink leading-relaxed">
-            Today, Brooklyn Bakery is proud to be part of your daily lives. Whether it's a morning croissant, a celebration cake, or a comfort cookie, we're honored to create those special moments. As we continue to grow, we remain focused on our core values: quality, community, and the simple joy of fresh-baked goodness.
-          </p>
-        </section>
+        <p>
+          We're still a small operation. Everything is made fresh. Nothing comes from a box. That hasn't changed and it won't.
+        </p>
+      </div>
 
-        <section className="bg-accent/5 border border-line rounded-lg p-6 text-center">
-          <h2 className="text-2xl font-heading font-bold text-ink mb-3">
-            Ready to taste our story?
-          </h2>
-
-          <p className="text-ink mb-6">
-            From our first loaf to today, every bite carries our passion. Start your order or explore what we offer.
-          </p>
-
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-6">
-            <Link
-              to="/"
-              className="px-6 py-3 rounded-lg bg-accent text-white font-medium hover:opacity-90 transition"
-            >
-              Start an Order
-            </Link>
-
-            <Link
-              to="/about"
-              className="px-6 py-3 rounded-lg border border-line text-ink hover:bg-cream transition"
-            >
-              Learn More About Us
-            </Link>
-          </div>
-
-          <p className="text-sm text-muted">
-            Have a question?{" "}
-            <Link to="/faq" className="text-accent font-medium hover:underline">
-              Visit our FAQ
-            </Link>
-          </p>
-        </section>
+      <div className="mt-12 pt-8 border-t border-line flex flex-col sm:flex-row gap-4">
+        <Link
+          to="/"
+          className="px-6 py-3 rounded-lg bg-accent text-white font-medium hover:opacity-90 transition text-center"
+        >
+          See what's fresh
+        </Link>
+        <Link
+          to="/contact"
+          className="px-6 py-3 rounded-lg border border-line text-ink hover:bg-cream transition text-center"
+        >
+          Get in touch
+        </Link>
       </div>
     </main>
   );

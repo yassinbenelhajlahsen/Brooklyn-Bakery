@@ -34,6 +34,8 @@ const TABS = [
 
 const DEFAULT_TAB = 'orders';
 const TAB_KEYS = TABS.map((t) => t.key);
+const STEP_PERCENT = 100 / TABS.length;
+const STRIP_WIDTH_PERCENT = TABS.length * 100;
 
 const BACK_BTN = clsx(
   'bg-transparent text-muted border border-line rounded-lg p-3',
@@ -43,22 +45,37 @@ const BACK_BTN = clsx(
   'motion-reduce:transition-none',
 );
 
+function Panel({ hidden, widthPercent, children }) {
+  return (
+    <div
+      className={`h-full overflow-y-auto ${hidden ? 'pointer-events-none' : ''}`}
+      style={{ width: `${widthPercent}%` }}
+      aria-hidden={hidden}
+      inert={hidden}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('tab');
   const active = TAB_KEYS.includes(requested) ? requested : DEFAULT_TAB;
   const activeIdx = TABS.findIndex((t) => t.key === active);
-  const ActiveTab = TABS[activeIdx].Component;
 
   const setActive = (key) => {
+    if (key === active) return;
     const next = new URLSearchParams(searchParams);
     next.set('tab', key);
     setSearchParams(next);
   };
 
+  const panelWidthPercent = 100 / TABS.length;
+
   return (
-    <div className="w-full">
+    <div className="flex flex-col h-full w-full min-h-0">
       <div className="mb-6 flex justify-start">
         <button className={BACK_BTN} onClick={() => navigate('/')}>
           Back to home
@@ -102,14 +119,30 @@ export default function AdminPage() {
           aria-hidden="true"
           className="absolute bottom-0 left-0 h-0.5 bg-accent transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{
-            width: `${100 / TABS.length}%`,
+            width: `${STEP_PERCENT}%`,
             transform: `translateX(${activeIdx * 100}%)`,
           }}
         />
       </nav>
 
-      <section role="tabpanel" aria-label={`${TABS[activeIdx].label} panel`}>
-        <ActiveTab />
+      <section
+        role="tabpanel"
+        aria-label={`${TABS[activeIdx].label} panel`}
+        className="flex-1 min-h-0 overflow-hidden"
+      >
+        <div
+          className="flex h-full transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+          style={{
+            width: `${STRIP_WIDTH_PERCENT}%`,
+            transform: `translateX(-${activeIdx * STEP_PERCENT}%)`,
+          }}
+        >
+          {TABS.map(({ key, Component }, idx) => (
+            <Panel key={key} hidden={idx !== activeIdx} widthPercent={panelWidthPercent}>
+              <Component />
+            </Panel>
+          ))}
+        </div>
       </section>
     </div>
   );

@@ -15,7 +15,6 @@ export function usePlaceOrder({ onSuccess } = {}) {
       await refreshProfile();
       if (onSuccess) onSuccess(created);
     } catch (err) {
-      console.error('placeOrder failed:', err);
       setError(err?.message ?? 'Could not reach the server. Please try again.');
     } finally {
       setSubmitting(false);

@@ -26,8 +26,6 @@ async function buildTransporter() {
 
 async function sendConfirmationEmail({ to, customerName, orderDetails }) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.warn('Email credentials not configured. Skipping email send.');
-    console.warn('Set GMAIL_USER and GMAIL_APP_PASSWORD in .env file');
     return { skipped: true, reason: 'Missing email credentials' };
   }
 
@@ -72,14 +70,8 @@ async function sendConfirmationEmail({ to, customerName, orderDetails }) {
     `
   };
 
-  try {
-    const transporter = await buildTransporter();
-    const info = await transporter.sendMail(mailOptions);
-    return info;
-  } catch (err) {
-    console.error('Failed to send confirmation email:', err.message);
-    throw err;
-  }
+  const transporter = await buildTransporter();
+  return transporter.sendMail(mailOptions);
 }
 
 export { sendConfirmationEmail };

@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { httpError, sendHttpError } from '../lib/httpError.js';
+import { httpError } from '../lib/httpError.js';
 import { normalizeAddressInput } from '../lib/address.js';
 
 const ADDRESS_SELECT = {
@@ -13,7 +13,7 @@ const ADDRESS_SELECT = {
     createdAt: true,
 };
 
-export async function listAddresses(req, res) {
+export async function listAddresses(req, res, next) {
     try {
         const addresses = await prisma.address.findMany({
             where: { userId: req.user.id },
@@ -22,16 +22,15 @@ export async function listAddresses(req, res) {
         });
         res.json({ addresses });
     } catch (err) {
-        console.error('listAddresses failed:', err);
-        res.status(500).json({ error: 'Failed to load addresses' });
+        next(err);
     }
 }
 
-export async function createAddress(req, res) {
+export async function createAddress(req, res, next) {
     try {
         const parsed = normalizeAddressInput(req.body);
         if (!parsed.ok) {
-            return sendHttpError(res, httpError(400, `Invalid ${parsed.field}`));
+            throw httpError(400, `Invalid ${parsed.field}`);
         }
         const address = await prisma.address.create({
             data: { userId: req.user.id, ...parsed.value },
@@ -39,25 +38,23 @@ export async function createAddress(req, res) {
         });
         res.status(201).json({ address });
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('createAddress failed:', err);
-        res.status(500).json({ error: 'Failed to create address' });
+        next(err);
     }
 }
 
-export async function updateAddress(req, res) {
+export async function updateAddress(req, res, next) {
     try {
         const parsed = normalizeAddressInput(req.body, { partial: true });
         if (!parsed.ok) {
-            return sendHttpError(res, httpError(400, `Invalid ${parsed.field}`));
+            throw httpError(400, `Invalid ${parsed.field}`);
         }
         const existing = await prisma.address.findUnique({
             where: { id: req.params.id },
             select: { userId: true },
         });
-        if (!existing) return sendHttpError(res, httpError(404, 'Address not found'));
+        if (!existing) throw httpError(404, 'Address not found');
         if (existing.userId !== req.user.id) {
-            return sendHttpError(res, httpError(403, 'Forbidden'));
+            throw httpError(403, 'Forbidden');
         }
         const address = await prisma.address.update({
             where: { id: req.params.id },
@@ -66,27 +63,23 @@ export async function updateAddress(req, res) {
         });
         res.json({ address });
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('updateAddress failed:', err);
-        res.status(500).json({ error: 'Failed to update address' });
+        next(err);
     }
 }
 
-export async function deleteAddress(req, res) {
+export async function deleteAddress(req, res, next) {
     try {
         const existing = await prisma.address.findUnique({
             where: { id: req.params.id },
             select: { userId: true },
         });
-        if (!existing) return sendHttpError(res, httpError(404, 'Address not found'));
+        if (!existing) throw httpError(404, 'Address not found');
         if (existing.userId !== req.user.id) {
-            return sendHttpError(res, httpError(403, 'Forbidden'));
+            throw httpError(403, 'Forbidden');
         }
         await prisma.address.delete({ where: { id: req.params.id } });
         res.status(204).end();
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('deleteAddress failed:', err);
-        res.status(500).json({ error: 'Failed to delete address' });
+        next(err);
     }
 }

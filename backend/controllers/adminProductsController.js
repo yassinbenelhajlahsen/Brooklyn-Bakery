@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { sendHttpError, httpError } from '../lib/httpError.js';
+import { httpError } from '../lib/httpError.js';
 import { parsePagination } from '../lib/pagination.js';
 
 const PRODUCT_TYPES = new Set(['bread', 'pastry', 'cake', 'cookie', 'drink']);
@@ -58,7 +58,7 @@ const PRODUCT_SORTS = {
     popularity: [{ reviews: { _count: 'desc' } }, { createdAt: 'desc' }],
 };
 
-export async function listProducts(req, res) {
+export async function listProducts(req, res, next) {
     try {
         const includeArchived = req.query.includeArchived === 'true';
         const sortKey = req.query.sort ?? 'newest';
@@ -82,25 +82,21 @@ export async function listProducts(req, res) {
         const items = await withAdminRatings(rawItems);
         res.json({ items, total, hasMore: skip + items.length < total });
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('listProducts failed:', err);
-        res.status(500).json({ error: 'Failed to load products' });
+        next(err);
     }
 }
 
-export async function createProduct(req, res) {
+export async function createProduct(req, res, next) {
     try {
         validateProductPayload(req.body);
         const product = await prisma.product.create({ data: req.body });
         res.status(201).json(product);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('createProduct failed:', err);
-        res.status(500).json({ error: 'Create failed' });
+        next(err);
     }
 }
 
-export async function updateProduct(req, res) {
+export async function updateProduct(req, res, next) {
     try {
         validateProductPayload(req.body, { partial: true });
         const product = await prisma.product.update({
@@ -110,13 +106,11 @@ export async function updateProduct(req, res) {
         res.json(product);
     } catch (err) {
         if (err.code === 'P2025') return res.status(404).json({ error: 'Product not found' });
-        if (err.http) return sendHttpError(res, err);
-        console.error('updateProduct failed:', err);
-        res.status(500).json({ error: 'Update failed' });
+        next(err);
     }
 }
 
-export async function archiveProduct(req, res) {
+export async function archiveProduct(req, res, next) {
     try {
         const product = await prisma.product.update({
             where: { id: req.params.id },
@@ -125,12 +119,11 @@ export async function archiveProduct(req, res) {
         res.json(product);
     } catch (err) {
         if (err.code === 'P2025') return res.status(404).json({ error: 'Product not found' });
-        console.error('archiveProduct failed:', err);
-        res.status(500).json({ error: 'Archive failed' });
+        next(err);
     }
 }
 
-export async function unarchiveProduct(req, res) {
+export async function unarchiveProduct(req, res, next) {
     try {
         const product = await prisma.product.update({
             where: { id: req.params.id },
@@ -139,7 +132,6 @@ export async function unarchiveProduct(req, res) {
         res.json(product);
     } catch (err) {
         if (err.code === 'P2025') return res.status(404).json({ error: 'Product not found' });
-        console.error('unarchiveProduct failed:', err);
-        res.status(500).json({ error: 'Unarchive failed' });
+        next(err);
     }
 }

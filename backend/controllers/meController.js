@@ -1,9 +1,9 @@
 import { prisma } from '../lib/prisma.js';
-import { httpError, sendHttpError } from '../lib/httpError.js';
+import { httpError } from '../lib/httpError.js';
 import { creditClicks } from '../services/clickService.js';
 import { normalizeDisplayName } from '../lib/displayName.js';
 
-export async function getMe(req, res) {
+export async function getMe(req, res, next) {
     try {
         const profile = await prisma.user.findUnique({
             where: { id: req.user.id },
@@ -14,19 +14,18 @@ export async function getMe(req, res) {
                 role: true,
             },
         });
-        if (!profile) return sendHttpError(res, httpError(404, 'Profile not found'));
+        if (!profile) throw httpError(404, 'Profile not found');
         res.json({ user: { ...profile, email: req.user.email } });
     } catch (err) {
-        console.error('getMe failed:', err);
-        res.status(500).json({ error: 'Failed to load profile' });
+        next(err);
     }
 }
 
-export async function updateMe(req, res) {
+export async function updateMe(req, res, next) {
     try {
         const result = normalizeDisplayName(req.body?.displayName);
         if (!result.ok) {
-            return sendHttpError(res, httpError(400, result.error));
+            throw httpError(400, result.error);
         }
         const profile = await prisma.user.update({
             where: { id: req.user.id },
@@ -40,12 +39,11 @@ export async function updateMe(req, res) {
         });
         res.json({ user: { ...profile, email: req.user.email } });
     } catch (err) {
-        console.error('updateMe failed:', err);
-        res.status(500).json({ error: 'Failed to update profile' });
+        next(err);
     }
 }
 
-export async function flushClicks(req, res) {
+export async function flushClicks(req, res, next) {
     try {
         const { delta, elapsedMs } = req.body ?? {};
         const result = await creditClicks({
@@ -55,8 +53,6 @@ export async function flushClicks(req, res) {
         });
         res.json(result);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('flushClicks failed:', err);
-        res.status(500).json({ error: 'Failed to credit clicks' });
+        next(err);
     }
 }

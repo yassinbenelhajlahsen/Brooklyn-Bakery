@@ -16,8 +16,6 @@ export default function ContactUsPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // In a real app, this would send to an email service or backend
-    console.log('Form submitted:', formData);
     setSubmitted(true);
     setFormData({ name: '', email: '', subject: '', message: '' });
     setTimeout(() => setSubmitted(false), 5000);

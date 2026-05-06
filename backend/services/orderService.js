@@ -116,8 +116,9 @@ export async function placeOrder(userId, { addressId } = {}) {
                 })),
                 total: order.createdOrder.total,
             },
-        }).catch((emailErr) => {
-            console.error('Email failed to send, but order was created:', emailErr.message);
+        }).catch(() => {
+            // Confirmation email is fire-and-forget; swallowed so a mail
+            // outage never fails an order. Failures are not surfaced.
         });
     }
 

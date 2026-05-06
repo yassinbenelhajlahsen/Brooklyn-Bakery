@@ -125,16 +125,14 @@ export function useCookieClicker() {
                         windowStartRef.current = performance.now();
                     }
                     rerender();
-                    console.warn('flush /me/clicks failed:', res.status);
                 }
-            } catch (err) {
+            } catch {
                 pendingRef.current += inFlightRef.current;
                 inFlightRef.current = 0;
                 if (pendingRef.current > 0 && windowStartRef.current == null) {
                     windowStartRef.current = performance.now();
                 }
                 rerender();
-                console.warn('flush /me/clicks error:', err);
             } finally {
                 flushingRef.current = false;
             }

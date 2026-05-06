@@ -1,8 +1,8 @@
 import { prisma } from '../lib/prisma.js';
-import { sendHttpError, httpError } from '../lib/httpError.js';
+import { httpError } from '../lib/httpError.js';
 import { parsePagination } from '../lib/pagination.js';
 
-export async function listUsers(req, res) {
+export async function listUsers(req, res, next) {
     try {
         const { take, skip } = parsePagination(req.query);
         const [rawItems, total] = await Promise.all([
@@ -31,9 +31,7 @@ export async function listUsers(req, res) {
         }));
         res.json({ items, total, hasMore: skip + items.length < total });
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('listUsers failed:', err);
-        res.status(500).json({ error: 'Failed to load users' });
+        next(err);
     }
 }
 
@@ -57,7 +55,7 @@ export async function getUser(req, res) {
     res.json(user);
 }
 
-export async function updateRole(req, res) {
+export async function updateRole(req, res, next) {
     try {
         const { role } = req.body || {};
         if (role !== 'customer' && role !== 'admin') {
@@ -88,13 +86,11 @@ export async function updateRole(req, res) {
 
         res.json(updated);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('updateRole failed:', err);
-        res.status(500).json({ error: 'Role update failed' });
+        next(err);
     }
 }
 
-export async function adjustBalance(req, res) {
+export async function adjustBalance(req, res, next) {
     try {
         const { delta } = req.body || {};
         if (!Number.isInteger(delta) || delta === 0) {
@@ -119,8 +115,6 @@ export async function adjustBalance(req, res) {
 
         res.json(updated);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('adjustBalance failed:', err);
-        res.status(500).json({ error: 'Balance adjustment failed' });
+        next(err);
     }
 }

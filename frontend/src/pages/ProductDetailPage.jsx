@@ -37,9 +37,8 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
             setProduct(data)
           }
         }
-      } catch (err) {
+      } catch {
         if (cancelled) return
-        console.error('error: ', err)
         setError('Failed to load product.')
       } finally {
         if (!cancelled) setLoading(false)

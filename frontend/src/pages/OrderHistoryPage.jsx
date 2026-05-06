@@ -63,7 +63,6 @@ export default function OrderHistoryPage({ addItem }) {
       setHasMore(data.hasMore)
     } catch (err) {
       if (requestIdRef.current !== reqId) return
-      console.error('Failed to load order history', err)
       setError(err?.message ?? 'Could not load your order history.')
     } finally {
       if (requestIdRef.current === reqId) setLoading(false)
@@ -103,7 +102,6 @@ export default function OrderHistoryPage({ addItem }) {
         setProductsError(null)
       } catch (err) {
         if (cancelled) return
-        console.error('Failed to load products for reorder', err)
         setProductsError(err?.message ?? 'Could not load products.')
       }
     })()

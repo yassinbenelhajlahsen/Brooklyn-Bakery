@@ -1,23 +1,21 @@
 import { prisma } from '../lib/prisma.js';
-import { httpError, sendHttpError } from '../lib/httpError.js';
+import { httpError } from '../lib/httpError.js';
 import { placeOrder } from '../services/orderService.js';
 import { transition } from '../services/orderStateMachine.js';
 import { snapshotAddress } from '../lib/address.js';
 import { parsePagination } from '../lib/pagination.js';
 
-export async function createOrder(req, res) {
+export async function createOrder(req, res, next) {
     try {
         const { addressId } = req.body ?? {};
         const order = await placeOrder(req.user.id, { addressId });
         res.status(201).json(order);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('createOrder failed:', err);
-        res.status(500).json({ error: 'Order creation failed' });
+        next(err);
     }
 }
 
-export async function listMyOrders(req, res) {
+export async function listMyOrders(req, res, next) {
     try {
         const { take, skip } = parsePagination(req.query);
         const where = { userId: req.user.id };
@@ -37,13 +35,11 @@ export async function listMyOrders(req, res) {
         ]);
         res.json({ items, total, hasMore: skip + items.length < total });
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('listMyOrders failed:', err);
-        res.status(500).json({ error: 'Failed to load orders' });
+        next(err);
     }
 }
 
-export async function userCancel(req, res) {
+export async function userCancel(req, res, next) {
     try {
         const order = await prisma.order.findUnique({
             where: { id: req.params.id },
@@ -61,13 +57,11 @@ export async function userCancel(req, res) {
         });
         res.json(updated);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('userCancel failed:', err);
-        res.status(500).json({ error: 'Cancel failed' });
+        next(err);
     }
 }
 
-export async function updateOrderAddress(req, res) {
+export async function updateOrderAddress(req, res, next) {
     try {
         const { addressId } = req.body ?? {};
         if (!addressId || typeof addressId !== 'string') {
@@ -113,13 +107,11 @@ export async function updateOrderAddress(req, res) {
 
         res.json(updated);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('updateOrderAddress failed:', err);
-        res.status(500).json({ error: 'Failed to update address' });
+        next(err);
     }
 }
 
-export async function userReturn(req, res) {
+export async function userReturn(req, res, next) {
     try {
         const order = await prisma.order.findUnique({
             where: { id: req.params.id },
@@ -136,8 +128,6 @@ export async function userReturn(req, res) {
         });
         res.json(updated);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('userReturn failed:', err);
-        res.status(500).json({ error: 'Return request failed' });
+        next(err);
     }
 }

@@ -36,6 +36,19 @@ app.use('/me', requireAuth, meRoutes);
 app.use('/cart', requireAuth, cartRoutes);
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 
+// 404 fallback for unmatched routes
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
+});
+
+// Global error handler. Controllers forward unexpected errors via next(err);
+// known errors carry an .http status from lib/httpError.js.
+app.use((err, req, res, _next) => {
+    if (err.http) return res.status(err.http).json({ error: err.message });
+    console.error('Unhandled error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });

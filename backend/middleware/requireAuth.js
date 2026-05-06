@@ -10,8 +10,7 @@ export async function requireAuth(req, res, next) {
     let data, error;
     try {
         ({ data, error } = await supabaseAdmin.auth.getUser(token));
-    } catch (err) {
-        console.error('Supabase getUser failed:', err.message);
+    } catch {
         return res.status(503).json({ error: 'Auth service unavailable' });
     }
 

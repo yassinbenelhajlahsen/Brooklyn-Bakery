@@ -125,9 +125,8 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
           setBakedGoods(data.items)
           setError(null)
         }
-      } catch (err) {
+      } catch {
         if (cancelled) return
-        console.error('error: ', err)
         setError('Failed to load products.')
       } finally {
         if (!cancelled) setLoading(false)

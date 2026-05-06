@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { sendHttpError, httpError } from '../lib/httpError.js';
+import { httpError } from '../lib/httpError.js';
 import { transition } from '../services/orderStateMachine.js';
 import { parsePagination } from '../lib/pagination.js';
 
@@ -8,7 +8,7 @@ const STATUS_VALUES = new Set([
     'cancel_requested', 'cancelled', 'return_requested', 'returned',
 ]);
 
-export async function listAllOrders(req, res) {
+export async function listAllOrders(req, res, next) {
     try {
         const { status } = req.query;
         if (status && !STATUS_VALUES.has(status)) {
@@ -33,9 +33,7 @@ export async function listAllOrders(req, res) {
 
         res.json({ items, total, hasMore: skip + items.length < total });
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('listAllOrders failed:', err);
-        res.status(500).json({ error: 'Failed to load orders' });
+        next(err);
     }
 }
 
@@ -58,7 +56,7 @@ const ADMIN_ACTIONS = new Set([
     'forceCancel', 'forceReturn',
 ]);
 
-export async function transitionOrder(req, res) {
+export async function transitionOrder(req, res, next) {
     try {
         const { action, reason } = req.body || {};
         if (!ADMIN_ACTIONS.has(action)) {
@@ -72,8 +70,6 @@ export async function transitionOrder(req, res) {
         });
         res.json(updated);
     } catch (err) {
-        if (err.http) return sendHttpError(res, err);
-        console.error('transitionOrder failed:', err);
-        res.status(500).json({ error: 'Transition failed' });
+        next(err);
     }
 }

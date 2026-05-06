@@ -69,7 +69,7 @@ export default function OrdersTab() {
             <col />
             <col style={{ width: '4rem'  }} />
             <col style={{ width: '6rem'  }} />
-            <col style={{ width: '9rem'  }} />
+            <col style={{ width: '11rem' }} />
             <col style={{ width: '12rem' }} />
           </colgroup>
           <thead>

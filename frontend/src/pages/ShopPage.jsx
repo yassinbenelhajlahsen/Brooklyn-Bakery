@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import ProductCard from '../components/cards/ProductCard.jsx'
 import { toProductSlug } from '../lib/slugUtils.js'
 import ProductCardSkeleton from '../components/cards/ProductCardSkeleton.jsx'
 import Skeleton from '../components/Skeleton.jsx'
 import CategoryNav from '../components/CategoryNav.jsx'
 import { CATEGORIES } from '../lib/categories.js'
+import { apiGet } from '../lib/apiFetch.js'
+import { queryKeys } from '../lib/queryKeys.js'
 
 const STATUS_CLS = "text-center text-muted py-12"
 const SEARCH_DEBOUNCE_MS = 250
@@ -69,9 +72,6 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const urlQuery = searchParams.get('q') ?? ''
 
-  const [bakedGoods, setBakedGoods] = useState([])
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState(null)
   const [sortBy, setSortBy] = useState(urlQuery.trim() ? 'relevance' : 'default')
   const [inputValue, setInputValue] = useState(urlQuery)
@@ -96,6 +96,8 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
   }, [inputValue, urlQuery, setSearchParams])
 
   useEffect(() => {
+    // Reset pagination when filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLimit(PAGE_SIZE)
   }, [urlQuery, activeCategory])
 
@@ -103,6 +105,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
     const hasQuery = urlQuery.trim().length > 0
     const prevHadQuery = prevHasQueryRef.current
     if (!prevHadQuery && hasQuery) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSortBy((current) => (current === 'default' ? 'relevance' : current))
     } else if (prevHadQuery && !hasQuery) {
       setSortBy((current) => (current === 'relevance' ? 'default' : current))
@@ -110,30 +113,16 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
     prevHasQueryRef.current = hasQuery
   }, [urlQuery])
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    ;(async () => {
-      try {
-        const trimmed = urlQuery.trim()
-        const url = trimmed
-          ? `${import.meta.env.VITE_BACKEND_URL}/products?search=${encodeURIComponent(trimmed)}`
-          : `${import.meta.env.VITE_BACKEND_URL}/products`
-        const response = await fetch(url)
-        const data = await response.json()
-        if (!cancelled) {
-          setBakedGoods(data.items)
-          setError(null)
-        }
-      } catch {
-        if (cancelled) return
-        setError('Failed to load products.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [urlQuery])
+  const trimmed = urlQuery.trim()
+  const productsQuery = useQuery({
+    queryKey: queryKeys.products({ search: trimmed }),
+    queryFn: () => apiGet(trimmed ? `/products?search=${encodeURIComponent(trimmed)}` : '/products'),
+    staleTime: 60_000,
+  })
+
+  const bakedGoods = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data])
+  const loading = productsQuery.isLoading
+  const error = productsQuery.isError ? 'Failed to load products.' : null
 
   const visible = useMemo(() => {
     const filteredItems = activeCategory

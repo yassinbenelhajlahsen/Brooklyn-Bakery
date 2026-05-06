@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/useAuth.js'
 import Ornament from '../components/Ornament.jsx'
 import ReasonPromptModal from '../components/ReasonPromptModal.jsx'
@@ -8,6 +9,8 @@ import LoadMoreFooter from '../components/LoadMoreFooter.jsx'
 import { fetchMyOrders, userCancelOrder, userReturnOrder, updateOrderAddress } from '../services/orderService.js'
 import OrderCard from '../components/cards/OrderCard.jsx'
 import OrderCardSkeleton from '../components/cards/OrderCardSkeleton.jsx'
+import { apiGet } from '../lib/apiFetch.js'
+import { queryKeys } from '../lib/queryKeys.js'
 
 const PAGE_SIZE = 10
 
@@ -33,10 +36,10 @@ function OrderHeader() {
 export default function OrderHistoryPage({ addItem }) {
   const { user, ready, authedFetch } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(null)
@@ -44,32 +47,30 @@ export default function OrderHistoryPage({ addItem }) {
   const [pendingAddressId, setPendingAddressId] = useState(null)
   const [addressSaving, setAddressSaving] = useState(false)
   const [addressError, setAddressError] = useState(null)
-  const [productMap, setProductMap] = useState(null)
-  const [productsError, setProductsError] = useState(null)
   const [skippedByOrderId, setSkippedByOrderId] = useState({})
   const requestIdRef = useRef(0)
 
-  const refresh = useCallback(async () => {
-    if (!user) return
-    const reqId = ++requestIdRef.current
-    setLoading(true)
-    setLoadingMore(false)
-    setError(null)
-    try {
-      const data = await fetchMyOrders(authedFetch, { take: PAGE_SIZE, skip: 0 })
-      if (requestIdRef.current !== reqId) return
-      setItems(data.items)
-      setTotal(data.total)
-      setHasMore(data.hasMore)
-    } catch (err) {
-      if (requestIdRef.current !== reqId) return
-      setError(err?.message ?? 'Could not load your order history.')
-    } finally {
-      if (requestIdRef.current === reqId) setLoading(false)
-    }
-  }, [user, authedFetch])
+  const ordersQuery = useQuery({
+    queryKey: queryKeys.orders(),
+    queryFn: () => fetchMyOrders(authedFetch, { take: PAGE_SIZE, skip: 0 }),
+    enabled: !!user,
+    staleTime: 0,
+  })
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    if (ordersQuery.data) {
+      setItems(ordersQuery.data.items)
+      setTotal(ordersQuery.data.total)
+      setHasMore(ordersQuery.data.hasMore)
+    }
+  }, [ordersQuery.data])
+
+  const loading = ordersQuery.isLoading
+  useEffect(() => {
+    if (ordersQuery.isError) {
+      setError(ordersQuery.error?.message ?? 'Could not load your order history.')
+    }
+  }, [ordersQuery.isError, ordersQuery.error])
 
   const loadMore = useCallback(async () => {
     if (!hasMore || loadingMore) return
@@ -89,31 +90,42 @@ export default function OrderHistoryPage({ addItem }) {
     }
   }, [authedFetch, hasMore, loadingMore, items.length])
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        const data = await response.json()
-        if (cancelled) return
-        const map = new Map((data.items ?? []).map((p) => [p.id, p]))
-        setProductMap(map)
-        setProductsError(null)
-      } catch (err) {
-        if (cancelled) return
-        setProductsError(err?.message ?? 'Could not load products.')
-      }
-    })()
-    return () => { cancelled = true }
-  }, [])
+  const productsForMapQuery = useQuery({
+    queryKey: queryKeys.products({ search: '' }),
+    queryFn: () => apiGet('/products'),
+    staleTime: 60_000,
+  })
+
+  const productMap = useMemo(() => {
+    const items = productsForMapQuery.data?.items ?? []
+    return new Map(items.map((p) => [p.id, p]))
+  }, [productsForMapQuery.data])
+
+  const productsError = productsForMapQuery.isError
+    ? (productsForMapQuery.error?.message ?? 'Could not load products.')
+    : null
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ orderId, reason }) => userCancelOrder(authedFetch, orderId, reason),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders() }),
+  })
+
+  const returnMutation = useMutation({
+    mutationFn: ({ orderId, reason }) => userReturnOrder(authedFetch, orderId, reason),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders() }),
+  })
+
+  const addressMutation = useMutation({
+    mutationFn: ({ orderId, addressId }) => updateOrderAddress(authedFetch, orderId, addressId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders() }),
+  })
 
   function patchOrder(updated) {
     setItems((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
   }
 
   function handleReorder(order) {
-    if (!productMap) return
+    if (productsForMapQuery.isLoading || productsForMapQuery.isError) return
     let skipped = 0
     let added = 0
     for (const entry of order.items) {
@@ -143,7 +155,7 @@ export default function OrderHistoryPage({ addItem }) {
   async function handleCancel(order) {
     if (order.status === 'confirmed') {
       try {
-        const updated = await userCancelOrder(authedFetch, order.id, '')
+        const updated = await cancelMutation.mutateAsync({ orderId: order.id, reason: '' })
         patchOrder(updated)
       } catch (err) {
         setError(err?.message ?? 'Cancel failed')
@@ -163,8 +175,8 @@ export default function OrderHistoryPage({ addItem }) {
     setModal(null)
     try {
       const updated = kind === 'cancel'
-        ? await userCancelOrder(authedFetch, orderId, reason)
-        : await userReturnOrder(authedFetch, orderId, reason)
+        ? await cancelMutation.mutateAsync({ orderId, reason })
+        : await returnMutation.mutateAsync({ orderId, reason })
       patchOrder(updated)
     } catch (err) {
       setError(err?.message ?? 'Request failed')
@@ -191,7 +203,7 @@ export default function OrderHistoryPage({ addItem }) {
     setAddressSaving(true)
     setAddressError(null)
     try {
-      const updated = await updateOrderAddress(authedFetch, orderId, pendingAddressId)
+      const updated = await addressMutation.mutateAsync({ orderId, addressId: pendingAddressId })
       setItems((prev) => prev.map((o) => (o.id === orderId ? updated : o)))
       setEditingAddressOrderId(null)
       setPendingAddressId(null)
@@ -251,7 +263,7 @@ export default function OrderHistoryPage({ addItem }) {
                   reorderDisabledReason={
                     productsError
                       ? 'Could not load products — refresh to try again.'
-                      : !productMap
+                      : productsForMapQuery.isLoading
                         ? 'Loading products…'
                         : null
                   }

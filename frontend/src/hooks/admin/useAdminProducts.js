@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/useAuth.js';
 import * as api from '../../services/admin/adminProductsService.js';
 
@@ -6,6 +7,11 @@ const PAGE_SIZE = 10;
 
 export function useAdminProducts() {
   const { authedFetch } = useAuth();
+  const queryClient = useQueryClient();
+  const invalidatePublicProducts = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['product'] });
+  }, [queryClient]);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -63,14 +69,16 @@ export function useAdminProducts() {
     const created = await api.createProduct(authedFetch, data);
     setItems((prev) => [{ ...created, avgRating: null, reviewCount: 0 }, ...prev]);
     setTotal((t) => t + 1);
+    invalidatePublicProducts();
     return created;
-  }, [authedFetch]);
+  }, [authedFetch, invalidatePublicProducts]);
 
   const update = useCallback(async (id, data) => {
     const updated = await api.updateProduct(authedFetch, id, data);
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    invalidatePublicProducts();
     return updated;
-  }, [authedFetch]);
+  }, [authedFetch, invalidatePublicProducts]);
 
   const archive = useCallback(async (id) => {
     const updated = await api.archiveProduct(authedFetch, id);
@@ -81,14 +89,16 @@ export function useAdminProducts() {
       }
       return prev.map((p) => (p.id === id ? { ...p, ...updated } : p));
     });
+    invalidatePublicProducts();
     return updated;
-  }, [authedFetch, includeArchived]);
+  }, [authedFetch, includeArchived, invalidatePublicProducts]);
 
   const unarchive = useCallback(async (id) => {
     const updated = await api.unarchiveProduct(authedFetch, id);
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    invalidatePublicProducts();
     return updated;
-  }, [authedFetch]);
+  }, [authedFetch, invalidatePublicProducts]);
 
   return {
     items, total, hasMore,

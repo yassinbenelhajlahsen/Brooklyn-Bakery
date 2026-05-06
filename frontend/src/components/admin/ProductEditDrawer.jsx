@@ -165,7 +165,7 @@ export default function ProductEditDrawer({ mode, product, onClose, onCreate, on
               className={inputBase}
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://... or /images/..."
+              placeholder="https://..."
             />
             <FieldError msg={errors.imageUrl} />
           </div>

@@ -208,21 +208,39 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             )}
           </div>
 
-          {order.requestReason && (
-            <div>
-              <SectionLabel>User&apos;s reason</SectionLabel>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm text-ink">
-                {order.requestReason}
-              </div>
+          {(order.cancelRequestReason || order.cancelDecisionReason) && (
+            <div className="space-y-2">
+              <SectionLabel>Cancellation</SectionLabel>
+              {order.cancelRequestReason && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm text-ink">
+                  <div className="text-[11px] uppercase tracking-widest text-muted mb-1">User&apos;s reason</div>
+                  {order.cancelRequestReason}
+                </div>
+              )}
+              {order.cancelDecisionReason && (
+                <div className="bg-cream border border-line rounded-lg px-3 py-2.5 text-sm text-ink">
+                  <div className="text-[11px] uppercase tracking-widest text-muted mb-1">Admin note</div>
+                  {order.cancelDecisionReason}
+                </div>
+              )}
             </div>
           )}
 
-          {order.decisionReason && (
-            <div>
-              <SectionLabel>Admin note</SectionLabel>
-              <div className="bg-cream border border-line rounded-lg px-3 py-2.5 text-sm text-ink">
-                {order.decisionReason}
-              </div>
+          {(order.returnRequestReason || order.returnDecisionReason) && (
+            <div className="space-y-2">
+              <SectionLabel>Return</SectionLabel>
+              {order.returnRequestReason && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm text-ink">
+                  <div className="text-[11px] uppercase tracking-widest text-muted mb-1">User&apos;s reason</div>
+                  {order.returnRequestReason}
+                </div>
+              )}
+              {order.returnDecisionReason && (
+                <div className="bg-cream border border-line rounded-lg px-3 py-2.5 text-sm text-ink">
+                  <div className="text-[11px] uppercase tracking-widest text-muted mb-1">Admin note</div>
+                  {order.returnDecisionReason}
+                </div>
+              )}
             </div>
           )}
         </div>

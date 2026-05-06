@@ -8,6 +8,33 @@ function canReturn(order) {
   return Date.now() - new Date(order.deliveredAt).getTime() <= RETURN_WINDOW_MS
 }
 
+function cancelDecisionHeading(status) {
+  if (status === 'cancelled')  return 'Cancellation approved'
+  if (status === 'processing' || status === 'shipped' || status === 'delivered') return 'Cancellation denied'
+  return 'Cancellation update'
+}
+
+function Spinner() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="w-3 h-3 animate-spin text-current"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function returnDecisionHeading(status) {
+  if (status === 'returned')  return 'Return approved'
+  if (status === 'delivered') return 'Return denied'
+  return 'Return update'
+}
+
 export default function OrderCard({
   order,
   editingAddressOrderId,
@@ -23,7 +50,9 @@ export default function OrderCard({
   onReorder,
   reorderDisabledReason,
   skippedCount,
+  pendingAction,
 }) {
+  const busy = pendingAction != null
   const isEditingAddress = editingAddressOrderId === order.id
 
   return (
@@ -119,13 +148,34 @@ export default function OrderCard({
         )}
       </div>
 
-      {(order.requestReason || order.decisionReason) && (
-        <div className="mt-3 space-y-1 text-xs">
-          {order.requestReason && (
-            <div className="text-muted"><span className="text-ink">Your reason:</span> {order.requestReason}</div>
+      {(order.cancelRequestReason || order.cancelDecisionReason) && (
+        <div className="mt-3 space-y-1.5 text-xs">
+          {order.cancelRequestReason && (
+            <div className="text-muted">
+              <span className="text-ink font-medium">Your cancellation reason:</span> {order.cancelRequestReason}
+            </div>
           )}
-          {order.decisionReason && (
-            <div className="text-muted"><span className="text-ink">Reason:</span> {order.decisionReason}</div>
+          {order.cancelDecisionReason && (
+            <div className="border-l-2 border-amber-300 bg-amber-50/40 pl-2.5 py-1 rounded-r">
+              <div className="text-ink font-medium">{cancelDecisionHeading(order.status)}</div>
+              <div className="text-muted mt-0.5">{order.cancelDecisionReason}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(order.returnRequestReason || order.returnDecisionReason) && (
+        <div className="mt-3 space-y-1.5 text-xs">
+          {order.returnRequestReason && (
+            <div className="text-muted">
+              <span className="text-ink font-medium">Your return reason:</span> {order.returnRequestReason}
+            </div>
+          )}
+          {order.returnDecisionReason && (
+            <div className="border-l-2 border-amber-300 bg-amber-50/40 pl-2.5 py-1 rounded-r">
+              <div className="text-ink font-medium">{returnDecisionHeading(order.status)}</div>
+              <div className="text-muted mt-0.5">{order.returnDecisionReason}</div>
+            </div>
           )}
         </div>
       )}
@@ -142,35 +192,40 @@ export default function OrderCard({
         {order.status === 'confirmed' && (
           <button
             type="button"
+            disabled={busy}
             onClick={() => onCancel(order)}
-            className="text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            Cancel order
+            {pendingAction === 'cancel' && <Spinner />}
+            {pendingAction === 'cancel' ? 'Cancelling…' : 'Cancel order'}
           </button>
         )}
-        {order.status === 'processing' && !order.decisionReason && (
+        {order.status === 'processing' && !order.cancelDecisionReason && (
           <button
             type="button"
+            disabled={busy}
             onClick={() => onCancel(order)}
-            className="text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            Request cancellation
+            {pendingAction === 'cancel' && <Spinner />}
+            {pendingAction === 'cancel' ? 'Sending request…' : 'Request cancellation'}
           </button>
         )}
-        {order.status === 'delivered' && !order.decisionReason && (
+        {order.status === 'delivered' && !order.returnDecisionReason && (
           <button
             type="button"
-            disabled={!canReturn(order)}
+            disabled={busy || !canReturn(order)}
             title={!canReturn(order) ? 'Return period expired' : undefined}
             onClick={() => onReturn(order)}
-            className="text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            Request return
+            {pendingAction === 'return' && <Spinner />}
+            {pendingAction === 'return' ? 'Sending request…' : 'Request return'}
           </button>
         )}
         <button
           type="button"
-          disabled={Boolean(reorderDisabledReason)}
+          disabled={busy || Boolean(reorderDisabledReason)}
           title={reorderDisabledReason ?? undefined}
           onClick={() => onReorder(order)}
           className="text-xs px-2.5 py-1 rounded border border-line text-ink hover:bg-cream transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"

@@ -245,10 +245,18 @@ export default function OrderHistoryPage({ addItem }) {
         ) : (
           <>
             <div className="grid gap-4 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
-              {items.map((order) => (
+              {items.map((order) => {
+                const pendingAction =
+                  cancelMutation.isPending && cancelMutation.variables?.orderId === order.id
+                    ? 'cancel'
+                    : returnMutation.isPending && returnMutation.variables?.orderId === order.id
+                      ? 'return'
+                      : null
+                return (
                 <OrderCard
                   key={order.id}
                   order={order}
+                  pendingAction={pendingAction}
                   editingAddressOrderId={editingAddressOrderId}
                   pendingAddressId={pendingAddressId}
                   addressSaving={addressSaving}
@@ -269,7 +277,8 @@ export default function OrderHistoryPage({ addItem }) {
                   }
                   skippedCount={skippedByOrderId[order.id] ?? 0}
                 />
-              ))}
+                )
+              })}
             </div>
 
             <div className="mt-6">

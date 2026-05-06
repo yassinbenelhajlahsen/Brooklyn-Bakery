@@ -16,29 +16,29 @@ const RETURN_WINDOW_MS = 48 * 60 * 60 * 1000;
  */
 export const transitions = {
   confirmed: {
-    cancel:        { to: 'cancelled',  actor: 'user',  refundPoints: true,  restoreStock: true,  requiresReason: false },
+    cancel:        { to: 'cancelled',  actor: 'user',  refundPoints: true,  restoreStock: true,  requiresReason: false, reasonField: 'cancelRequestReason'  },
     setProcessing: { to: 'processing', actor: 'admin', refundPoints: false, restoreStock: false, requiresReason: false },
-    forceCancel:   { to: 'cancelled',  actor: 'admin', refundPoints: true,  restoreStock: true,  requiresReason: true  },
+    forceCancel:   { to: 'cancelled',  actor: 'admin', refundPoints: true,  restoreStock: true,  requiresReason: true,  reasonField: 'cancelDecisionReason' },
   },
   processing: {
-    requestCancel: { to: 'cancel_requested', actor: 'user',  refundPoints: false, restoreStock: false, requiresReason: false },
+    requestCancel: { to: 'cancel_requested', actor: 'user',  refundPoints: false, restoreStock: false, requiresReason: false, reasonField: 'cancelRequestReason'  },
     setShipped:    { to: 'shipped',          actor: 'admin', refundPoints: false, restoreStock: false, requiresReason: false },
-    forceCancel:   { to: 'cancelled',        actor: 'admin', refundPoints: true,  restoreStock: true,  requiresReason: true  },
+    forceCancel:   { to: 'cancelled',        actor: 'admin', refundPoints: true,  restoreStock: true,  requiresReason: true,  reasonField: 'cancelDecisionReason' },
   },
   cancel_requested: {
-    approveCancel: { to: 'cancelled',  actor: 'admin', refundPoints: true,  restoreStock: true,  requiresReason: false },
-    denyCancel:    { to: 'processing', actor: 'admin', refundPoints: false, restoreStock: false, requiresReason: true  },
+    approveCancel: { to: 'cancelled',  actor: 'admin', refundPoints: true,  restoreStock: true,  requiresReason: false, reasonField: 'cancelDecisionReason' },
+    denyCancel:    { to: 'processing', actor: 'admin', refundPoints: false, restoreStock: false, requiresReason: true,  reasonField: 'cancelDecisionReason' },
   },
   shipped: {
     setDelivered:  { to: 'delivered', actor: 'admin', refundPoints: false, restoreStock: false, setDeliveredAt: true, requiresReason: false },
   },
   delivered: {
-    requestReturn: { to: 'return_requested', actor: 'user',  refundPoints: false, restoreStock: false, requiresReason: false, requiresWindow: true },
-    forceReturn:   { to: 'returned',         actor: 'admin', refundPoints: true,  restoreStock: false, requiresReason: true  },
+    requestReturn: { to: 'return_requested', actor: 'user',  refundPoints: false, restoreStock: false, requiresReason: false, requiresWindow: true, reasonField: 'returnRequestReason'  },
+    forceReturn:   { to: 'returned',         actor: 'admin', refundPoints: true,  restoreStock: false, requiresReason: true,                        reasonField: 'returnDecisionReason' },
   },
   return_requested: {
-    approveReturn: { to: 'returned',  actor: 'admin', refundPoints: true,  restoreStock: false, requiresReason: false },
-    denyReturn:    { to: 'delivered', actor: 'admin', refundPoints: false, restoreStock: false, requiresReason: true  },
+    approveReturn: { to: 'returned',  actor: 'admin', refundPoints: true,  restoreStock: false, requiresReason: false, reasonField: 'returnDecisionReason' },
+    denyReturn:    { to: 'delivered', actor: 'admin', refundPoints: false, restoreStock: false, requiresReason: true,  reasonField: 'returnDecisionReason' },
   },
   cancelled: {},
   returned: {},
@@ -112,9 +112,8 @@ export async function transition({ orderId, action, actor, reason }) {
 
     const data = { status: entry.to };
     if (entry.setDeliveredAt) data.deliveredAt = new Date();
-    if (reason?.trim()) {
-      if (actor === 'user') data.requestReason = reason.trim();
-      else data.decisionReason = reason.trim();
+    if (reason?.trim() && entry.reasonField) {
+      data[entry.reasonField] = reason.trim();
     }
 
     return tx.order.update({

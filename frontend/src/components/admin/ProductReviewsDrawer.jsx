@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../../lib/apiFetch.js'
 import { queryKeys } from '../../lib/queryKeys.js'
+import { toNameSlug } from '../../lib/slugUtils.js'
 
 const ANIM_MS = 250
 
@@ -25,10 +26,12 @@ export default function ProductReviewsDrawer({ product, onClose }) {
   const [entered, setEntered] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
+  const slug = product?.name ? toNameSlug(product.name) : null
+
   const reviewsQuery = useQuery({
     queryKey: queryKeys.reviewsById(product.id),
-    queryFn: () => apiGet(`/products/${product.id}/reviews`),
-    enabled: !!product?.id,
+    queryFn: () => apiGet(`/products/${slug}/reviews`),
+    enabled: !!slug,
   })
 
   const reviews = reviewsQuery.data?.reviews ?? []

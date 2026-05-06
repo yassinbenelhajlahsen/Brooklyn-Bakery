@@ -23,7 +23,7 @@ function SkeletonRow() {
 export default function OrdersTab() {
   const {
     items, total, hasMore, status,
-    loading, loadingMore, error,
+    loading, fetching, loadingMore, error,
     refresh, loadMore, setStatus, transition,
   } = useAdminOrders();
   const [selected, setSelected] = useState(null);
@@ -35,14 +35,14 @@ export default function OrdersTab() {
         <StatusFilter value={status} onChange={setStatus} />
         <button
           onClick={refresh}
-          disabled={loading}
+          disabled={fetching}
           className="flex items-center gap-1.5 border border-line rounded-md px-3 py-1.5 text-sm text-ink hover:bg-cream disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+            className={`w-4 h-4 ${fetching ? 'animate-spin' : ''}`}
           >
             <path
               fillRule="evenodd"

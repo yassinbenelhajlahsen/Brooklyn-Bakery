@@ -1,77 +1,61 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useAuth } from '../../auth/useAuth.js';
+import { queryKeys } from '../../lib/queryKeys.js';
 import * as api from '../../services/admin/adminOrdersService.js';
 
 const PAGE_SIZE = 10;
 
 export function useAdminOrders() {
   const { authedFetch } = useAuth();
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState(null);
-  const requestIdRef = useRef(0);
 
-  const refresh = useCallback(async () => {
-    const reqId = ++requestIdRef.current;
-    setLoading(true);
-    setLoadingMore(false);
-    setError(null);
-    try {
-      const args = { take: PAGE_SIZE, skip: 0, ...(status ? { status } : {}) };
-      const data = await api.listOrders(authedFetch, args);
-      if (requestIdRef.current !== reqId) return;
-      setItems(data.items);
-      setTotal(data.total);
-      setHasMore(data.hasMore);
-    } catch (err) {
-      if (requestIdRef.current !== reqId) return;
-      setError(err.message);
-    } finally {
-      if (requestIdRef.current === reqId) setLoading(false);
-    }
-  }, [authedFetch, status]);
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.adminOrders({ status }),
+    queryFn: ({ pageParam }) =>
+      api.listOrders(authedFetch, {
+        take: PAGE_SIZE,
+        skip: pageParam,
+        ...(status ? { status } : {}),
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) return undefined;
+      return allPages.reduce((acc, p) => acc + p.items.length, 0);
+    },
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const items = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const total = query.data?.pages.at(-1)?.total ?? 0;
 
-  const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMore) return;
-    const reqId = requestIdRef.current;
-    setLoadingMore(true);
-    try {
-      const args = { take: PAGE_SIZE, skip: items.length, ...(status ? { status } : {}) };
-      const data = await api.listOrders(authedFetch, args);
-      if (requestIdRef.current !== reqId) return;
-      setItems((prev) => [...prev, ...data.items]);
-      setTotal(data.total);
-      setHasMore(data.hasMore);
-    } catch (err) {
-      if (requestIdRef.current !== reqId) return;
-      setError(err.message);
-    } finally {
-      if (requestIdRef.current === reqId) setLoadingMore(false);
-    }
-  }, [authedFetch, hasMore, loadingMore, items.length, status]);
+  const transitionMutation = useMutation({
+    mutationFn: ({ id, action, reason }) =>
+      api.transitionOrder(authedFetch, id, action, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminOrdersAll() });
+    },
+  });
 
-  const transition = useCallback(async (id, action, reason) => {
-    const updated = await api.transitionOrder(authedFetch, id, action, reason);
-    setItems((prev) => {
-      const next = prev.map((o) => (o.id === id ? { ...o, ...updated } : o));
-      if (status && updated.status !== status) {
-        setTotal((t) => Math.max(0, t - 1));
-        return next.filter((o) => o.id !== id);
-      }
-      return next;
-    });
-    return updated;
-  }, [authedFetch, status]);
+  const transition = (id, action, reason) =>
+    transitionMutation.mutateAsync({ id, action, reason });
 
   return {
-    items, total, hasMore, status,
-    loading, loadingMore, error,
-    refresh, loadMore, setStatus, transition,
+    items,
+    total,
+    hasMore: query.hasNextPage ?? false,
+    status,
+    loading: query.isLoading,
+    fetching: query.isFetching && !query.isFetchingNextPage,
+    loadingMore: query.isFetchingNextPage,
+    error: query.error?.message ?? null,
+    refresh: () => query.refetch(),
+    loadMore: () => query.fetchNextPage(),
+    setStatus,
+    transition,
   };
 }

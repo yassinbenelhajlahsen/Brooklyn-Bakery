@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import clsx from 'clsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import OrdersTab from '../components/admin/OrdersTab.jsx';
 import ProductsTab from '../components/admin/ProductsTab.jsx';
 import UsersTab from '../components/admin/UsersTab.jsx';
@@ -33,6 +32,9 @@ const TABS = [
   { key: 'users',    label: 'Users',    Icon: UserIcon,    Component: UsersTab    },
 ];
 
+const DEFAULT_TAB = 'orders';
+const TAB_KEYS = TABS.map((t) => t.key);
+
 const BACK_BTN = clsx(
   'bg-transparent text-muted border border-line rounded-lg p-3',
   'font-sans font-medium text-[12px] leading-[1] tracking-[0.1em] uppercase',
@@ -42,10 +44,18 @@ const BACK_BTN = clsx(
 );
 
 export default function AdminPage() {
-  const [active, setActive] = useState('orders');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const active = TAB_KEYS.includes(requested) ? requested : DEFAULT_TAB;
   const activeIdx = TABS.findIndex((t) => t.key === active);
   const ActiveTab = TABS[activeIdx].Component;
+
+  const setActive = (key) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', key);
+    setSearchParams(next);
+  };
 
   return (
     <div className="w-full">

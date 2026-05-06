@@ -108,7 +108,6 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSortBy((current) => (current === 'default' ? 'relevance' : current))
     } else if (prevHadQuery && !hasQuery) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSortBy((current) => (current === 'relevance' ? 'default' : current))
     }
     prevHasQueryRef.current = hasQuery
@@ -121,7 +120,7 @@ export default function ShopPage({ cart, onIncrement, onDecrement }) {
     staleTime: 60_000,
   })
 
-  const bakedGoods = productsQuery.data?.items ?? []
+  const bakedGoods = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data])
   const loading = productsQuery.isLoading
   const error = productsQuery.isError ? 'Failed to load products.' : null
 

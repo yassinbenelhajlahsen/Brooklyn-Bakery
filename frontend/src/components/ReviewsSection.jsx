@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import ReviewCard from './ReviewCard.jsx'
 import ReviewsSkeleton from './ReviewsSkeleton.jsx'
+import { apiAuthed, apiGet } from '../lib/apiFetch.js'
+import { queryKeys } from '../lib/queryKeys.js'
 
 function StarPicker({ value, onChange }) {
   const [hovered, setHovered] = useState(0)
@@ -29,73 +32,62 @@ function StarPicker({ value, onChange }) {
 }
 
 export default function ReviewsSection({ productSlug, productName, authedFetch, isAuthenticated, openLogin, user }) {
-  const [reviews, setReviews] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
   const [formData, setFormData] = useState({ rating: 5, text: '' })
   const [formError, setFormError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${productSlug}/reviews`)
-      .then((r) => r.json())
-      .then((data) => { if (!cancelled) setReviews(data.reviews) })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [productSlug])
+  const reviewsQuery = useQuery({
+    queryKey: queryKeys.reviewsBySlug(productSlug),
+    queryFn: () => apiGet(`/products/${productSlug}/reviews`),
+    enabled: !!productSlug,
+  })
+
+  const reviews = reviewsQuery.data?.reviews ?? []
+  const loading = reviewsQuery.isLoading
+
+  const submitMutation = useMutation({
+    mutationFn: ({ rating, text }) =>
+      apiAuthed(authedFetch, `/products/${productSlug}/reviews`, {
+        method: 'POST',
+        body: JSON.stringify({ rating, text: text.trim() || null }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(productSlug) }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiAuthed(authedFetch, `/products/${productSlug}/reviews`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(productSlug) }),
+  })
+
+  const editMutation = useMutation({
+    mutationFn: ({ rating, text }) =>
+      apiAuthed(authedFetch, `/products/${productSlug}/reviews`, {
+        method: 'PATCH',
+        body: JSON.stringify({ rating, text: text.trim() || null }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(productSlug) }),
+  })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
-    setSubmitting(true)
     try {
-      const res = await authedFetch(`/products/${productSlug}/reviews`, {
-        method: 'POST',
-        body: JSON.stringify({ rating: formData.rating, text: formData.text.trim() || null }),
-      })
-      if (res.status === 409) {
-        setFormError('You have already reviewed this product.')
-        return
-      }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setFormError(body.error ?? 'Failed to submit review.')
-        return
-      }
-      const created = await res.json()
-      setReviews([created, ...reviews])
+      await submitMutation.mutateAsync({ rating: formData.rating, text: formData.text })
       setFormData({ rating: 5, text: '' })
       setFormOpen(false)
-    } catch {
-      setFormError('Failed to submit review.')
-    } finally {
-      setSubmitting(false)
+    } catch (err) {
+      if (err.status === 409) setFormError('You have already reviewed this product.')
+      else setFormError(err.message ?? 'Failed to submit review.')
     }
   }
 
-  const handleDelete = async (review) => {
-    try {
-      const res = await authedFetch(`/products/${productSlug}/reviews`, { method: 'DELETE' })
-      if (res.ok || res.status === 204) {
-        setReviews((prev) => prev.filter((r) => r.id !== review.id))
-      }
-    } catch { /* swallow */ }
+  const handleDelete = async () => {
+    try { await deleteMutation.mutateAsync() } catch { /* swallow */ }
   }
 
   const handleEdit = async (_review, { rating, text }) => {
-    const res = await authedFetch(`/products/${productSlug}/reviews`, {
-      method: 'PATCH',
-      body: JSON.stringify({ rating, text: text.trim() || null }),
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to save.')
-    }
-    const updated = await res.json()
-    setReviews((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+    await editMutation.mutateAsync({ rating, text })
   }
 
   const avgRating = reviews.length > 0
@@ -185,10 +177,10 @@ export default function ReviewsSection({ productSlug, productName, authedFetch, 
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitMutation.isPending}
                 className="px-4 py-2 bg-accent text-white rounded-lg text-[14px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark disabled:opacity-50"
               >
-                {submitting ? 'Posting…' : 'Post Review'}
+                {submitMutation.isPending ? 'Posting…' : 'Post Review'}
               </button>
             </div>
           </div>

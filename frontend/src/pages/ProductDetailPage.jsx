@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import QuantityControl from '../components/QuantityControl.jsx'
 import ReviewsSection from '../components/ReviewsSection.jsx'
 import ProductDetailSkeleton from '../components/ProductDetailSkeleton.jsx'
 import { useAuth } from '../auth/useAuth.js'
+import { apiGet } from '../lib/apiFetch.js'
+import { queryKeys } from '../lib/queryKeys.js'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -19,33 +21,23 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   const navigate = useNavigate()
   const { authedFetch, user, openLogin } = useAuth()
   const isAuthenticated = !!user
-  const [product, setProduct] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        setLoading(true)
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/products/${slug}`)
-        if (!cancelled) {
-          if (response.status === 404) {
-            setError('Product not found.')
-          } else {
-            const data = await response.json()
-            setProduct(data)
-          }
-        }
-      } catch {
-        if (cancelled) return
-        setError('Failed to load product.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [slug])
+  const productQuery = useQuery({
+    queryKey: queryKeys.product(slug),
+    queryFn: () => apiGet(`/products/${slug}`),
+    staleTime: 60_000,
+    enabled: !!slug,
+    retry: (failureCount, err) => {
+      if (err?.status === 404) return false
+      return failureCount < 1
+    },
+  })
+
+  const product = productQuery.data ?? null
+  const loading = productQuery.isLoading
+  const error = productQuery.isError
+    ? (productQuery.error?.status === 404 ? 'Product not found.' : 'Failed to load product.')
+    : null
 
   if (loading) {
     return (

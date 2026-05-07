@@ -224,7 +224,7 @@ export default function CookieClicker() {
 
     let cookieModel = null;
     const COOKIE_CLOSED_SCALE = 10;
-    const COOKIE_OPEN_SCALE = 13;
+    const COOKIE_OPEN_SCALE = 20;
     const COOKIE_X = -0.1;
     const PLINTH_TOP_Y = -0.69;
     const COOKIE_LIFT = 0.04;

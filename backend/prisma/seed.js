@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { toNameSlug } from '../lib/slugUtils.js';
 
 const PRODUCTS = [
     // ── Bread ───────────────────────────────────────────────────────────
@@ -420,7 +421,7 @@ async function main() {
             await prisma.product.update({ where: { id: existing.id }, data: rest });
             console.log(`updated: ${p.name}`);
         } else {
-            await prisma.product.create({ data: p });
+            await prisma.product.create({ data: { ...p, slug: toNameSlug(p.name) } });
             console.log(`created: ${p.name}`);
         }
     }

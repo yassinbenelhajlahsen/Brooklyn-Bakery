@@ -17,37 +17,40 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | --- | --- |
 | `server.js` | Express app, middleware, route mounts |
 | `.env.example` | Backend env template (`PORT`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`) |
-| `routes/productsRoutes.js` | `GET /`, `GET /:slug`, plus per-product review endpoints (`GET /:slug/reviews` public; `POST` / `PATCH` / `DELETE /:slug/reviews` authed) |
+| `routes/productsRoutes.js` | `GET /`, `GET /:slug`, plus per-product review endpoints (`GET /:slug/reviews` public; `POST` / `PATCH` / `DELETE /:slug/reviews` authed). All public reads pass through `middleware/httpCache` first — products use `max-age=60, swr=300`; review reads use `max-age=30, swr=120`. |
 | `routes/addressesRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` — mounted at `/me/addresses` |
 | `routes/cartRoutes.js` | `GET`, `DELETE`, `POST /merge`, `PUT /items/:productId` |
-| `routes/meRoutes.js` | `GET /`, `POST /clicks` |
+| `routes/meRoutes.js` | `GET /`, `PATCH /` (display name update), `POST /clicks`, mounts `addressesRoutes` at `/addresses` |
 | `routes/orderRoutes.js` | `GET /`, `POST /`, `PATCH /:id/address`, `POST /:id/cancel`, `POST /:id/return` |
 | `routes/adminRoutes.js` | Order routes inline (`GET /orders`, `GET /orders/:id`, `POST /orders/:id/transition`) and mounts `/products` + `/users` sub-routers |
 | `routes/adminProductsRoutes.js` | `GET /`, `POST /`, `PATCH /:id`, `POST /:id/archive`, `POST /:id/unarchive` |
 | `routes/adminUsersRoutes.js` | `GET /`, `GET /:id`, `PATCH /:id/role`, `POST /:id/balance` |
-| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; attaches `avgRating` + `reviewCount` via a single `review.groupBy`; `getProducts` accepts `?search=` and delegates the where-clause + per-row scoring to `lib/products.js`; `getProduct` resolves the slug to a product via `findProductBySlug` |
-| `controllers/reviewsController.js` | `getProductReviews` (public), `createReview` / `updateReview` / `deleteReview` (authed, one review per product per user, enforced by unique index); all handlers resolve the slug param to a `productId` via an internal `resolveProductId` helper |
+| `controllers/productsController.js` | Public product listing + detail (`getProducts`, `getProduct`); filters `archived_at IS NULL`; reads `avgRating` + `reviewCount` directly from the denormalized columns on `products` (no per-fetch aggregation); `getProducts` accepts `?search=` and delegates the where-clause + per-row scoring to `lib/products.js`; `getProduct` is a single indexed lookup by `products.slug` |
+| `controllers/reviewsController.js` | `getProductReviews` (public), `createReview` / `updateReview` / `deleteReview` (authed, one review per product per user, enforced by unique index); slug-to-`productId` resolution via internal `resolveProductId` helper. Every write runs in a `prisma.$transaction` that recomputes `products.avgRating` + `reviewCount` from `review.aggregate` so the cache stays consistent with the source rows. |
 | `controllers/addressesController.js` | `listAddresses`, `createAddress`, `updateAddress`, `deleteAddress` — ownership enforced via `userId` from `req.user` |
 | `lib/address.js` | Pure helpers: `normalizeAddressInput` (trim + validate required fields) and `snapshotAddress` (copies the 6 shipping fields onto an order-update payload) |
 | `controllers/cartController.js` | Cart CRUD; `mergeCart` delegates to `services/cartService` |
 | `controllers/meController.js` | Authenticated profile fetch (`GET /me`) and click-credit flush (`POST /me/clicks`) |
 | `controllers/orderController.js` | `createOrder` (delegates to `services/orderService.placeOrder`; requires `addressId`, snapshots address inside the tx), `listMyOrders`, `updateOrderAddress` (re-snapshots while order is `confirmed`), `userCancel`, `userReturn` — cancel/return route to `services/orderStateMachine.transition` with `actor: 'user'` |
 | `controllers/adminOrdersController.js` | `listAllOrders` (filterable), `getOrder` (detail), `transitionOrder` (admin dispatch to state machine with whitelisted actions) |
-| `controllers/adminProductsController.js` | Product CRUD + archive/unarchive + payload validation |
+| `controllers/adminProductsController.js` | Product CRUD + archive/unarchive + payload validation. `createProduct` generates a UUID client-side and stores a kebab-case slug (with 8-char UUID-prefix suffix on name collision); `updateProduct` deliberately leaves `slug` alone for URL stability. List endpoint reads `avgRating` + `reviewCount` directly from the cached columns; popularity sort is a plain `ORDER BY reviewCount DESC`. |
 | `controllers/adminUsersController.js` | `listUsers` (with `orderCount`), `getUser` (+ nested orders), `updateRole` (self-demotion + last-admin guards inside tx), `adjustBalance` (row-locked, negative-balance guard) |
 | `services/orderStateMachine.js` | `transitions` table, `resolveTransition` (pure), `checkReturnWindow` (pure), and `transition({ orderId, action, actor, reason })` — the single atomic path for all order status changes |
 | `services/orderService.js` | `placeOrder(userId)` — atomic checkout transaction (balance row-lock, stock guard, order create). `cancelOrderById` is gone; all cancel/return flows now go through the state machine. |
 | `services/cartService.js` | `mergeGuestCart(userId, incoming)` — load, additive-merge via `lib/cart`, validate against products, transactional replace, hydrate |
 | `services/clickService.js` | `creditClicks({ userId, delta, elapsedMs })` — row-locked balance credit with server-side rate cap, updates `lastClickFlushAt` |
 | `services/mailerService.js` | Email helper (nodemailer); currently unused by controllers — scaffolding for future order notifications |
-| `middleware/requireAuth.js` | JWT verification via Supabase admin client |
+| `middleware/requireAuth.js` | JWT verification via `supabase.auth.getClaims(token)`. For asymmetric signing keys (ES256 / RS256) verifies locally with WebCrypto using a cached JWKS — no network round-trip after the first call. Legacy HS256 projects fall back to a server-side `getUser` request. |
 | `middleware/requireAdmin.js` | Admin role check (loads `users.role` via Prisma) |
+| `middleware/httpCache.js` | `httpCache({ maxAge, swr, scope })` — sets `Cache-Control` on the response for public GETs. Used in `productsRoutes` for products + reviews list/detail. |
 | `lib/prisma.js` | PrismaClient singleton (survives nodemon reload in dev) |
 | `lib/supabase.js` | Admin Supabase client (uses `SUPABASE_SECRET_KEY`) |
 | `lib/cart.js` | Pure functions: `mergeCartItems`, `computeCartTotal` |
 | `lib/products.js` | Pure helpers for product search: `normalizeSearch` (trim/coerce), `buildProductWhere(search)` (Prisma where with OR over name + description, `mode: 'insensitive'`), `scoreProductMatch(product, search)` (`2` = name match, `1` = description-only, `null` otherwise) |
-| `lib/slugUtils.js` | `toNameSlug(name)` (kebab-case helper) and `findProductBySlug(slug, products)` — resolves a slug to a product object by name match first, then 8-char UUID prefix fallback |
+| `lib/slugUtils.js` | `toNameSlug(name)` (kebab-case helper) and `disambiguateSlug(baseSlug, id)` (appends the first 8 chars of the UUID). Used at create-time only — runtime slug-to-product resolution is a single indexed `findFirst({ where: { slug } })` in the controllers. |
 | `lib/clickCredit.js` | Pure rate-cap math: `computeCredit({ delta, elapsedMs, lastClickFlushAt, now })` + constants (`RATE_PER_SEC`, `BURST_BONUS`, `MAX_FIRST_WINDOW_MS`, `MAX_DELTA`, `MAX_ELAPSED_MS`) |
+| `lib/displayName.js` | `normalizeDisplayName(input)` — trims, validates non-empty + ≤ 50 chars, returns `{ ok, value }` or `{ ok: false, error }`. Used by `PATCH /me`. |
+| `lib/pagination.js` | `parsePagination(query)` — extracts `take` (default 10, capped at 50) and `skip` (default 0) from query params, throws `httpError(400)` on non-integer or negative values. Used by `/orders` and `/admin/orders`. |
 | `lib/httpError.js` | `httpError(status, msg)` and `sendHttpError(res, err)` helpers |
 | `prisma/schema.prisma` | Data model (User, Product, CartItem, Order, OrderItem, Review, Address) + enums (`OrderStatus`, `ProductType`, `UserRole`) |
 | `prisma/seed.js` | Idempotent product seeding (upsert by name) |
@@ -59,12 +62,17 @@ Annotated tree of the code and docs that matter. `node_modules/`, `dist/`, and l
 | `prisma/migrations/20260424053144_add_reviews/` | Creates `reviews` table with `(product_id, user_id)` unique index |
 | `prisma/migrations/20260424000001_make_review_text_optional/` | Makes `reviews.text` nullable (rating-only reviews) |
 | `prisma/migrations/20260424120000_add_addresses_and_order_shipping/` | Creates `addresses` table; adds six nullable `shipping_*` snapshot columns to `orders` |
-| `tests/slugUtils.test.js` | Tests for `toNameSlug` and `findProductBySlug` (node:test) |
+| `prisma/migrations/20260506000000_split_order_decision_reasons/` | Splits the legacy `request_reason` / `decision_reason` pair on `orders` into separate `cancel_request_reason`, `return_request_reason`, `cancel_decision_reason`, `return_decision_reason` columns |
+| `prisma/migrations/20260507000000_add_product_slug_and_rating_cache/` | Adds `products.slug` (UNIQUE, NOT NULL), `products.avg_rating` (NULL), `products.review_count` (default 0). Backfills slug from name (with UUID-prefix suffix on duplicates) and rating cache from existing reviews. Hand-written SQL — applied via `prisma migrate deploy`, not `migrate dev`, because the shadow DB lacks Supabase's `auth` schema. |
+| `tests/slugUtils.test.js` | Tests for `toNameSlug` and `disambiguateSlug` (node:test) |
 | `tests/cart.test.js` | Tests for pure cart helpers (node:test) |
 | `tests/clickCredit.test.js` | Tests for `computeCredit` rate-cap math |
 | `tests/orderStateMachine.test.js` | Tests for `resolveTransition` + `checkReturnWindow` — the pure pieces of the state machine. The I/O wrapper (`transition`) is covered by manual QA per project test conventions. |
 | `tests/address.test.js` | Tests for `lib/address.js` (`normalizeAddressInput`, `snapshotAddress`) |
 | `tests/products.search.test.js` | Tests for `lib/products.js` (`normalizeSearch`, `buildProductWhere`, `scoreProductMatch` — name vs description scoring, case-insensitivity, empty/whitespace handling) |
+| `tests/displayName.test.js` | Tests for `normalizeDisplayName` (trim, length cap, type guard) |
+| `tests/pagination.test.js` | Tests for `parsePagination` (defaults, take cap, skip floor, validation errors) |
+| `tests/httpCache.test.js` | Tests for the `httpCache` middleware (Cache-Control header shape, swr toggle, scope override) |
 
 ## `frontend/`
 

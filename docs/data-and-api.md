@@ -31,9 +31,12 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | --- | --- | --- |
 | `id` | uuid PK | `gen_random_uuid()` |
 | `name`, `description`, `image_url` | text | all NOT NULL |
+| `slug` | text | UNIQUE, NOT NULL. Generated on create from `toNameSlug(name)`; an 8-char UUID prefix is appended on collision. Stable across renames — `updateProduct` does not regenerate the slug, so existing URLs keep working. Backfilled at migration time with the same rule. |
 | `type` | product_type | indexed |
 | `price` | int | `CHECK (price >= 0)`; integer points |
 | `stock` | int | default 0; `CHECK (stock >= 0)`; decremented atomically at checkout, restored by pre-shipped cancels, NOT restored by returns (perishable goods) |
+| `avg_rating` | double precision NULL | denormalized cache of `AVG(reviews.rating)` for this product. NULL when `review_count = 0`. Maintained by the review controllers inside the same transaction as the review write. |
+| `review_count` | int | denormalized cache of `COUNT(reviews)` for this product. Default 0. Same maintenance rule as `avg_rating`. |
 | `created_at`, `updated_at` | timestamptz | |
 | `archived_at` | timestamptz NULL | soft delete. Public `GET /products` filters `archived_at IS NULL`. Admin endpoints can opt-in via `?includeArchived=true`. The `OrderItem → Product` FK is still `ON DELETE RESTRICT` as defense-in-depth. |
 
@@ -56,8 +59,10 @@ Source of truth: [`backend/prisma/schema.prisma`](../backend/prisma/schema.prism
 | `status` | default `confirmed` |
 | `created_at` | timestamptz |
 | `delivered_at` | timestamptz NULL; stamped when admin transitions `shipped → delivered`. Source of truth for the 48h return window. |
-| `request_reason` | text NULL; user-supplied reason when requesting cancel/return. |
-| `decision_reason` | text NULL; admin-supplied reason when denying a request or performing a force action. |
+| `cancel_request_reason` | text NULL; user-supplied reason when requesting a cancel (or a direct user cancel from `confirmed`). |
+| `return_request_reason` | text NULL; user-supplied reason when requesting a return. |
+| `cancel_decision_reason` | text NULL; admin-supplied reason when approving / denying / force-cancelling. |
+| `return_decision_reason` | text NULL; admin-supplied reason when approving / denying / force-returning. |
 | `shipping_line1`, `shipping_line2`, `shipping_city`, `shipping_state`, `shipping_postal_code`, `shipping_country` | text NULL; snapshot of the selected address at checkout. Nullable only because orders created before the feature have no value; the API enforces non-null on new orders. Editing or deleting the source address in `addresses` does not mutate these. |
 
 Index: `(user_id, created_at DESC)` for the "my orders" listing.
@@ -85,7 +90,7 @@ Index: `(user_id)`. Deleting an address leaves past orders' `shipping_*` columns
 | `text` | text NULL; trimmed; empty strings stored as NULL |
 | `created_at` | timestamptz |
 
-Unique `(product_id, user_id)`. `GET /products` and `GET /products/:id` read from this table via `groupBy productId _avg: rating` and `_count reviews` to compute `avgRating` and `reviewCount` on each product response.
+Unique `(product_id, user_id)`. The `avgRating` / `reviewCount` shown on `GET /products`, `GET /products/:slug`, and `GET /admin/products` come from the denormalized `products.avg_rating` / `products.review_count` columns — they are recomputed from this table inside the same transaction as every review create / update / delete.
 
 **`order_items`**
 
@@ -118,18 +123,19 @@ All endpoints return JSON. Error shape is always `{ "error": "<message>" }`. Aut
 | Method | Path | Auth | Controller | Contract |
 | --- | --- | --- | --- | --- |
 | GET | `/products` | public | `productsController.getProducts` | `{ items: Product[] }`. Filters `archived_at IS NULL`. Each product includes `avgRating` (float or null), `reviewCount` (int), and `createdAt` (ISO timestamp). Optional `?search=<string>` (trimmed; case-insensitive substring) filters by name OR description; matched items also carry a `score` field (`2` = name match, `1` = description-only) so the client can rank by relevance. When `search` is absent, items are ordered by `type, name`. When `search` is present, server ordering is unspecified — the client orders by `score`. |
-| GET | `/products/:slug` | public | `productsController.getProduct` | Single product with `avgRating` + `reviewCount`. `:slug` is a name-based slug (e.g. `almond-croissant`); products with duplicate names get an 8-char UUID prefix suffix (e.g. `almond-croissant-a0c0708f`). 404 if missing or archived. |
+| GET | `/products/:slug` | public | `productsController.getProduct` | Single product with `avgRating` + `reviewCount`. `:slug` matches the `products.slug` column (UNIQUE) — a name-based kebab-case slug (e.g. `almond-croissant`); products with duplicate names get an 8-char UUID prefix suffix (e.g. `almond-croissant-a0c0708f`). 404 if missing or archived. |
 | GET | `/products/:slug/reviews` | public | `reviewsController.getProductReviews` | `{ reviews: Review[] }` newest first, each with `user.displayName`. |
 | POST | `/products/:slug/reviews` | user | `reviewsController.createReview` | Body `{ rating: 1..5, text?: string }`. Text is trimmed; blank → null. 201 with review. 400 invalid rating. 409 if caller already reviewed this product. |
 | PATCH | `/products/:slug/reviews` | user | `reviewsController.updateReview` | Updates the caller's own review for this product. Same body. 404 if they have none. |
 | DELETE | `/products/:slug/reviews` | user | `reviewsController.deleteReview` | Deletes the caller's own review. 204. 404 if none. |
 | GET | `/me` | user | `meController.getMe` | `{ user: { id, email, displayName, balance, role } }` |
+| PATCH | `/me` | user | `meController.updateMe` | Body `{ displayName: string }`. Trimmed; rejects empty, non-string, or > 50 chars (`lib/displayName.normalizeDisplayName`). Returns the same shape as `GET /me`. 400 on invalid input. |
 | POST | `/me/clicks` | user | `meController.flushClicks` | Body `{ delta: int > 0, elapsedMs: int > 0 }`. Credits up to `floor(effectiveElapsedMs / 1000) * 10 + 20` to `users.balance` (silently caps on excess), updates `last_click_flush_at`. Returns `{ balance, credited }`. 400 on invalid body. |
 | GET | `/cart` | user | `cartController.getCart` | `{ items: (CartItem & { product })[] }` |
 | PUT | `/cart/items/:productId` | user | `cartController.upsertCartItem` | Body `{ quantity: int >= 0 }`; `0` deletes (204). Unknown product → 404. |
 | DELETE | `/cart` | user | `cartController.deleteCart` | 204 |
 | POST | `/cart/merge` | user | `cartController.mergeCart` | Body `[{ productId, quantity }]`; additive merge with existing, then replace cart in one transaction. Returns hydrated `{ items }`. |
-| GET | `/orders` | user | `orderController.listMyOrders` | `{ orders: (Order & { items })[] }`, newest first. Response now includes `deliveredAt`, `requestReason`, `decisionReason`. |
+| GET | `/orders` | user | `orderController.listMyOrders` | `{ items: (Order & { items })[], total: int, hasMore: bool }`, newest first. Each order carries `deliveredAt` plus the four split reason fields (`cancelRequestReason`, `returnRequestReason`, `cancelDecisionReason`, `returnDecisionReason`). Pagination via `?take=` (default 10, capped at 50) and `?skip=` (default 0); both validated by `lib/pagination.parsePagination`. |
 | POST | `/orders` | user | `orderController.createOrder` | Body `{ addressId: uuid }` — required. Atomic. Loads the address inside the transaction, verifies it belongs to the caller, and copies its six fields onto the new order row. 201 with order + items. 400 missing `addressId` / empty cart. 402 insufficient balance. 403 `addressId` not owned by caller. 404 `addressId` does not exist. 409 insufficient stock. |
 | GET | `/me/addresses` | user | `addressesController.listAddresses` | `{ addresses: Address[] }`, newest first. |
 | POST | `/me/addresses` | user | `addressesController.createAddress` | Body `{ line1, line2?, city, state, postalCode, country }`. Strings trimmed; required fields non-empty. 201 `{ address }`. 400 on invalid field. |
@@ -145,7 +151,7 @@ All admin routes are behind `requireAuth → requireAdmin`.
 
 | Method | Path | Controller | Contract |
 | --- | --- | --- | --- |
-| GET | `/admin/orders` | `adminOrdersController.listAllOrders` | Query `?status=<OrderStatus>`. Newest first. 400 on invalid status. |
+| GET | `/admin/orders` | `adminOrdersController.listAllOrders` | `{ items, total, hasMore }`, newest first. Query `?status=<OrderStatus>` (400 on invalid status). Pagination via `?take=` / `?skip=` (`parsePagination`). Items include user (`id`, `displayName`) and items+product. |
 | GET | `/admin/orders/:id` | `adminOrdersController.getOrder` | Single order with items + user (including balance). 404 missing. |
 | POST | `/admin/orders/:id/transition` | `adminOrdersController.transitionOrder` | Body `{ action, reason? }`. `action ∈ { setProcessing, setShipped, setDelivered, approveCancel, denyCancel, approveReturn, denyReturn, forceCancel, forceReturn }`. Delegates to `services/orderStateMachine.transition`. 400 unknown action / missing required reason, 404 missing order, 409 invalid transition / expired window. |
 | GET | `/admin/products` | `adminProductsController.listProducts` | Query `?includeArchived=true` to include archived. Newest first. Response rows include `avgRating` + `reviewCount` for the admin Reviews drawer and popularity sort. |

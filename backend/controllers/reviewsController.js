@@ -1,5 +1,4 @@
 import { prisma } from '../lib/prisma.js';
-import { findProductBySlug } from '../lib/slugUtils.js';
 
 const REVIEW_SELECT = {
   id: true,
@@ -11,11 +10,28 @@ const REVIEW_SELECT = {
 };
 
 async function resolveProductId(slug) {
-  const products = await prisma.product.findMany({
-    where: { archivedAt: null },
-    select: { id: true, name: true },
+  const product = await prisma.product.findFirst({
+    where: { slug, archivedAt: null },
+    select: { id: true },
   });
-  return findProductBySlug(slug, products)?.id ?? null;
+  return product?.id ?? null;
+}
+
+// Recompute denormalized rating cache from the reviews table.
+// Called from the same transaction as the review write.
+async function refreshProductRatingCache(tx, productId) {
+  const agg = await tx.review.aggregate({
+    where: { productId },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+  await tx.product.update({
+    where: { id: productId },
+    data: {
+      avgRating: agg._avg.rating,
+      reviewCount: agg._count._all,
+    },
+  });
 }
 
 export async function getProductReviews(req, res) {
@@ -48,9 +64,13 @@ export async function createReview(req, res) {
     return res.status(409).json({ error: 'You have already reviewed this product.' });
   }
 
-  const review = await prisma.review.create({
-    data: { productId, userId, rating: ratingInt, text: trimmedText },
-    select: REVIEW_SELECT,
+  const review = await prisma.$transaction(async (tx) => {
+    const created = await tx.review.create({
+      data: { productId, userId, rating: ratingInt, text: trimmedText },
+      select: REVIEW_SELECT,
+    });
+    await refreshProductRatingCache(tx, productId);
+    return created;
   });
   res.status(201).json(review);
 }
@@ -74,10 +94,14 @@ export async function updateReview(req, res) {
     return res.status(404).json({ error: 'Review not found.' });
   }
 
-  const review = await prisma.review.update({
-    where: { productId_userId: { productId, userId } },
-    data: { rating: ratingInt, text: trimmedText },
-    select: REVIEW_SELECT,
+  const review = await prisma.$transaction(async (tx) => {
+    const updated = await tx.review.update({
+      where: { productId_userId: { productId, userId } },
+      data: { rating: ratingInt, text: trimmedText },
+      select: REVIEW_SELECT,
+    });
+    await refreshProductRatingCache(tx, productId);
+    return updated;
   });
   res.json(review);
 }
@@ -94,6 +118,9 @@ export async function deleteReview(req, res) {
     return res.status(404).json({ error: 'Review not found.' });
   }
 
-  await prisma.review.delete({ where: { productId_userId: { productId, userId } } });
+  await prisma.$transaction(async (tx) => {
+    await tx.review.delete({ where: { productId_userId: { productId, userId } } });
+    await refreshProductRatingCache(tx, productId);
+  });
   res.status(204).end();
 }

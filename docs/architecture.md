@@ -22,7 +22,7 @@
 
 - `frontend/src/auth/AuthProvider.jsx` owns `session` / `user` / `profile`, subscribes to `supabase.auth.onAuthStateChange`, and exposes `signIn`, `signUp`, `signOut`, `openLogin`, `requestCheckout`, `refreshProfile`, and `authedFetch`. Cart and order API calls live in `frontend/src/services/*` (see "Data-access layer" below).
 - `frontend/src/auth/useAuth.js` is a separate hook file — required because `AuthProvider.jsx` exports both the context and component, and `react-refresh/only-export-components` would otherwise complain.
-- `backend/middleware/requireAuth.js` reads `Authorization: Bearer <token>`, calls `supabase.auth.getUser(token)`, and attaches `req.user = { id, email }`. No token / bad token → 401. Supabase unreachable → 503.
+- `backend/middleware/requireAuth.js` reads `Authorization: Bearer <token>`, calls `supabase.auth.getClaims(token)`, and attaches `req.user = { id, email }`. For asymmetric signing keys (ES256 / RS256), `getClaims` verifies signatures locally with WebCrypto against a cached JWKS — no network round-trip after the first call. Legacy HS256 projects fall back to a server-side `getUser` request. No token / bad token → 401. Supabase unreachable → 503.
 - `backend/middleware/requireAdmin.js` runs **after** `requireAuth`, loads `users.role` via Prisma, and 403s if the user is not an admin.
 
 **Key-header rules.** Publishable and secret keys are not JWTs — the Supabase SDK sends them in the `apikey` header automatically. The `Authorization: Bearer …` header always carries the **user's** access token, never a publishable or secret key. `SUPABASE_SECRET_KEY` is backend-only.
@@ -129,7 +129,7 @@ The module exports three things:
 2. Resolve the transition against the locked status (not the value the client saw).
 3. If `requiresReason`, demand a non-empty `reason` argument (400 otherwise). If `requiresWindow`, check `checkReturnWindow(order.deliveredAt)` (409 on expired).
 4. Apply side effects inside the same tx: refund the user's balance (with a separate `SELECT balance … FOR UPDATE` lock on the user row when refunding), increment `products.stock` per item if `restoreStock`, stamp `deliveredAt = now()` if `setDeliveredAt`.
-5. Write `requestReason` or `decisionReason` based on the actor (`user` → `requestReason`, `admin` → `decisionReason`).
+5. Write the supplied `reason` to the column named by the transition entry's `reasonField` (one of `cancelRequestReason`, `returnRequestReason`, `cancelDecisionReason`, `returnDecisionReason`). The split lets a single order carry independent cancel-flow and return-flow notes — e.g., a denied cancel and a later approved return both leave their reasons on the same row.
 6. Update the status and return the updated order with items + user joined in.
 
 `shipped` is a one-way street with a single outgoing transition (`setDelivered`) — once shipped, neither user nor admin can cancel. Lost-package handling rolls into the return flow after delivery.
@@ -183,9 +183,9 @@ These don't use the state machine (there's no graph), but they share its transac
 
 ## Product reviews
 
-Reviews live in a dedicated `reviews` table with a `UNIQUE (product_id, user_id)` constraint — one review per user per product, enforced at the DB. Endpoints are mounted under `/products/:slug/reviews` (see `docs/data-and-api.md`); the authed endpoints look up by `(productId, userId)` rather than an opaque `reviewId`, which is why update / delete are `PATCH` / `DELETE` on the collection path, not on `:reviewId`. The `:slug` param is resolved to a UUID via `lib/slugUtils.findProductBySlug` — name-match first, 8-char UUID prefix fallback for duplicate names.
+Reviews live in a dedicated `reviews` table with a `UNIQUE (product_id, user_id)` constraint — one review per user per product, enforced at the DB. Endpoints are mounted under `/products/:slug/reviews` (see `docs/data-and-api.md`); the authed endpoints look up by `(productId, userId)` rather than an opaque `reviewId`, which is why update / delete are `PATCH` / `DELETE` on the collection path, not on `:reviewId`. The `:slug` param is a stored unique column on `products` — controllers do `findFirst({ where: { slug, archivedAt: null } })`, a single indexed lookup.
 
-Rating is an integer 1–5 validated at the controller; text is optional (trimmed; empty → NULL). Both the public product list and the admin product list aggregate ratings in a single `prisma.review.groupBy` call per list fetch and attach `avgRating` + `reviewCount` to each product in the response. This powers the star row on `ProductCard`, the "Top Rated" shop sort, the admin rating column, and the admin popularity sort. The admin panel exposes read-only review access through `ProductReviewsDrawer` (per-product) and the reviews tab inside `UserDetailDrawer` (per-user) — there is no admin moderation endpoint; admins cannot edit or delete other users' reviews.
+Rating is an integer 1–5 validated at the controller; text is optional (trimmed; empty → NULL). `products.avg_rating` (float, nullable) and `products.review_count` (int) are denormalized columns kept in sync by the review controllers: every create / update / delete runs in a `prisma.$transaction` that recomputes both via a single `review.aggregate` over that product's rows. The public product list, the public detail endpoint, and the admin product list all read these two columns directly — no per-fetch aggregation. This powers the star row on `ProductCard`, the "Top Rated" shop sort, the admin rating column, and the admin popularity sort (which orders by `reviewCount` directly). The admin panel exposes read-only review access through `ProductReviewsDrawer` (per-product) and the reviews tab inside `UserDetailDrawer` (per-user) — there is no admin moderation endpoint; admins cannot edit or delete other users' reviews.
 
 Design spec: [`superpowers/specs/2026-04-24-reviews-design.md`](superpowers/specs/2026-04-24-reviews-design.md).
 

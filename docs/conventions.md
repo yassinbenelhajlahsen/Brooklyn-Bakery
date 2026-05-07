@@ -45,9 +45,10 @@ Admin hooks don't refetch the full list after a mutation — the backend returns
 
 Product detail pages use name-based slugs (`/product/almond-croissant`) rather than UUIDs. When two products share the same name, an 8-character UUID prefix is appended to disambiguate (`/product/almond-croissant-a0c0708f`). Key invariants:
 
-- `frontend/src/lib/slugUtils.toProductSlug(name, id, allProducts)` generates the slug — it checks `allProducts` for name collisions before deciding whether to append the suffix.
-- `backend/lib/slugUtils.findProductBySlug(slug, products)` resolves a slug back to a product: name match wins; if no name match and the slug ends with 8 hex chars, it falls back to a UUID prefix scan on the loaded product list.
-- If a product is renamed its URL changes. There is no slug column in the DB; slugs are derived on the fly.
+- Slugs are stored, not derived: `products.slug` is a UNIQUE column. Lookups go through a single indexed `findFirst({ where: { slug, archivedAt: null } })`, never a scan-and-match in JS.
+- `backend/lib/slugUtils.toNameSlug(name)` produces the kebab-case form. `disambiguateSlug(baseSlug, id)` appends the first 8 chars of a UUID. `adminProductsController.createProduct` uses both: if `findUnique({ where: { slug: baseSlug } })` finds a collision, it generates a UUID client-side and stores `disambiguateSlug(baseSlug, id)`.
+- Slugs are stable across renames. `updateProduct` deliberately does not touch `slug`, so URLs keep working when the display name changes. If you need to "fix" a slug, do it via a manual SQL update or a one-off admin tool.
+- `frontend/src/lib/slugUtils.toProductSlug(name, id, allProducts)` is still used by `ShopPage` to generate `<ProductCard slug=…>` for navigation, mirroring the same rule. Long-term it can read `item.slug` from the API response directly — both produce the same value as long as the same name-collision rule is applied.
 
 ## Environment variables
 

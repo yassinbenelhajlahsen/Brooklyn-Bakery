@@ -256,6 +256,7 @@ export default function OrderHistoryPage({ addItem }) {
                 <OrderCard
                   key={order.id}
                   order={order}
+                  productMap={productMap}
                   pendingAction={pendingAction}
                   editingAddressOrderId={editingAddressOrderId}
                   pendingAddressId={pendingAddressId}

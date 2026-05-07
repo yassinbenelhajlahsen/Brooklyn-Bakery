@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import StatusBadge from '../StatusBadge.jsx'
 import AddressSelector from '../AddressSelector.jsx'
 
@@ -37,6 +38,7 @@ function returnDecisionHeading(status) {
 
 export default function OrderCard({
   order,
+  productMap,
   editingAddressOrderId,
   pendingAddressId,
   addressSaving,
@@ -52,6 +54,7 @@ export default function OrderCard({
   skippedCount,
   pendingAction,
 }) {
+  const navigate = useNavigate()
   const busy = pendingAction != null
   const isEditingAddress = editingAddressOrderId === order.id
 
@@ -73,24 +76,45 @@ export default function OrderCard({
       </div>
 
       <ul className="mt-3 grid gap-2 list-none p-0 m-0">
-        {order.items.map((entry) => (
-          <li
-            key={entry.id}
-            className="flex items-center gap-3 rounded-lg border border-line bg-cream/30 p-2 max-sm:items-start"
-          >
-            <img
-              src={entry.product.imageUrl}
-              alt={entry.product.name}
-              className="h-10 w-10 rounded-md object-cover"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="m-0 text-sm text-ink truncate">{entry.product.name}</p>
-              <p className="mt-0.5 mb-0 text-xs text-muted">
-                Qty {entry.quantity} · {entry.unitPrice} pts ea
-              </p>
-            </div>
-          </li>
-        ))}
+        {order.items.map((entry) => {
+          const slug = productMap?.get(entry.productId)?.slug
+          const clickable = Boolean(slug)
+          return (
+            <li
+              key={entry.id}
+              role={clickable ? 'link' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => navigate(`/product/${slug}`) : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/product/${slug}`)
+                      }
+                    }
+                  : undefined
+              }
+              className={`flex items-center gap-3 rounded-lg border border-line bg-cream/30 p-2 max-sm:items-start ${
+                clickable
+                  ? 'cursor-pointer transition-colors hover:bg-cream focus:outline-none focus:ring-2 focus:ring-accent'
+                  : ''
+              }`}
+            >
+              <img
+                src={entry.product.imageUrl}
+                alt={entry.product.name}
+                className="h-10 w-10 rounded-md object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="m-0 text-sm text-ink truncate">{entry.product.name}</p>
+                <p className="mt-0.5 mb-0 text-xs text-muted">
+                  Qty {entry.quantity} · {entry.unitPrice} pts ea
+                </p>
+              </div>
+            </li>
+          )
+        })}
       </ul>
 
       <div className="mt-3">

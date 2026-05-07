@@ -86,17 +86,6 @@ export default function CookieClicker() {
     scene.add(ambient);
 
     if (!initialOpenRef.current) {
-      const glowGeo = new THREE.CircleGeometry(2.4, 64);
-      const glowMat = new THREE.MeshBasicMaterial({
-        color: 0xffc88a,
-        transparent: true,
-        opacity: 0.1,
-        side: THREE.DoubleSide,
-      });
-      const glowDisc = new THREE.Mesh(glowGeo, glowMat);
-      glowDisc.rotation.x = -Math.PI / 2;
-      glowDisc.position.y = -1.05;
-
       const plinthTopGeo = new THREE.CylinderGeometry(1.55, 1.6, 0.18, 96);
       const woodMat = new THREE.MeshStandardMaterial({
         color: 0x6a4423,
@@ -126,15 +115,12 @@ export default function CookieClicker() {
       trim.position.y = -0.69;
 
       const plinthGroup = new THREE.Group();
-      plinthGroup.add(glowDisc);
       plinthGroup.add(plinthTop);
       plinthGroup.add(plinthBase);
       plinthGroup.add(trim);
       scene.add(plinthGroup);
 
       const disposePlinth = () => {
-        glowGeo.dispose();
-        glowMat.dispose();
         plinthTopGeo.dispose();
         plinthBaseGeo.dispose();
         trimGeo.dispose();

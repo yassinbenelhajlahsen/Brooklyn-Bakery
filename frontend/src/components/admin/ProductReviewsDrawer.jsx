@@ -104,32 +104,26 @@ export default function ProductReviewsDrawer({ product, onClose }) {
       return next;
     });
 
-    deleteMutation.mutate(reviewId, {
-      onError: (err) => {
-        const t = timeoutsRef.current.get(reviewId);
-        if (t) clearTimeout(t);
-        timeoutsRef.current.delete(reviewId);
-        setExitingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(reviewId);
-          return next;
-        });
-        queryClient.invalidateQueries({ queryKey: queryKeys.reviewsById(product.id) });
-        setDeleteError(err?.message ?? 'Could not delete review.');
-      },
-    });
-
-    const tid = setTimeout(() => {
-      timeoutsRef.current.delete(reviewId);
-      queryClient.setQueryData(queryKeys.reviewsById(product.id), (old) =>
-        old ? { ...old, reviews: old.reviews.filter((r) => r.id !== reviewId) } : old
-      );
+    const clearExiting = () =>
       setExitingIds((prev) => {
         const next = new Set(prev);
         next.delete(reviewId);
         return next;
       });
-      invalidateReviewAggregates(queryClient, { productId: product.id, slug: product.slug });
+
+    const tid = setTimeout(async () => {
+      timeoutsRef.current.delete(reviewId);
+      try {
+        await deleteMutation.mutateAsync(reviewId);
+        queryClient.setQueryData(queryKeys.reviewsById(product.id), (old) =>
+          old ? { ...old, reviews: old.reviews.filter((r) => r.id !== reviewId) } : old
+        );
+        clearExiting();
+        invalidateReviewAggregates(queryClient, { productId: product.id, slug: product.slug });
+      } catch (err) {
+        clearExiting();
+        setDeleteError(err?.message ?? 'Could not delete review.');
+      }
     }, ROW_EXIT_MS);
     timeoutsRef.current.set(reviewId, tid);
   };

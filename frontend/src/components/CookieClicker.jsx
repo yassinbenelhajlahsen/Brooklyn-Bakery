@@ -141,6 +141,8 @@ export default function CookieClicker() {
     const TUBE_BOTTOM_Y = -0.69;
     const TUBE_TOP_Y = TUBE_BOTTOM_Y + TUBE_H;
 
+    const lidGroup = new THREE.Group();
+
     const domeGeo = new THREE.SphereGeometry(
       DOME_R,
       96,
@@ -153,20 +155,20 @@ export default function CookieClicker() {
     const dome = new THREE.Mesh(domeGeo, glassMat);
     dome.position.y = TUBE_TOP_Y;
     dome.renderOrder = 2;
-    scene.add(dome);
+    lidGroup.add(dome);
 
     const tubeGeo = new THREE.CylinderGeometry(DOME_R, DOME_R, TUBE_H, 96, 1, true);
     const tube = new THREE.Mesh(tubeGeo, glassMat);
     tube.position.y = TUBE_BOTTOM_Y + TUBE_H / 2;
     tube.renderOrder = 2;
-    scene.add(tube);
+    lidGroup.add(tube);
 
     const rimRingGeo = new THREE.TorusGeometry(DOME_R, 0.045, 24, 96);
     const rimRing = new THREE.Mesh(rimRingGeo, glassMat);
     rimRing.rotation.x = Math.PI / 2;
     rimRing.position.y = TUBE_BOTTOM_Y;
     rimRing.renderOrder = 2;
-    scene.add(rimRing);
+    lidGroup.add(rimRing);
 
     const brassMat = new THREE.MeshStandardMaterial({
       color: 0xd9a35c,
@@ -176,12 +178,25 @@ export default function CookieClicker() {
     const knobBaseGeo = new THREE.CylinderGeometry(0.13, 0.16, 0.06, 32);
     const knobBase = new THREE.Mesh(knobBaseGeo, brassMat);
     knobBase.position.y = TUBE_TOP_Y + DOME_R + 0.03;
-    scene.add(knobBase);
+    lidGroup.add(knobBase);
 
     const knobBallGeo = new THREE.SphereGeometry(0.13, 48, 32);
     const knobBall = new THREE.Mesh(knobBallGeo, brassMat);
     knobBall.position.y = TUBE_TOP_Y + DOME_R + 0.16;
-    scene.add(knobBall);
+    lidGroup.add(knobBall);
+
+    scene.add(lidGroup);
+
+    const disposeLid = () => {
+      domeGeo.dispose();
+      tubeGeo.dispose();
+      rimRingGeo.dispose();
+      knobBaseGeo.dispose();
+      knobBallGeo.dispose();
+      glassMat.dispose();
+      brassMat.dispose();
+    };
+    let lidDisposed = false;
 
     let cookieModel = null;
     const COOKIE_SCALE = 10;
@@ -240,13 +255,10 @@ export default function CookieClicker() {
       woodMat.dispose();
       woodDarkMat.dispose();
       brassDimMat.dispose();
-      brassMat.dispose();
-      domeGeo.dispose();
-      tubeGeo.dispose();
-      rimRingGeo.dispose();
-      knobBaseGeo.dispose();
-      knobBallGeo.dispose();
-      glassMat.dispose();
+      if (!lidDisposed) {
+        disposeLid();
+        lidDisposed = true;
+      }
       renderer.dispose();
     };
   }, []);

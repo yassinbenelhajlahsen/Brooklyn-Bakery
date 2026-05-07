@@ -4,6 +4,7 @@ import ReviewCard from './ReviewCard.jsx'
 import ReviewsSkeleton from './ReviewsSkeleton.jsx'
 import { apiAuthed, apiGet } from '../lib/apiFetch.js'
 import { queryKeys } from '../lib/queryKeys.js'
+import { invalidateReviewAggregates } from '../lib/invalidateReviewAggregates.js'
 
 function StarPicker({ value, onChange }) {
   const [hovered, setHovered] = useState(0)
@@ -46,18 +47,21 @@ export default function ReviewsSection({ productSlug, productName, authedFetch, 
   const reviews = reviewsQuery.data?.reviews ?? []
   const loading = reviewsQuery.isLoading
 
+  const onWriteSuccess = () =>
+    invalidateReviewAggregates(queryClient, { slug: productSlug })
+
   const submitMutation = useMutation({
     mutationFn: ({ rating, text }) =>
       apiAuthed(authedFetch, `/products/${productSlug}/reviews`, {
         method: 'POST',
         body: JSON.stringify({ rating, text: text.trim() || null }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(productSlug) }),
+    onSuccess: onWriteSuccess,
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => apiAuthed(authedFetch, `/products/${productSlug}/reviews`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(productSlug) }),
+    onSuccess: onWriteSuccess,
   })
 
   const editMutation = useMutation({
@@ -66,7 +70,7 @@ export default function ReviewsSection({ productSlug, productName, authedFetch, 
         method: 'PATCH',
         body: JSON.stringify({ rating, text: text.trim() || null }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(productSlug) }),
+    onSuccess: onWriteSuccess,
   })
 
   const handleSubmit = async (e) => {

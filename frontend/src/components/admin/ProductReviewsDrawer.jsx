@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/useAuth.js';
 import Drawer from '../Drawer.jsx';
 import { apiAuthed, apiGet } from '../../lib/apiFetch.js';
 import { queryKeys } from '../../lib/queryKeys.js';
+import { invalidateReviewAggregates } from '../../lib/invalidateReviewAggregates.js';
 
 const ROW_EXIT_MS = 320;
 
@@ -128,10 +129,7 @@ export default function ProductReviewsDrawer({ product, onClose }) {
         next.delete(reviewId);
         return next;
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.reviewsBySlug(product.slug) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminProductsAll() });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['product'] });
+      invalidateReviewAggregates(queryClient, { productId: product.id, slug: product.slug });
     }, ROW_EXIT_MS);
     timeoutsRef.current.set(reviewId, tid);
   };

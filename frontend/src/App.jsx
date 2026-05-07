@@ -11,6 +11,7 @@ import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
 import PageTransition from './components/PageTransition.jsx'
 import { useCart } from './hooks/useCart.js'
+import { JarProvider } from './contexts/JarContext.jsx'
 
 import StoryPage from './pages/StoryPage.jsx';
 import ContactPage from './pages/ContactUsPage.jsx';
@@ -36,6 +37,7 @@ export default function App() {
   )
 
   return (
+    <JarProvider>
     <div className="flex flex-col min-h-screen">
       <ScrollToTop />
       <Header cartCount={itemCount} onCartClick={() => setCartOpen(true)} />
@@ -101,5 +103,6 @@ export default function App() {
       />
       <LoginModal />
     </div>
+    </JarProvider>
   )
 }

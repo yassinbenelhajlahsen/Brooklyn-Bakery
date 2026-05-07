@@ -93,14 +93,15 @@ export default function App() {
         </Routes>
       </PageTransition>
       <Footer />
-      <CartDrawer
-        open={cartOpen}
-        cart={cart}
-        onClose={() => setCartOpen(false)}
-        onIncrement={increment}
-        onDecrement={decrement}
-        onClear={clearCart}
-      />
+      {cartOpen && (
+        <CartDrawer
+          cart={cart}
+          onClose={() => setCartOpen(false)}
+          onIncrement={increment}
+          onDecrement={decrement}
+          onClear={clearCart}
+        />
+      )}
       <LoginModal />
     </div>
     </JarProvider>

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
+import Drawer from '../Drawer.jsx';
 
 const TYPES = ['bread', 'pastry', 'cake', 'cookie', 'drink'];
-const ANIM_MS = 250;
 
 function FieldError({ msg }) {
   if (!msg) return null;
@@ -20,31 +19,7 @@ export default function ProductEditDrawer({ mode, product, onClose, onCreate, on
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState(null);
 
-  const [entered, setEntered] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-
   const isEdit = mode === 'edit';
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  const closeWithAnim = useCallback(() => {
-    setLeaving(true);
-    setTimeout(onClose, ANIM_MS);
-  }, [onClose]);
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') closeWithAnim(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [closeWithAnim]);
 
   const validate = () => {
     const e = {};
@@ -65,67 +40,68 @@ export default function ProductEditDrawer({ mode, product, onClose, onCreate, on
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = async (ev) => {
-    ev.preventDefault();
-    if (!validate()) return;
-    setSubmitting(true);
-    setServerError(null);
-    try {
-      const data = {
-        name: name.trim(),
-        description: description.trim(),
-        imageUrl: imageUrl.trim(),
-        type,
-        price: Number(price),
-        stock: Number(stock),
-      };
-      if (isEdit) await onUpdate(product.id, data);
-      else await onCreate(data);
-      closeWithAnim();
-    } catch (err) {
-      setServerError(err.message ?? 'Save failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const visible = entered && !leaving;
-
   const inputBase =
     'w-full border border-line rounded-md px-3 py-1.5 text-sm text-ink bg-surface focus:outline-none focus:border-accent transition-colors placeholder:text-muted';
   const labelBase =
     'text-[10px] uppercase tracking-widest text-muted block mb-1';
 
-  return createPortal(
-    <>
-      <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
-        onClick={closeWithAnim}
-        aria-hidden="true"
-      />
+  const header = (
+    <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
+      {isEdit ? 'Edit product' : 'New product'}
+    </span>
+  );
 
-      <aside
-        className={`fixed top-0 right-0 bottom-0 w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 grid grid-rows-[auto_1fr_auto] overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
-        role="dialog"
-        aria-label={isEdit ? 'Edit product' : 'New product'}
-      >
-        <div className="px-6 py-4 border-b border-line bg-cream/40 flex items-center justify-between shrink-0">
-          <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
-            {isEdit ? 'Edit product' : 'New product'}
-          </span>
+  return (
+    <Drawer
+      onClose={onClose}
+      ariaLabel={isEdit ? 'Edit product' : 'New product'}
+      header={header}
+      footer={(close) => (
+        <div className="px-6 py-4 border-t border-line bg-surface shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex justify-end gap-2">
           <button
             type="button"
-            onClick={closeWithAnim}
-            aria-label="Close drawer"
-            className="w-8 h-8 rounded-full hover:bg-line flex items-center justify-center text-muted hover:text-ink transition-colors text-xl leading-none"
+            onClick={close}
+            className="px-3 py-1.5 text-sm rounded-lg border border-line hover:bg-cream text-ink transition-colors"
           >
-            ×
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="product-edit-form"
+            disabled={submitting}
+            className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
           </button>
         </div>
-
+      )}
+    >
+      {(close) => (
         <form
           id="product-edit-form"
-          onSubmit={handleSubmit}
+          onSubmit={async (ev) => {
+            ev.preventDefault();
+            if (!validate()) return;
+            setSubmitting(true);
+            setServerError(null);
+            try {
+              const data = {
+                name: name.trim(),
+                description: description.trim(),
+                imageUrl: imageUrl.trim(),
+                type,
+                price: Number(price),
+                stock: Number(stock),
+              };
+              if (isEdit) await onUpdate(product.id, data);
+              else await onCreate(data);
+              close();
+            } catch (err) {
+              setServerError(err.message ?? 'Save failed');
+            } finally {
+              setSubmitting(false);
+            }
+          }}
           className="overflow-y-auto px-6 py-5 space-y-4"
         >
           {serverError && (
@@ -213,26 +189,7 @@ export default function ProductEditDrawer({ mode, product, onClose, onCreate, on
             </div>
           </div>
         </form>
-
-        <div className="px-6 py-4 border-t border-line bg-surface shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={closeWithAnim}
-            className="px-3 py-1.5 text-sm rounded-lg border border-line hover:bg-cream text-ink transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="product-edit-form"
-            disabled={submitting}
-            className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-          >
-            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
-          </button>
-        </div>
-      </aside>
-    </>,
-    document.body
+      )}
+    </Drawer>
   );
 }

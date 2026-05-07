@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
+import Drawer from '../Drawer.jsx';
 import StatusBadge from '../StatusBadge.jsx';
-
-const ANIM_MS = 250;
 
 function SectionLabel({ children }) {
   return (
@@ -78,31 +76,7 @@ export default function UserDetailDrawer({
   const [delta, setDelta] = useState('');
   const [balanceError, setBalanceError] = useState(null);
 
-  const [entered, setEntered] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-
   const isSelf = userId === currentUserId;
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  const closeWithAnim = useCallback(() => {
-    setLeaving(true);
-    setTimeout(onClose, ANIM_MS);
-  }, [onClose]);
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') closeWithAnim(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [closeWithAnim]);
 
   async function loadUser(id) {
     setFetchLoading(true);
@@ -173,40 +147,24 @@ export default function UserDetailDrawer({
   if (!userId) return null;
 
   const shortId = userId.slice(0, 8);
-  const visible = entered && !leaving;
 
-  return createPortal(
-    <>
-      <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
-        onClick={closeWithAnim}
-        aria-hidden="true"
-      />
+  const header = (
+    <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
+      {fetchLoading ? (
+        <span className="inline-block h-5 w-32 bg-cream rounded animate-pulse" />
+      ) : (
+        user?.displayName || '—'
+      )}
+    </span>
+  );
 
-      <aside
-        className={`fixed top-0 right-0 bottom-0 w-120 max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 grid grid-rows-[auto_1fr] overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
-        role="dialog"
-        aria-label={`User ${user?.displayName ?? shortId} details`}
-      >
-        <div className="px-6 py-4 border-b border-line bg-cream/40 flex items-center justify-between shrink-0">
-          <span className="font-display text-xl [font-variation-settings:'opsz'_24] text-ink">
-            {fetchLoading ? (
-              <span className="inline-block h-5 w-32 bg-cream rounded animate-pulse" />
-            ) : (
-              user?.displayName || '—'
-            )}
-          </span>
-          <button
-            onClick={closeWithAnim}
-            aria-label="Close drawer"
-            className="w-8 h-8 rounded-full hover:bg-line flex items-center justify-center text-muted hover:text-ink transition-colors"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Body */}
-        {fetchLoading ? (
+  return (
+    <Drawer
+      onClose={onClose}
+      ariaLabel={`User ${user?.displayName ?? shortId} details`}
+      header={header}
+    >
+      {fetchLoading ? (
           <DrawerSkeleton />
         ) : fetchError ? (
           <div className="overflow-y-auto px-6 py-5">
@@ -393,8 +351,6 @@ export default function UserDetailDrawer({
 
           </div>
         ) : null}
-      </aside>
-    </>,
-    document.body
+    </Drawer>
   );
 }

@@ -6,9 +6,12 @@ import {
 } from '@tanstack/react-query';
 import { useAuth } from '../../auth/useAuth.js';
 import { queryKeys } from '../../lib/queryKeys.js';
+import { invalidateOrderAggregates } from '../../lib/invalidateOrderAggregates.js';
 import * as api from '../../services/admin/adminOrdersService.js';
 
 const PAGE_SIZE = 10;
+
+const STOCK_RESTORING_ACTIONS = new Set(['forceCancel', 'approveCancel']);
 
 export function useAdminOrders() {
   const { authedFetch } = useAuth();
@@ -36,8 +39,10 @@ export function useAdminOrders() {
   const transitionMutation = useMutation({
     mutationFn: ({ id, action, reason }) =>
       api.transitionOrder(authedFetch, id, action, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminOrdersAll() });
+    onSuccess: (_data, variables) => {
+      invalidateOrderAggregates(queryClient, {
+        affectsStock: STOCK_RESTORING_ACTIONS.has(variables.action),
+      });
     },
   });
 

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth.js';
 import { placeOrder as placeOrderService } from '../services/orderService.js';
-import { queryKeys } from '../lib/queryKeys.js';
+import { invalidateOrderAggregates } from '../lib/invalidateOrderAggregates.js';
 
 export function usePlaceOrder({ onSuccess } = {}) {
   const { authedFetch, refreshProfile } = useAuth();
@@ -10,7 +10,7 @@ export function usePlaceOrder({ onSuccess } = {}) {
   const mutation = useMutation({
     mutationFn: ({ addressId }) => placeOrderService(authedFetch, { addressId }),
     onSuccess: async (created) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
+      invalidateOrderAggregates(queryClient, { affectsStock: true });
       await refreshProfile();
       if (onSuccess) onSuccess(created);
     },

@@ -11,6 +11,7 @@ import OrderCard from '../components/cards/OrderCard.jsx'
 import OrderCardSkeleton from '../components/cards/OrderCardSkeleton.jsx'
 import { apiGet } from '../lib/apiFetch.js'
 import { queryKeys } from '../lib/queryKeys.js'
+import { invalidateOrderAggregates } from '../lib/invalidateOrderAggregates.js'
 
 const PAGE_SIZE = 10
 
@@ -34,7 +35,7 @@ function OrderHeader() {
 }
 
 export default function OrderHistoryPage({ addItem }) {
-  const { user, ready, authedFetch } = useAuth()
+  const { user, ready, authedFetch, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [items, setItems] = useState([])
@@ -107,17 +108,14 @@ export default function OrderHistoryPage({ addItem }) {
 
   const cancelMutation = useMutation({
     mutationFn: ({ orderId, reason }) => userCancelOrder(authedFetch, orderId, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders() }),
   })
 
   const returnMutation = useMutation({
     mutationFn: ({ orderId, reason }) => userReturnOrder(authedFetch, orderId, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders() }),
   })
 
   const addressMutation = useMutation({
     mutationFn: ({ orderId, addressId }) => updateOrderAddress(authedFetch, orderId, addressId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders() }),
   })
 
   function patchOrder(updated) {
@@ -157,6 +155,8 @@ export default function OrderHistoryPage({ addItem }) {
       try {
         const updated = await cancelMutation.mutateAsync({ orderId: order.id, reason: '' })
         patchOrder(updated)
+        invalidateOrderAggregates(queryClient, { affectsStock: true })
+        await refreshProfile()
       } catch (err) {
         setError(err?.message ?? 'Cancel failed')
       }
@@ -178,6 +178,7 @@ export default function OrderHistoryPage({ addItem }) {
         ? await cancelMutation.mutateAsync({ orderId, reason })
         : await returnMutation.mutateAsync({ orderId, reason })
       patchOrder(updated)
+      invalidateOrderAggregates(queryClient)
     } catch (err) {
       setError(err?.message ?? 'Request failed')
     }
@@ -207,6 +208,7 @@ export default function OrderHistoryPage({ addItem }) {
       setItems((prev) => prev.map((o) => (o.id === orderId ? updated : o)))
       setEditingAddressOrderId(null)
       setPendingAddressId(null)
+      invalidateOrderAggregates(queryClient)
     } catch (err) {
       setAddressError(err?.message ?? 'Could not update address.')
     } finally {

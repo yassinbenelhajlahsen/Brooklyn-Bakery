@@ -267,6 +267,7 @@ export default function CookieClicker() {
           lidCtx.dispose();
           lidCtx.disposed = true;
           lidCtx.animStart = null;
+          lidCtxRef.current = null;
         }
       }
       renderer.render(scene, camera);

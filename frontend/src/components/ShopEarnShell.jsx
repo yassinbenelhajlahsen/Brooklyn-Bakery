@@ -14,19 +14,20 @@ export default function ShopEarnShell({ cart, onIncrement, onDecrement }) {
   // (flex-1 + h-full chain) so both panels render side-by-side at equal height.
   // Once settled on /earn we drop those constraints and hide the inactive Shop
   // panel from layout — letting the shell collapse to EarnPage's content height
-  // so the footer rises to sit just under the cookie clicker.
+  // so the footer sits just under the cookie clicker. Comparing against a ref of
+  // the previous pathname (rather than a skipFirst flag) keeps initial mounts
+  // animation-free under React 19 StrictMode, where refs persist across the
+  // simulated remount and a skipFirst guard would misfire on the second pass.
   const [settled, setSettled] = useState(true)
-  const skipFirst = useRef(true)
+  const prevPath = useRef(pathname)
   useEffect(() => {
-    if (skipFirst.current) {
-      skipFirst.current = false
-      return
-    }
+    if (prevPath.current === pathname) return
+    prevPath.current = pathname
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettled(false)
     const t = setTimeout(() => setSettled(true), SLIDE_MS)
     return () => clearTimeout(t)
-  }, [isEarn])
+  }, [pathname])
 
   const collapsed = settled && isEarn
 

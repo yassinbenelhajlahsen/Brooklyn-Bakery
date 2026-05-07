@@ -16,19 +16,20 @@ export default function PageTransition({ children }) {
 
   // Mirrors ShopEarnShell: drop flex-1 once settled on /earn so the shell can
   // shrink to EarnPage content height. Kept as flex-1 during the slide so the
-  // dual-panel layout has a height to flex against.
+  // dual-panel layout has a height to flex against. Comparing against a ref of
+  // the previous pathname (rather than a skipFirst flag) keeps initial mounts
+  // animation-free under React 19 StrictMode, where refs persist across the
+  // simulated remount and a skipFirst guard would misfire on the second pass.
   const [settled, setSettled] = useState(true)
-  const skipFirst = useRef(true)
+  const prevPath = useRef(pathname)
   useEffect(() => {
-    if (skipFirst.current) {
-      skipFirst.current = false
-      return
-    }
+    if (prevPath.current === pathname) return
+    prevPath.current = pathname
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettled(false)
     const t = setTimeout(() => setSettled(true), SLIDE_MS)
     return () => clearTimeout(t)
-  }, [isEarn])
+  }, [pathname])
 
   const collapsed = settled && isEarn
 

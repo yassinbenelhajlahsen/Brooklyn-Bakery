@@ -106,6 +106,20 @@ export async function updateReview(req, res) {
   res.json(review);
 }
 
+export async function adminDeleteReview(req, res) {
+  const review = await prisma.review.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, productId: true },
+  });
+  if (!review) return res.status(404).json({ error: 'Review not found.' });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.review.delete({ where: { id: review.id } });
+    await refreshProductRatingCache(tx, review.productId);
+  });
+  res.status(204).end();
+}
+
 export async function deleteReview(req, res) {
   const productId = await resolveProductId(req.params.slug);
   if (!productId) return res.status(404).json({ error: 'Product not found.' });

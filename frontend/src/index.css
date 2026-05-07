@@ -46,6 +46,7 @@
     --animate-page-rise: page-rise 460ms var(--ease-rise) both;
     --animate-card-rise: card-rise 360ms var(--ease-rise) both;
     --animate-cart-row-exit: cart-row-exit 320ms var(--ease-rise) both;
+    --animate-review-row-exit: review-row-exit 320ms var(--ease-rise) both;
     --animate-shimmer: shimmer 1.4s infinite linear;
 }
 
@@ -118,6 +119,35 @@
         padding-top: 0;
         padding-bottom: 0;
         border-bottom-width: 0;
+    }
+}
+@keyframes review-row-exit {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+        max-height: var(--exit-h, 600px);
+        margin-bottom: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-width: 1px;
+    }
+    40% {
+        opacity: 0;
+        transform: translateX(48px);
+        max-height: var(--exit-h, 600px);
+        margin-bottom: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-width: 1px;
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(48px);
+        max-height: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
     }
 }
 @keyframes shimmer {

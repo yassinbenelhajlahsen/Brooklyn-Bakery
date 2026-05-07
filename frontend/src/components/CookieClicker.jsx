@@ -11,6 +11,9 @@ export default function CookieClicker() {
     useCookieClicker();
   const { open, setOpen } = useJar();
   const lidCtxRef = useRef(null);
+  const plinthCtxRef = useRef(null);
+  const cookieAnimRef = useRef(null);
+  const openTriggeredRef = useRef(false);
   const initialOpenRef = useRef(open);
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -82,48 +85,71 @@ export default function CookieClicker() {
     const ambient = new THREE.AmbientLight("#fdf7f0", 0.55);
     scene.add(ambient);
 
-    const glowGeo = new THREE.CircleGeometry(2.4, 64);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xffc88a,
-      transparent: true,
-      opacity: 0.1,
-      side: THREE.DoubleSide,
-    });
-    const glowDisc = new THREE.Mesh(glowGeo, glowMat);
-    glowDisc.rotation.x = -Math.PI / 2;
-    glowDisc.position.y = -1.05;
-    scene.add(glowDisc);
+    if (!initialOpenRef.current) {
+      const glowGeo = new THREE.CircleGeometry(2.4, 64);
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0xffc88a,
+        transparent: true,
+        opacity: 0.1,
+        side: THREE.DoubleSide,
+      });
+      const glowDisc = new THREE.Mesh(glowGeo, glowMat);
+      glowDisc.rotation.x = -Math.PI / 2;
+      glowDisc.position.y = -1.05;
 
-    const plinthTopGeo = new THREE.CylinderGeometry(1.55, 1.6, 0.18, 96);
-    const woodMat = new THREE.MeshStandardMaterial({
-      color: 0x6a4423,
-      roughness: 0.65,
-      metalness: 0.05,
-    });
-    const plinthTop = new THREE.Mesh(plinthTopGeo, woodMat);
-    plinthTop.position.y = -0.78;
-    scene.add(plinthTop);
+      const plinthTopGeo = new THREE.CylinderGeometry(1.55, 1.6, 0.18, 96);
+      const woodMat = new THREE.MeshStandardMaterial({
+        color: 0x6a4423,
+        roughness: 0.65,
+        metalness: 0.05,
+      });
+      const plinthTop = new THREE.Mesh(plinthTopGeo, woodMat);
+      plinthTop.position.y = -0.78;
 
-    const plinthBaseGeo = new THREE.CylinderGeometry(1.6, 1.7, 0.22, 96);
-    const woodDarkMat = new THREE.MeshStandardMaterial({
-      color: 0x432a14,
-      roughness: 0.75,
-      metalness: 0.05,
-    });
-    const plinthBase = new THREE.Mesh(plinthBaseGeo, woodDarkMat);
-    plinthBase.position.y = -0.97;
-    scene.add(plinthBase);
+      const plinthBaseGeo = new THREE.CylinderGeometry(1.6, 1.7, 0.22, 96);
+      const woodDarkMat = new THREE.MeshStandardMaterial({
+        color: 0x432a14,
+        roughness: 0.75,
+        metalness: 0.05,
+      });
+      const plinthBase = new THREE.Mesh(plinthBaseGeo, woodDarkMat);
+      plinthBase.position.y = -0.97;
 
-    const trimGeo = new THREE.TorusGeometry(1.55, 0.025, 16, 96);
-    const brassDimMat = new THREE.MeshStandardMaterial({
-      color: 0x8a6534,
-      metalness: 1,
-      roughness: 0.5,
-    });
-    const trim = new THREE.Mesh(trimGeo, brassDimMat);
-    trim.rotation.x = Math.PI / 2;
-    trim.position.y = -0.69;
-    scene.add(trim);
+      const trimGeo = new THREE.TorusGeometry(1.55, 0.025, 16, 96);
+      const brassDimMat = new THREE.MeshStandardMaterial({
+        color: 0x8a6534,
+        metalness: 1,
+        roughness: 0.5,
+      });
+      const trim = new THREE.Mesh(trimGeo, brassDimMat);
+      trim.rotation.x = Math.PI / 2;
+      trim.position.y = -0.69;
+
+      const plinthGroup = new THREE.Group();
+      plinthGroup.add(glowDisc);
+      plinthGroup.add(plinthTop);
+      plinthGroup.add(plinthBase);
+      plinthGroup.add(trim);
+      scene.add(plinthGroup);
+
+      const disposePlinth = () => {
+        glowGeo.dispose();
+        glowMat.dispose();
+        plinthTopGeo.dispose();
+        plinthBaseGeo.dispose();
+        trimGeo.dispose();
+        woodMat.dispose();
+        woodDarkMat.dispose();
+        brassDimMat.dispose();
+      };
+
+      plinthCtxRef.current = {
+        group: plinthGroup,
+        dispose: disposePlinth,
+        animStart: null,
+        disposed: false,
+      };
+    }
 
     if (!initialOpenRef.current) {
       const glassMat = new THREE.MeshPhysicalMaterial({
@@ -211,25 +237,46 @@ export default function CookieClicker() {
     }
 
     let cookieModel = null;
-    const COOKIE_SCALE = 10;
+    const COOKIE_CLOSED_SCALE = 10;
+    const COOKIE_OPEN_SCALE = 13;
     const COOKIE_X = -0.1;
     const PLINTH_TOP_Y = -0.69;
     const COOKIE_LIFT = 0.04;
+    const CAMERA_LOOK_Y = 0.2;
 
     const loader = new GLTFLoader();
     loader.load(
       cookieModelUrl,
       (gltf) => {
         const model = gltf.scene;
-        model.scale.set(COOKIE_SCALE, COOKIE_SCALE, COOKIE_SCALE);
         model.rotation.x = Math.PI / 2;
+        model.scale.set(1, 1, 1);
         model.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(model);
+        const baseBox = new THREE.Box3().setFromObject(model);
+
+        const closedY =
+          PLINTH_TOP_Y - baseBox.min.y * COOKIE_CLOSED_SCALE + COOKIE_LIFT;
+        const openY =
+          CAMERA_LOOK_Y -
+          ((baseBox.min.y + baseBox.max.y) / 2) * COOKIE_OPEN_SCALE;
+
+        const startOpen = initialOpenRef.current || openTriggeredRef.current;
+        const initialScale = startOpen ? COOKIE_OPEN_SCALE : COOKIE_CLOSED_SCALE;
+        const initialY = startOpen ? openY : closedY;
+
+        model.scale.set(initialScale, initialScale, initialScale);
         model.position.x = COOKIE_X;
-        model.position.y = PLINTH_TOP_Y - box.min.y + COOKIE_LIFT;
+        model.position.y = initialY;
         model.renderOrder = 1;
         scene.add(model);
         cookieModel = model;
+        cookieAnimRef.current = {
+          closedScale: COOKIE_CLOSED_SCALE,
+          openScale: COOKIE_OPEN_SCALE,
+          closedY,
+          openY,
+          animStart: null,
+        };
       },
       undefined,
       (error) => {
@@ -241,9 +288,14 @@ export default function CookieClicker() {
     const wiggleAmplitudeY = 1; // radians
     const wiggleAmplitudeZ = 0.75; // radians
 
-    const LID_LIFT_DURATION_MS = 800;
-    const LID_LIFT_Y = 3.5;
+    const LID_LIFT_DURATION_MS = 900;
+    const LID_LIFT_Y = 8.0;
     const LID_TILT_Z = 0.4;
+    const PLINTH_DROP_DURATION_MS = 900;
+    const PLINTH_DROP_Y = -5.0;
+    const COOKIE_GROW_DURATION_MS = 700;
+    const COOKIE_GROW_DELAY_MS = 200;
+    const easeInQuad = (x) => x * x;
     const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
 
     const animate = (timestamp) => {
@@ -255,11 +307,12 @@ export default function CookieClicker() {
         cookieModel.rotation.z =
           Math.sin(t * Math.PI * 2 * wiggleFrequency) * wiggleAmplitudeZ;
       }
+
       const lidCtx = lidCtxRef.current;
       if (lidCtx && !lidCtx.disposed && lidCtx.animStart !== null) {
         const elapsed = timestamp - lidCtx.animStart;
         const progress = Math.min(elapsed / LID_LIFT_DURATION_MS, 1);
-        const eased = easeOutCubic(progress);
+        const eased = easeInQuad(progress);
         lidCtx.group.position.y = LID_LIFT_Y * eased;
         lidCtx.group.rotation.z = LID_TILT_Z * eased;
         if (progress >= 1) {
@@ -270,6 +323,42 @@ export default function CookieClicker() {
           lidCtxRef.current = null;
         }
       }
+
+      const plinthCtx = plinthCtxRef.current;
+      if (plinthCtx && !plinthCtx.disposed && plinthCtx.animStart !== null) {
+        const elapsed = timestamp - plinthCtx.animStart;
+        const progress = Math.min(elapsed / PLINTH_DROP_DURATION_MS, 1);
+        const eased = easeInQuad(progress);
+        plinthCtx.group.position.y = PLINTH_DROP_Y * eased;
+        if (progress >= 1) {
+          scene.remove(plinthCtx.group);
+          plinthCtx.dispose();
+          plinthCtx.disposed = true;
+          plinthCtx.animStart = null;
+          plinthCtxRef.current = null;
+        }
+      }
+
+      const cookieAnim = cookieAnimRef.current;
+      if (cookieModel && cookieAnim && cookieAnim.animStart !== null) {
+        const elapsed =
+          timestamp - cookieAnim.animStart - COOKIE_GROW_DELAY_MS;
+        if (elapsed > 0) {
+          const progress = Math.min(elapsed / COOKIE_GROW_DURATION_MS, 1);
+          const eased = easeOutCubic(progress);
+          const s =
+            cookieAnim.closedScale +
+            (cookieAnim.openScale - cookieAnim.closedScale) * eased;
+          cookieModel.scale.set(s, s, s);
+          cookieModel.position.y =
+            cookieAnim.closedY +
+            (cookieAnim.openY - cookieAnim.closedY) * eased;
+          if (progress >= 1) {
+            cookieAnim.animStart = null;
+          }
+        }
+      }
+
       renderer.render(scene, camera);
     };
     frameId = requestAnimationFrame(animate);
@@ -279,20 +368,19 @@ export default function CookieClicker() {
       cancelAnimationFrame(frameId);
       pmrem.dispose();
       envMap.dispose();
-      glowGeo.dispose();
-      glowMat.dispose();
-      plinthTopGeo.dispose();
-      plinthBaseGeo.dispose();
-      trimGeo.dispose();
-      woodMat.dispose();
-      woodDarkMat.dispose();
-      brassDimMat.dispose();
       const lidCtx = lidCtxRef.current;
       if (lidCtx && !lidCtx.disposed) {
         lidCtx.dispose();
         lidCtx.disposed = true;
       }
       lidCtxRef.current = null;
+      const plinthCtx = plinthCtxRef.current;
+      if (plinthCtx && !plinthCtx.disposed) {
+        plinthCtx.dispose();
+        plinthCtx.disposed = true;
+      }
+      plinthCtxRef.current = null;
+      cookieAnimRef.current = null;
       renderer.dispose();
     };
   }, []);
@@ -300,9 +388,19 @@ export default function CookieClicker() {
   const handleCookieClick = () => {
     if (!open) {
       setOpen(true);
+      openTriggeredRef.current = true;
+      const now = performance.now();
       const lidCtx = lidCtxRef.current;
       if (lidCtx && !lidCtx.disposed && lidCtx.animStart === null) {
-        lidCtx.animStart = performance.now();
+        lidCtx.animStart = now;
+      }
+      const plinthCtx = plinthCtxRef.current;
+      if (plinthCtx && !plinthCtx.disposed && plinthCtx.animStart === null) {
+        plinthCtx.animStart = now;
+      }
+      const cookieAnim = cookieAnimRef.current;
+      if (cookieAnim && cookieAnim.animStart === null) {
+        cookieAnim.animStart = now;
       }
     }
     handleClick();

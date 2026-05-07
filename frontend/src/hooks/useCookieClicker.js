@@ -43,9 +43,13 @@ function writeGuestClicks(pending, firstClickAt) {
 
 export function useCookieClicker() {
 
-    const { session, profile, authedFetch, refreshProfile } = useAuth();
+    const { session, profile, authedFetch, refreshProfile, ready } = useAuth();
     const accessToken = session?.access_token ?? null;
     const isAuthenticated = Boolean(accessToken);
+    // Auth not yet initialized, or authed but the first profile fetch hasn't
+    // landed — without this flag the UI renders logged-out defaults (0 points,
+    // generic heading, login hint) for a frame before settling.
+    const loading = !ready || (isAuthenticated && profile === null);
 
     const pendingRef = useRef(0);
     const inFlightRef = useRef(0); // clicks currently being POSTed; kept in displayPoints so the counter doesn't dip during the round-trip
@@ -291,5 +295,6 @@ export function useCookieClicker() {
         handleClick,
         isAuthenticated,
         displayName: profile?.displayName ?? null,
+        loading,
     };
 }

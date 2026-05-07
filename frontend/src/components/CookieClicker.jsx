@@ -257,7 +257,7 @@ export default function CookieClicker() {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,460px)_minmax(220px,300px)] justify-center gap-10 md:gap-50 items-center">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,460px)_minmax(220px,300px)] justify-center gap-10 md:gap-40 items-center">
         <div
           ref={wrapperRef}
           className="relative w-full aspect-[1/1.15] max-w-[460px] mx-auto"

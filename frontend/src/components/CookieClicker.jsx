@@ -1,4 +1,5 @@
 import { useCookieClicker } from "../hooks/useCookieClicker.js";
+import { useJar } from "../contexts/JarContext.jsx";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -8,6 +9,9 @@ import cookieModelUrl from "../threeDModels/Cookie3.glb?url";
 export default function CookieClicker() {
   const { displayPoints, handleClick, isAuthenticated, displayName, loading } =
     useCookieClicker();
+  const { open, setOpen } = useJar();
+  const lidCtxRef = useRef(null);
+  const initialOpenRef = useRef(open);
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const heading = displayName ? `${displayName}'s bakery` : "Your bakery";
@@ -121,82 +125,90 @@ export default function CookieClicker() {
     trim.position.y = -0.69;
     scene.add(trim);
 
-    const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      metalness: 0,
-      roughness: 0.04,
-      transmission: 1.0,
-      thickness: 0.35,
-      ior: 1.5,
-      attenuationColor: 0xfff0d6,
-      attenuationDistance: 6,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.0,
-      side: THREE.DoubleSide,
-      transparent: true,
-    });
+    if (!initialOpenRef.current) {
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0,
+        roughness: 0.04,
+        transmission: 1.0,
+        thickness: 0.35,
+        ior: 1.5,
+        attenuationColor: 0xfff0d6,
+        attenuationDistance: 6,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        side: THREE.DoubleSide,
+        transparent: true,
+      });
 
-    const DOME_R = 1.45;
-    const TUBE_H = 0.9;
-    const TUBE_BOTTOM_Y = -0.69;
-    const TUBE_TOP_Y = TUBE_BOTTOM_Y + TUBE_H;
+      const DOME_R = 1.45;
+      const TUBE_H = 0.9;
+      const TUBE_BOTTOM_Y = -0.69;
+      const TUBE_TOP_Y = TUBE_BOTTOM_Y + TUBE_H;
 
-    const lidGroup = new THREE.Group();
+      const lidGroup = new THREE.Group();
 
-    const domeGeo = new THREE.SphereGeometry(
-      DOME_R,
-      96,
-      64,
-      0,
-      Math.PI * 2,
-      0,
-      Math.PI / 2,
-    );
-    const dome = new THREE.Mesh(domeGeo, glassMat);
-    dome.position.y = TUBE_TOP_Y;
-    dome.renderOrder = 2;
-    lidGroup.add(dome);
+      const domeGeo = new THREE.SphereGeometry(
+        DOME_R,
+        96,
+        64,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI / 2,
+      );
+      const dome = new THREE.Mesh(domeGeo, glassMat);
+      dome.position.y = TUBE_TOP_Y;
+      dome.renderOrder = 2;
+      lidGroup.add(dome);
 
-    const tubeGeo = new THREE.CylinderGeometry(DOME_R, DOME_R, TUBE_H, 96, 1, true);
-    const tube = new THREE.Mesh(tubeGeo, glassMat);
-    tube.position.y = TUBE_BOTTOM_Y + TUBE_H / 2;
-    tube.renderOrder = 2;
-    lidGroup.add(tube);
+      const tubeGeo = new THREE.CylinderGeometry(DOME_R, DOME_R, TUBE_H, 96, 1, true);
+      const tube = new THREE.Mesh(tubeGeo, glassMat);
+      tube.position.y = TUBE_BOTTOM_Y + TUBE_H / 2;
+      tube.renderOrder = 2;
+      lidGroup.add(tube);
 
-    const rimRingGeo = new THREE.TorusGeometry(DOME_R, 0.045, 24, 96);
-    const rimRing = new THREE.Mesh(rimRingGeo, glassMat);
-    rimRing.rotation.x = Math.PI / 2;
-    rimRing.position.y = TUBE_BOTTOM_Y;
-    rimRing.renderOrder = 2;
-    lidGroup.add(rimRing);
+      const rimRingGeo = new THREE.TorusGeometry(DOME_R, 0.045, 24, 96);
+      const rimRing = new THREE.Mesh(rimRingGeo, glassMat);
+      rimRing.rotation.x = Math.PI / 2;
+      rimRing.position.y = TUBE_BOTTOM_Y;
+      rimRing.renderOrder = 2;
+      lidGroup.add(rimRing);
 
-    const brassMat = new THREE.MeshStandardMaterial({
-      color: 0xd9a35c,
-      metalness: 1.0,
-      roughness: 0.22,
-    });
-    const knobBaseGeo = new THREE.CylinderGeometry(0.13, 0.16, 0.06, 32);
-    const knobBase = new THREE.Mesh(knobBaseGeo, brassMat);
-    knobBase.position.y = TUBE_TOP_Y + DOME_R + 0.03;
-    lidGroup.add(knobBase);
+      const brassMat = new THREE.MeshStandardMaterial({
+        color: 0xd9a35c,
+        metalness: 1.0,
+        roughness: 0.22,
+      });
+      const knobBaseGeo = new THREE.CylinderGeometry(0.13, 0.16, 0.06, 32);
+      const knobBase = new THREE.Mesh(knobBaseGeo, brassMat);
+      knobBase.position.y = TUBE_TOP_Y + DOME_R + 0.03;
+      lidGroup.add(knobBase);
 
-    const knobBallGeo = new THREE.SphereGeometry(0.13, 48, 32);
-    const knobBall = new THREE.Mesh(knobBallGeo, brassMat);
-    knobBall.position.y = TUBE_TOP_Y + DOME_R + 0.16;
-    lidGroup.add(knobBall);
+      const knobBallGeo = new THREE.SphereGeometry(0.13, 48, 32);
+      const knobBall = new THREE.Mesh(knobBallGeo, brassMat);
+      knobBall.position.y = TUBE_TOP_Y + DOME_R + 0.16;
+      lidGroup.add(knobBall);
 
-    scene.add(lidGroup);
+      scene.add(lidGroup);
 
-    const disposeLid = () => {
-      domeGeo.dispose();
-      tubeGeo.dispose();
-      rimRingGeo.dispose();
-      knobBaseGeo.dispose();
-      knobBallGeo.dispose();
-      glassMat.dispose();
-      brassMat.dispose();
-    };
-    let lidDisposed = false;
+      const disposeLid = () => {
+        domeGeo.dispose();
+        tubeGeo.dispose();
+        rimRingGeo.dispose();
+        knobBaseGeo.dispose();
+        knobBallGeo.dispose();
+        glassMat.dispose();
+        brassMat.dispose();
+      };
+
+      lidCtxRef.current = {
+        group: lidGroup,
+        dispose: disposeLid,
+        animStart: null,
+        disposed: false,
+      };
+    }
 
     let cookieModel = null;
     const COOKIE_SCALE = 10;
@@ -229,6 +241,11 @@ export default function CookieClicker() {
     const wiggleAmplitudeY = 1; // radians
     const wiggleAmplitudeZ = 0.75; // radians
 
+    const LID_LIFT_DURATION_MS = 800;
+    const LID_LIFT_Y = 3.5;
+    const LID_TILT_Z = 0.4;
+    const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+
     const animate = (timestamp) => {
       frameId = requestAnimationFrame(animate);
       if (cookieModel) {
@@ -237,6 +254,20 @@ export default function CookieClicker() {
           Math.sin(t * Math.PI * wiggleFrequency) * wiggleAmplitudeY;
         cookieModel.rotation.z =
           Math.sin(t * Math.PI * 2 * wiggleFrequency) * wiggleAmplitudeZ;
+      }
+      const lidCtx = lidCtxRef.current;
+      if (lidCtx && !lidCtx.disposed && lidCtx.animStart !== null) {
+        const elapsed = timestamp - lidCtx.animStart;
+        const progress = Math.min(elapsed / LID_LIFT_DURATION_MS, 1);
+        const eased = easeOutCubic(progress);
+        lidCtx.group.position.y = LID_LIFT_Y * eased;
+        lidCtx.group.rotation.z = LID_TILT_Z * eased;
+        if (progress >= 1) {
+          scene.remove(lidCtx.group);
+          lidCtx.dispose();
+          lidCtx.disposed = true;
+          lidCtx.animStart = null;
+        }
       }
       renderer.render(scene, camera);
     };
@@ -255,15 +286,24 @@ export default function CookieClicker() {
       woodMat.dispose();
       woodDarkMat.dispose();
       brassDimMat.dispose();
-      if (!lidDisposed) {
-        disposeLid();
-        lidDisposed = true;
+      const lidCtx = lidCtxRef.current;
+      if (lidCtx && !lidCtx.disposed) {
+        lidCtx.dispose();
+        lidCtx.disposed = true;
       }
+      lidCtxRef.current = null;
       renderer.dispose();
     };
   }, []);
 
   const handleCookieClick = () => {
+    if (!open) {
+      setOpen(true);
+      const lidCtx = lidCtxRef.current;
+      if (lidCtx && !lidCtx.disposed && lidCtx.animStart === null) {
+        lidCtx.animStart = performance.now();
+      }
+    }
     handleClick();
   };
 

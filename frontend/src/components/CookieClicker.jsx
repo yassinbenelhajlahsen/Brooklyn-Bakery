@@ -6,7 +6,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import cookieModelUrl from "../threeDModels/Cookie3.glb?url";
 
 export default function CookieClicker() {
-  const { displayPoints, handleClick, isAuthenticated, displayName } =
+  const { displayPoints, handleClick, isAuthenticated, displayName, loading } =
     useCookieClicker();
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -270,18 +270,28 @@ export default function CookieClicker() {
         </div>
 
         <div className="flex flex-col items-center md:items-start gap-8 text-center md:text-left pointer-events-auto">
-          <div>
-            <h2 className="text-3xl md:text-4xl text-ink">{heading}</h2>
-            {!isAuthenticated && (
-              <p className="text-xs text-muted mt-2 italic">
-                Log in to save your points
-              </p>
+          <div className="min-h-[3.75rem] md:min-h-[4.5rem] flex flex-col justify-center">
+            {loading ? (
+              <div className="h-8 md:h-10 w-56 rounded bg-line/60 animate-pulse" />
+            ) : (
+              <>
+                <h2 className="text-3xl md:text-4xl text-ink">{heading}</h2>
+                {!isAuthenticated && (
+                  <p className="text-xs text-muted mt-2 italic">
+                    Log in to save your points
+                  </p>
+                )}
+              </>
             )}
           </div>
           <div className="bg-surface px-8 py-6 rounded-lg border border-line shadow-card">
-            <p className="text-6xl font-bold text-accent m-0 font-display">
-              {displayPoints}
-            </p>
+            {loading ? (
+              <div className="h-[3.75rem] w-28 rounded bg-line/60 animate-pulse" />
+            ) : (
+              <p className="text-6xl font-bold text-accent m-0 font-display">
+                {displayPoints}
+              </p>
+            )}
             <p className="text-[0.9rem] text-muted mt-2 mb-0 uppercase tracking-[0.05em]">
               Points
             </p>

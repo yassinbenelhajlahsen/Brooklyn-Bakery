@@ -22,10 +22,19 @@ export function AuthProvider({ children }) {
 
         // Seed from the persisted session before the listener fires, so guards
         // don't see user=null on hard refresh and bounce to '/'.
-        supabase.auth.getSession().then(({ data }) => {
+        // If the stored refresh token is invalid (e.g. rotated, revoked, or
+        // wiped server-side), clear the local session so the user falls
+        // through to the unauth path instead of seeing a console error.
+        supabase.auth.getSession().then(async ({ data, error }) => {
             if (cancelled) return;
-            setSession(data.session ?? null);
-            setUser(data.session?.user ?? null);
+            if (error) {
+                await supabase.auth.signOut({ scope: 'local' });
+                setSession(null);
+                setUser(null);
+            } else {
+                setSession(data.session ?? null);
+                setUser(data.session?.user ?? null);
+            }
             setReady(true);
         });
 

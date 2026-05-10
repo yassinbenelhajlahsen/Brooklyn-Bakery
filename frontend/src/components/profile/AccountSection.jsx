@@ -75,6 +75,7 @@ export default function AccountSection() {
     }
   }
 
+
   const displayName = profile?.displayName ?? '';
   const balance = profile?.balance ?? 0;
 

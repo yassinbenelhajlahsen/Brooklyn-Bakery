@@ -43,7 +43,7 @@ function writeGuestClicks(pending, firstClickAt) {
 
 export function useCookieClicker() {
 
-    const { session, profile, authedFetch, refreshProfile, ready } = useAuth();
+    const { session, profile, authedFetch, refreshProfile, ready, user } = useAuth();
     const accessToken = session?.access_token ?? null;
     const isAuthenticated = Boolean(accessToken);
     // Auth not yet initialized, or authed but the first profile fetch hasn't
@@ -291,10 +291,13 @@ export function useCookieClicker() {
         : pendingRef.current;
 
     return {
+        
         displayPoints,
         handleClick,
         isAuthenticated,
         displayName: profile?.displayName ?? null,
         loading,
+        user,
+        profile
     };
 }

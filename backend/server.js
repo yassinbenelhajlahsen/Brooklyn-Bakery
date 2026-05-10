@@ -10,16 +10,20 @@ import { requireAuth } from './middleware/requireAuth.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { requireAdmin } from './middleware/requireAdmin.js';
 import meRoutes from './routes/meRoutes.js';
+import cookieUpgrades from './routes/cookieUpgrades.js';
+
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
     'https://brooklyn-bakery.pages.dev',
     /^https:\/\/[a-z0-9-]+\.brooklyn-bakery\.pages\.dev$/,
     ...(process.env.NODE_ENV !== 'production' ? [
-        'http://127.0.0.1:5173',
-        'http://localhost:5173',
     ] : []),
 ];
 
@@ -32,6 +36,8 @@ app.use(cors({
 
 app.use(express.json()) // handling json data
 
+
+app.use('/cookieUpgrades',  cookieUpgrades);
 app.use('/products', productsRoutes);
 app.use('/orders', requireAuth, orderRoutes);
 app.use('/me', requireAuth, meRoutes);

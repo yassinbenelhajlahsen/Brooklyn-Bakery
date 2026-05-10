@@ -5,9 +5,11 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import cookieModelUrl from "../threeDModels/Cookie3.glb?url";
+import { apiGet } from "../lib/apiFetch.js";
+import { useDebugValue } from "react";
 
 export default function CookieClicker() {
-  const { displayPoints, handleClick, isAuthenticated, displayName, loading } =
+  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile} =
     useCookieClicker();
   const { open, setOpen } = useJar();
   const lidCtxRef = useRef(null);
@@ -19,9 +21,19 @@ export default function CookieClicker() {
   const wrapperRef = useRef(null);
   const heading = displayName ? `${displayName}'s bakery` : "Your bakery";
 
+
+
+  const setUpgrades = async () =>{
+    let z = apiGet(`/cookieUpgrades/getUserPoints/${profile?.id}`)
+    console.log(z)
+  }
+
+  useEffect(()=>{
+    setUpgrades();
+  },[profile])
+
   useEffect(() => {
     if (!canvasRef.current) return;
-
     const canvas = canvasRef.current;
     const wrapper = wrapperRef.current;
     let frameId = 0;
@@ -435,6 +447,10 @@ export default function CookieClicker() {
           </div>
         </div>
       </div>
+      <div>
+        {profile?.role}
+      </div>
+      <br></br>
     </div>
   );
 }

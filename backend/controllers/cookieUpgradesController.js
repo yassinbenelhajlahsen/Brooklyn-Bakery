@@ -2,14 +2,19 @@ import express from 'express';
 import { prisma } from '../lib/prisma.js';
 import { httpError } from '../lib/httpError.js';
 import { normalizeAddressInput } from '../lib/address.js';
+import { Prisma } from '@prisma/client';
 
 
-export const getUserPoints = async (req,res) =>{
-//   const { user, profile, authedFetch, refreshProfile } = useAuth();
+export const getUserPoints = async (req, res) => {
 
-    console.log(req.params.id)
-    console.log('hitting')
-    // console.log(req.body)
-    res.json({msg : 'hi'})
-//   res.json({msg : req.user.id})
-}
+    const user = await prisma.user.findFirst({
+        where: { id: req.params.id }
+    });
+
+    console.log(user);
+
+    if(user)
+        console.log(user.balance);
+
+    res.json(user.balance);
+};

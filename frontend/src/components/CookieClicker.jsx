@@ -21,10 +21,9 @@ export default function CookieClicker() {
   const wrapperRef = useRef(null);
   const heading = displayName ? `${displayName}'s bakery` : "Your bakery";
 
-
-
   const setUpgrades = async () =>{
-    let z = apiGet(`/cookieUpgrades/getUserPoints/${profile?.id}`)
+    if (!profile?.id) return;
+    let z = await apiGet(`/cookieUpgrades/getUserPoints/${profile.id}`)
     console.log(z)
   }
 

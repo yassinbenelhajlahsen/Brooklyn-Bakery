@@ -41,7 +41,9 @@ function writeGuestClicks(pending, firstClickAt) {
     }
 }
 
-export function useCookieClicker() {
+export function useCookieClicker(pointsRuleRef) {
+    const internalRuleRef = useRef({ num: 1, den: 1 });
+    const ruleRef = pointsRuleRef ?? internalRuleRef;
 
     const { session, profile, authedFetch, refreshProfile, ready, user } = useAuth();
     const accessToken = session?.access_token ?? null;
@@ -52,10 +54,13 @@ export function useCookieClicker() {
     const loading = !ready || (isAuthenticated && profile === null);
 
     const pendingRef = useRef(0);
-    const inFlightRef = useRef(0); // clicks currently being POSTed; kept in displayPoints so the counter doesn't dip during the round-trip
+    const inFlightRef = useRef(0); // pending points being POSTed; kept in displayPoints so the counter doesn't dip during the round-trip
     const windowStartRef = useRef(null); // performance.now() of the first click in the current authenticated flush window
     const guestFirstClickAtRef = useRef(null); // wall-clock Date.now() of first guest click
     const clickTimesRef = useRef([]);
+    /** Fractional points carry for rationals like 3/2 per physical click. */
+    const pointsFractionAccRef = useRef(0);
+    const lastPointsRuleRef = useRef({ num: 1, den: 1 });
     const tokenRef = useRef(accessToken);
     const prevTokenRef = useRef(accessToken);
     const flushingRef = useRef(false);
@@ -268,10 +273,22 @@ export function useCookieClicker() {
         if (times.length >= CLICKS_PER_SEC) return false;
         times.push(nowPerf);
 
+        const { num, den } = ruleRef.current;
+        if (
+            num !== lastPointsRuleRef.current.num ||
+            den !== lastPointsRuleRef.current.den
+        ) {
+            pointsFractionAccRef.current = 0;
+            lastPointsRuleRef.current = { num, den };
+        }
+        pointsFractionAccRef.current += num;
+        const wholePoints = Math.floor(pointsFractionAccRef.current / den);
+        pointsFractionAccRef.current %= den;
+
         if (pendingRef.current === 0) {
             windowStartRef.current = nowPerf;
         }
-        pendingRef.current += 1;
+        pendingRef.current += wholePoints;
 
         if (!isAuthenticated) {
             if (guestFirstClickAtRef.current == null) {
@@ -284,14 +301,13 @@ export function useCookieClicker() {
 
         rerender();
         return true;
-    }, [doFlush, isAuthenticated, rerender, scheduleGuestWrite]);
+    }, [doFlush, isAuthenticated, rerender, scheduleGuestWrite, ruleRef]);
 
     const displayPoints = isAuthenticated
         ? (profile?.balance ?? 0) + pendingRef.current + inFlightRef.current
         : pendingRef.current;
 
     return {
-        
         displayPoints,
         handleClick,
         isAuthenticated,

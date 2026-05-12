@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -23,6 +24,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   const { authedFetch, user, openLogin } = useAuth()
   const isAuthenticated = !!user
   const queryClient = useQueryClient()
+  const [pendingWishProductId, setPendingWishProductId] = useState(null)
 
   const productQuery = useQuery({
     queryKey: queryKeys.product(slug),
@@ -51,6 +53,20 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
     mutationFn: (productId) => removeWishlistItem(authedFetch, productId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.wishlist() }),
   })
+
+  const addWishMutate = addWishMutation.mutate
+  useEffect(() => {
+    if (!isAuthenticated || pendingWishProductId == null) return
+    if (!wishlistQuery.isSuccess) return
+    const productId = pendingWishProductId
+    const already = wishlistQuery.data?.items?.some((entry) => entry.productId === productId)
+    // Clear before mutating so a re-render from the mutation doesn't refire the effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingWishProductId(null)
+    if (!already) {
+      addWishMutate(productId)
+    }
+  }, [isAuthenticated, pendingWishProductId, wishlistQuery.isSuccess, wishlistQuery.data, addWishMutate])
 
   const product = productQuery.data ?? null
   const loading = productQuery.isLoading
@@ -90,6 +106,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
 
   function handleWishlistClick() {
     if (!isAuthenticated) {
+      setPendingWishProductId(product.id)
       openLogin()
       return
     }

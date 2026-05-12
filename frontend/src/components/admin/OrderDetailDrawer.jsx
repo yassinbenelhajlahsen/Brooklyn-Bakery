@@ -24,6 +24,15 @@ function SectionLabel({ children }) {
   );
 }
 
+function promoScopeLabel(order) {
+  const promo = order.promoCode;
+  if (!promo) return null;
+  if (promo.scope === 'storewide') return 'Storewide';
+  if (promo.scope === 'category') return `Category: ${promo.productType}`;
+  if (promo.scope === 'product') return `Item: ${promo.product?.name ?? 'Unknown product'}`;
+  return promo.scope;
+}
+
 export default function OrderDetailDrawer({ order, onClose, onTransition }) {
   const [pending, setPending] = useState(null);
   const [reasonText, setReasonText] = useState('');
@@ -186,6 +195,27 @@ export default function OrderDetailDrawer({ order, onClose, onTransition }) {
             </div>
           )}
         </div>
+
+        {order.discountTotal > 0 && (
+          <div className="bg-cream/50 border border-line rounded-lg px-3 py-2.5">
+            <SectionLabel>Promo code</SectionLabel>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 text-sm font-medium text-ink">
+                  <span className="rounded bg-surface px-1.5 py-0.5 font-mono font-semibold text-accent-dark">
+                    {order.promoCodeText ?? order.promoCode?.code ?? 'Unknown code'}
+                  </span>
+                </p>
+                {promoScopeLabel(order) && (
+                  <p className="m-0 mt-1 text-xs text-muted">{promoScopeLabel(order)}</p>
+                )}
+              </div>
+              <p className="m-0 text-sm font-semibold text-accent-dark">
+                -{order.discountTotal} pts
+              </p>
+            </div>
+          </div>
+        )}
 
         <div>
           <SectionLabel>Items ({order.items.length})</SectionLabel>

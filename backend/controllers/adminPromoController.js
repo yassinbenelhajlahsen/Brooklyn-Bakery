@@ -3,13 +3,16 @@ import { prisma } from '../lib/prisma.js';
 import { httpError } from '../lib/httpError.js';
 import { formatPromo, validatePromoInput } from '../services/promoService.js';
 
-const INCLUDE_PRODUCT = { product: { select: { id: true, name: true } } };
+const PROMO_INCLUDE = {
+    product: { select: { id: true, name: true } },
+    _count: { select: { orders: true } },
+};
 
 export async function listPromoCodes(_req, res, next) {
     try {
         const promos = await prisma.promoCode.findMany({
             orderBy: [{ active: 'desc' }, { createdAt: 'desc' }],
-            include: INCLUDE_PRODUCT,
+            include: PROMO_INCLUDE,
         });
         res.json({ items: promos.map(formatPromo) });
     } catch (err) {
@@ -22,7 +25,7 @@ export async function createPromoCode(req, res, next) {
         const data = validatePromoInput(req.body);
         const promo = await prisma.promoCode.create({
             data,
-            include: INCLUDE_PRODUCT,
+            include: PROMO_INCLUDE,
         });
         res.status(201).json(formatPromo(promo));
     } catch (err) {
@@ -51,7 +54,7 @@ export async function updatePromoCode(req, res, next) {
         const promo = await prisma.promoCode.update({
             where: { id: req.params.id },
             data,
-            include: INCLUDE_PRODUCT,
+            include: PROMO_INCLUDE,
         });
         res.json(formatPromo(promo));
     } catch (err) {

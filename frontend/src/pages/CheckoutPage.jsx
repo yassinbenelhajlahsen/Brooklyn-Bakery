@@ -111,6 +111,13 @@ export default function CheckoutPage({
     }
   }
 
+  function clearPromo() {
+    setPromoCode("");
+    setAppliedPromo(null);
+    setPromoCheckoutError(null);
+    promoMutation.reset();
+  }
+
   if (!ready) return null;
   if (!user) return <Navigate to="/" replace />;
 
@@ -226,9 +233,18 @@ export default function CheckoutPage({
                   </button>
                 </div>
                 {appliedPromo && (
-                  <p className="m-0 text-[12.5px] text-accent-dark">
-                    {appliedPromo.promo.code} applied: -{appliedPromo.discountTotal} pts
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="m-0 text-[12.5px] text-accent-dark">
+                      {appliedPromo.promo.code} applied: -{appliedPromo.discountTotal} pts
+                    </p>
+                    <button
+                      type="button"
+                      className="text-[12px] font-medium text-muted underline-offset-2 hover:text-accent hover:underline"
+                      onClick={clearPromo}
+                    >
+                      Clear
+                    </button>
+                  </div>
                 )}
                 {promoMutation.isError && (
                   <p className="m-0 text-[12.5px] text-danger">

@@ -70,6 +70,7 @@ export function formatPromo(promo) {
         productType: promo.productType,
         productId: promo.productId,
         product: promo.product ?? null,
+        orderCount: promo._count?.orders ?? 0,
         active: promo.active,
         createdAt: promo.createdAt,
         updatedAt: promo.updatedAt,

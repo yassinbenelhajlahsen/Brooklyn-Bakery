@@ -66,7 +66,7 @@ export default function PromoCodesTab() {
   }
 
   async function handleDelete(promo) {
-    const ok = window.confirm(`Delete promo code ${promo.code}? Past orders keep their saved discount details.`);
+    const ok = window.confirm(`Delete promo code ${promo.code}? It has been used on ${promo.orderCount ?? 0} orders. Past orders keep their saved discount details.`);
     if (!ok) return;
     await remove(promo.id);
   }
@@ -168,12 +168,13 @@ export default function PromoCodesTab() {
             <col style={{ width: '13.5rem' }} />
             <col style={{ width: '7rem' }} />
             <col />
+            <col style={{ width: '6rem' }} />
             <col style={{ width: '7rem' }} />
-            <col style={{ width: '9rem' }} />
+            <col style={{ width: '13.5rem' }} />
           </colgroup>
           <thead>
             <tr className="bg-cream/60 border-b border-line">
-              {['Code', 'Discount', 'Scope', 'Status', 'Actions'].map((col) => (
+              {['Code', 'Discount', 'Scope', 'Times used', 'Status', 'Actions'].map((col) => (
                 <th key={col} className="px-4 py-2.5 text-left text-[11px] uppercase tracking-widest text-muted font-medium">
                   {col}
                 </th>
@@ -184,12 +185,12 @@ export default function PromoCodesTab() {
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i} className="border-b border-line animate-pulse">
-                  <td colSpan={5} className="px-4 py-3"><div className="h-5 bg-cream rounded" /></td>
+                  <td colSpan={6} className="px-4 py-3"><div className="h-5 bg-cream rounded" /></td>
                 </tr>
               ))
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted">
+                <td colSpan={6} className="px-4 py-10 text-center text-muted">
                   No promo codes yet.
                 </td>
               </tr>
@@ -202,6 +203,7 @@ export default function PromoCodesTab() {
                   <td className="px-4 py-3 font-mono font-semibold text-ink truncate">{promo.code}</td>
                   <td className="px-4 py-3 text-ink">{promo.discountPercent}%</td>
                   <td className="px-4 py-3 text-muted truncate">{scopeLabel(promo)}</td>
+                  <td className="px-4 py-3 text-ink">{promo.orderCount ?? 0}</td>
                   <td className="px-4 py-3">
                     <span className={promo.active ? 'text-accent text-xs uppercase tracking-widest font-medium' : 'text-muted text-xs uppercase tracking-widest'}>
                       {promo.active ? 'Active' : 'Disabled'}
@@ -215,7 +217,7 @@ export default function PromoCodesTab() {
                         disabled={updating && updatingId === promo.id}
                         className="px-3 py-1 text-xs rounded border border-line hover:bg-cream text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {promo.active ? 'Disable' : 'Enable'}
+                        {promo.active ? 'Expire' : 'Enable'}
                       </button>
                       <button
                         type="button"

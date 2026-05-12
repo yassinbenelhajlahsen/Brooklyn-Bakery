@@ -57,6 +57,8 @@ export default function OrderCard({
   const navigate = useNavigate()
   const busy = pendingAction != null
   const isEditingAddress = editingAddressOrderId === order.id
+  const discountTotal = order.discountTotal ?? 0
+  const subtotal = order.total + discountTotal
 
   return (
     <article className="bg-surface border border-line rounded-xl p-4">
@@ -70,7 +72,31 @@ export default function OrderCard({
         </div>
         <div className="text-right max-sm:text-left">
           <p className="m-0 text-[11px] uppercase tracking-[0.18em] text-muted">Total</p>
-          <p className="mt-1 mb-0.5 text-base font-semibold text-accent-dark">{order.total} pts</p>
+          {discountTotal > 0 ? (
+            <dl className="mt-1 mb-1 grid grid-cols-[auto_auto] justify-end gap-x-2 gap-y-0.5 text-xs max-sm:justify-start">
+              <dt className="text-muted">Subtotal</dt>
+              <dd className="m-0 text-ink">{subtotal} pts</dd>
+              <dt className="text-muted">Discount</dt>
+              <dd className="m-0 text-accent-dark">-{discountTotal} pts</dd>
+              <dt className="text-muted">Total</dt>
+              <dd className="m-0 text-base font-semibold text-accent-dark">{order.total} pts</dd>
+            </dl>
+          ) : (
+            <p className="mt-1 mb-0.5 text-base font-semibold text-accent-dark">{order.total} pts</p>
+          )}
+          {discountTotal > 0 && (
+            <p className="m-0 ml-auto max-w-[220px] text-xs leading-snug text-muted max-sm:ml-0">
+              You saved {discountTotal} pts on this order
+              {order.promoCodeText && (
+                <>
+                  {' '}with the promo code{' '}
+                  <span className="rounded bg-cream px-1.5 py-0.5 font-mono font-semibold text-accent-dark">
+                    {order.promoCodeText}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
           <div className="mt-1"><StatusBadge status={order.status} /></div>
         </div>
       </div>

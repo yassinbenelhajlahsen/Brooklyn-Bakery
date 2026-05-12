@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import QuantityControl from '../components/QuantityControl.jsx'
 import ReviewsSection from '../components/ReviewsSection.jsx'
@@ -7,6 +7,7 @@ import ProductDetailSkeleton from '../components/ProductDetailSkeleton.jsx'
 import { useAuth } from '../auth/useAuth.js'
 import { apiGet } from '../lib/apiFetch.js'
 import { queryKeys } from '../lib/queryKeys.js'
+import { addWishlistItem, fetchWishlist, removeWishlistItem } from '../services/wishlistService.js'
 
 const BACK_BTN = clsx(
   "bg-transparent text-muted border border-line rounded-lg p-3",
@@ -21,6 +22,7 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   const navigate = useNavigate()
   const { authedFetch, user, openLogin } = useAuth()
   const isAuthenticated = !!user
+  const queryClient = useQueryClient()
 
   const productQuery = useQuery({
     queryKey: queryKeys.product(slug),
@@ -31,6 +33,23 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
       if (err?.status === 404) return false
       return failureCount < 1
     },
+  })
+
+  const wishlistQuery = useQuery({
+    queryKey: queryKeys.wishlist(),
+    queryFn: () => fetchWishlist(authedFetch),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  })
+
+  const addWishMutation = useMutation({
+    mutationFn: (productId) => addWishlistItem(authedFetch, productId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.wishlist() }),
+  })
+
+  const removeWishMutation = useMutation({
+    mutationFn: (productId) => removeWishlistItem(authedFetch, productId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.wishlist() }),
   })
 
   const product = productQuery.data ?? null
@@ -66,6 +85,20 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
   }
 
   const qty = cart[product.id]?.qty ?? 0
+  const isWishlisted = !!wishlistQuery.data?.items?.some((entry) => entry.productId === product.id)
+  const wishPending = addWishMutation.isPending || removeWishMutation.isPending
+
+  function handleWishlistClick() {
+    if (!isAuthenticated) {
+      openLogin()
+      return
+    }
+    if (isWishlisted) {
+      removeWishMutation.mutate(product.id)
+    } else {
+      addWishMutation.mutate(product.id)
+    }
+  }
 
   return (
     <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
@@ -105,10 +138,10 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
           </div>
 
           {/* Add to Cart Section */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
             {qty === 0 ? (
               <button
-                className="flex-1 bg-accent text-white border-none rounded-lg px-4 py-3 text-[16px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
+                className="min-w-[180px] flex-1 bg-accent text-white border-none rounded-lg px-4 py-3 text-[16px] font-medium transition-[background] duration-150 ease-in-out hover:bg-accent-dark"
                 onClick={() => onIncrement(product)}
               >
                 Add to cart
@@ -123,6 +156,23 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
                 />
               </div>
             )}
+            <button
+              type="button"
+              className={clsx(
+                "rounded-lg border px-4 py-3 text-[16px] font-medium transition-colors duration-150 ease-in-out",
+                "inline-flex items-center justify-center gap-2",
+                isWishlisted
+                  ? "bg-accent text-white border-accent hover:bg-accent-dark"
+                  : "border-line bg-surface text-ink hover:border-accent hover:text-accent",
+                wishPending && "opacity-60 cursor-wait",
+              )}
+              onClick={handleWishlistClick}
+              disabled={wishPending}
+              aria-pressed={isWishlisted}
+            >
+              <HeartIcon filled={isWishlisted} className="w-4.5 h-4.5" />
+              <span>{isWishlisted ? 'Wished' : 'Wish'}</span>
+            </button>
           </div>
 
           <ReviewsSection
@@ -136,5 +186,22 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
         </div>
       </div>
     </main>
+  )
+}
+
+function HeartIcon({ filled, className }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20.8 4.6c-1.8-1.7-4.7-1.6-6.4.2L12 7.3 9.6 4.8C7.9 3 5 2.9 3.2 4.6 1.3 6.5 1.3 9.5 3.1 11.3L12 20l8.9-8.7c1.8-1.8 1.8-4.8-.1-6.7Z" />
+    </svg>
   )
 }

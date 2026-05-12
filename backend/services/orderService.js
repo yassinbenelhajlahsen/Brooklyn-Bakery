@@ -5,8 +5,12 @@ import { httpError } from '../lib/httpError.js';
 import { snapshotAddress } from '../lib/address.js';
 import { sendConfirmationEmail } from './mailerService.js';
 import { supabaseAdmin } from '../lib/supabase.js';
+import {
+    computePromoDiscount,
+    normalizePromoCode,
+} from './promoService.js';
 
-export async function placeOrder(userId, { addressId } = {}) {
+export async function placeOrder(userId, { addressId, promoCode } = {}) {
     if (!addressId || typeof addressId !== 'string') {
         throw httpError(400, 'addressId is required');
     }
@@ -37,7 +41,7 @@ export async function placeOrder(userId, { addressId } = {}) {
 
         const cartItems = await tx.cartItem.findMany({
             where: { userId },
-            include: { product: { select: { name: true, id: true, price: true } } },
+            include: { product: { select: { name: true, id: true, price: true, type: true } } },
         });
         if (cartItems.length === 0) {
             throw httpError(400, 'Cart is empty');
@@ -50,7 +54,22 @@ export async function placeOrder(userId, { addressId } = {}) {
             productId: ci.product.id,
             quantity: ci.quantity,
         }));
-        const total = computeCartTotal(items, prices);
+        const subtotal = computeCartTotal(items, prices);
+        const normalizedPromoCode = normalizePromoCode(promoCode);
+        const promo = normalizedPromoCode
+            ? await tx.promoCode.findUnique({ where: { code: normalizedPromoCode } })
+            : null;
+        if (normalizedPromoCode && !promo) {
+            throw httpError(404, 'Promo code was not found');
+        }
+        if (normalizedPromoCode && !promo.active) {
+            throw httpError(410, 'Promo code has expired');
+        }
+        const { discountTotal, applicableSubtotal } = computePromoDiscount(cartItems, promo);
+        if (normalizedPromoCode && (applicableSubtotal <= 0 || discountTotal <= 0)) {
+            throw httpError(409, 'Promo code does not apply to items in your cart');
+        }
+        const total = Math.max(0, subtotal - discountTotal);
 
         // Row-lock the balance to serialize concurrent orders for this user.
         const rows = await tx.$queryRaw`
@@ -83,6 +102,9 @@ export async function placeOrder(userId, { addressId } = {}) {
             data: {
                 userId,
                 total,
+                discountTotal,
+                promoCodeText: promo?.code ?? null,
+                promoCodeId: promo?.id ?? null,
                 status: OrderStatus.confirmed,
                 ...shipping,
                 items: {

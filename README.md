@@ -13,7 +13,7 @@ A small e-commerce app where signed-in users buy baked goods with integer "point
 - Yassin Benelhajlahsen
 - Anthony Huang
 - Yusuf Doria
-- Kevin Cadet
+- Kevins Cadet
 - Simon Tang
 - Edwin Alonso
 

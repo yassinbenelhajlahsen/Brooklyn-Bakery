@@ -7,6 +7,7 @@ import productsRoutes from './routes/productsRoutes.js'
 import orderRoutes from './routes/orderRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
+import promoRoutes from './routes/promoRoutes.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { requireAdmin } from './middleware/requireAdmin.js';
@@ -38,6 +39,7 @@ app.use('/orders', requireAuth, orderRoutes);
 app.use('/me', requireAuth, meRoutes);
 app.use('/cart', requireAuth, cartRoutes);
 app.use('/wishlist', requireAuth, wishlistRoutes);
+app.use('/promo-codes', requireAuth, promoRoutes);
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 
 // 404 fallback for unmatched routes

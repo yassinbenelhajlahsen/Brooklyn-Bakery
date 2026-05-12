@@ -9,6 +9,7 @@ export const queryKeys = {
   adminOrdersAll: () => ['admin', 'orders'],
   adminProducts: (filters = {}) => ['admin', 'products', filters],
   adminProductsAll: () => ['admin', 'products'],
+  adminPromoCodes: () => ['admin', 'promoCodes'],
   adminUsers: () => ['admin', 'users'],
   adminUsersAll: () => ['admin', 'users'],
 };

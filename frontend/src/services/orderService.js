@@ -5,10 +5,10 @@ export class PlaceOrderError extends Error {
   }
 }
 
-export async function placeOrder(authedFetch, { addressId }) {
+export async function placeOrder(authedFetch, { addressId, promoCode }) {
   const res = await authedFetch('/orders', {
     method: 'POST',
-    body: JSON.stringify({ addressId }),
+    body: JSON.stringify({ addressId, promoCode }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

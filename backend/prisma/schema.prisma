@@ -75,6 +75,7 @@ model Product {
   wishlistItems WishlistItem[]
   orderItems OrderItem[]
   reviews    Review[]
+  promoCodes PromoCode[]
 
   @@index([type])
   @@map("products")
@@ -110,6 +111,9 @@ model Order {
   id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String      @map("user_id") @db.Uuid
   total     Int
+  discountTotal Int @default(0) @map("discount_total")
+  promoCodeText String? @map("promo_code_text")
+  promoCodeId String? @map("promo_code_id") @db.Uuid
   status    OrderStatus @default(confirmed)
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz(6)
@@ -126,9 +130,30 @@ model Order {
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   items OrderItem[]
+  promoCode PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([promoCodeId])
   @@map("orders")
+}
+
+model PromoCode {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String      @unique
+  discountPercent Int        @map("discount_percent")
+  scope           String
+  productType     ProductType? @map("product_type")
+  productId       String?     @map("product_id") @db.Uuid
+  active          Boolean     @default(true)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  orders  Order[]
+
+  @@index([active])
+  @@index([scope])
+  @@map("promo_codes")
 }
 
 model OrderItem {

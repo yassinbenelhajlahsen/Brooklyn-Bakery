@@ -49,17 +49,17 @@ export default function WishlistPage({ cart, onIncrement, onDecrement }) {
   const entries = [...(wishlistQuery.data?.items ?? [])].sort(
     (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
   )
-  const groupedEntries = [
-    { key: 'all', label: CATEGORY_LABELS.all, entries },
-    ...Object.entries(CATEGORY_LABELS)
-      .filter(([key]) => key !== 'all')
-      .map(([key, label]) => ({
-        key,
-        label,
-        entries: entries.filter(({ product }) => product.type === key),
-      }))
-      .filter((group) => group.entries.length > 0),
-  ]
+  const categoryGroups = Object.entries(CATEGORY_LABELS)
+    .filter(([key]) => key !== 'all')
+    .map(([key, label]) => ({
+      key,
+      label,
+      entries: entries.filter(({ product }) => product.type === key),
+    }))
+    .filter((group) => group.entries.length > 0)
+  const groupedEntries = categoryGroups.length > 1
+    ? [{ key: 'all', label: CATEGORY_LABELS.all, entries }, ...categoryGroups]
+    : categoryGroups
 
   return (
     <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">

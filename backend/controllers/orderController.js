@@ -7,8 +7,8 @@ import { parsePagination } from '../lib/pagination.js';
 
 export async function createOrder(req, res, next) {
     try {
-        const { addressId } = req.body ?? {};
-        const order = await placeOrder(req.user.id, { addressId });
+        const { addressId, promoCode } = req.body ?? {};
+        const order = await placeOrder(req.user.id, { addressId, promoCode });
         res.status(201).json(order);
     } catch (err) {
         next(err);

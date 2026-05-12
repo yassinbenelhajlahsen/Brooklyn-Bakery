@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth.js";
@@ -7,6 +8,7 @@ import CartItemRow from "../components/CartItemRow.jsx";
 import Ornament from "../components/Ornament.jsx";
 import AddressSelector from "../components/AddressSelector.jsx";
 import { usePlaceOrder } from "../hooks/usePlaceOrder.js";
+import { previewPromo } from "../services/promoService.js";
 
 const PLACE_BTN = clsx(
   "bg-accent text-white border-none rounded-lg p-3.5",
@@ -58,27 +60,59 @@ export default function CheckoutPage({
   removeItem,
   clearCart,
 }) {
-  const { user, profile, ready } = useAuth();
+  const { user, profile, ready, authedFetch } = useAuth();
   const navigate = useNavigate();
 
   const [order, setOrder] = useState(null);
   const [addressId, setAddressId] = useState(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoCheckoutError, setPromoCheckoutError] = useState(null);
   const { placeOrder, submitting, error } = usePlaceOrder({
     onSuccess: (created) => {
       clearCart();
       setOrder({ id: created.id, total: created.total });
     },
+    onError: (err) => {
+      if (appliedPromo && [404, 409, 410].includes(err?.status)) {
+        setAppliedPromo(null);
+        setPromoCheckoutError(`${err.message}. Enter and apply the promo code again before placing your order.`);
+      }
+    },
   });
-
-  if (!ready) return null;
-  if (!user) return <Navigate to="/" replace />;
+  const promoMutation = useMutation({
+    mutationFn: (code) => previewPromo(authedFetch, code),
+    onSuccess: (result) => setAppliedPromo(result),
+  });
 
   const entries = Object.values(cart);
   const subtotal = computeCartSubtotal(cart);
+  const discountTotal = appliedPromo?.discountTotal ?? 0;
+  const total = Math.max(0, subtotal - discountTotal);
   const balance = profile?.balance ?? null;
-  const balanceAfter = balance == null ? null : balance - subtotal;
-  const insufficient = balance != null && balance < subtotal;
+  const balanceAfter = balance == null ? null : balance - total;
+  const insufficient = balance != null && balance < total;
   const profileLoading = profile == null;
+
+  useEffect(() => {
+    setAppliedPromo(null);
+    setPromoCheckoutError(null);
+    promoMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, addressId]);
+
+  async function handleApplyPromo() {
+    const code = promoCode.trim();
+    if (!code) return;
+    try {
+      await promoMutation.mutateAsync(code);
+    } catch {
+      // Error text is rendered from the mutation state below.
+    }
+  }
+
+  if (!ready) return null;
+  if (!user) return <Navigate to="/" replace />;
 
   if (order) {
     const shortId = order.id.slice(-8);
@@ -165,6 +199,59 @@ export default function CheckoutPage({
               <dt>Subtotal</dt>
               <dd>{subtotal} pts</dd>
             </div>
+            {addressId && (
+              <div className="rounded-lg border border-line bg-cream/40 p-3 flex flex-col gap-2">
+                <label className="font-sans text-[11px] tracking-[0.18em] uppercase text-muted" htmlFor="promo-code">
+                  Promo code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="promo-code"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value);
+                      setAppliedPromo(null);
+                      setPromoCheckoutError(null);
+                      promoMutation.reset();
+                    }}
+                    className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none transition-shadow focus:shadow-card"
+                  />
+                  <button
+                    type="button"
+                    className="rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={handleApplyPromo}
+                    disabled={!promoCode.trim() || promoMutation.isPending}
+                  >
+                    {promoMutation.isPending ? "..." : "Apply"}
+                  </button>
+                </div>
+                {appliedPromo && (
+                  <p className="m-0 text-[12.5px] text-accent-dark">
+                    {appliedPromo.promo.code} applied: -{appliedPromo.discountTotal} pts
+                  </p>
+                )}
+                {promoMutation.isError && (
+                  <p className="m-0 text-[12.5px] text-danger">
+                    {promoMutation.error?.message ?? "Promo code could not be applied."}
+                  </p>
+                )}
+                {promoCheckoutError && (
+                  <p className="m-0 text-[12.5px] text-danger">
+                    {promoCheckoutError}
+                  </p>
+                )}
+              </div>
+            )}
+            {discountTotal > 0 && (
+              <div className={SUMMARY_ROW}>
+                <dt>Discount</dt>
+                <dd>-{discountTotal} pts</dd>
+              </div>
+            )}
+            <div className={SUMMARY_ROW}>
+              <dt>Total</dt>
+              <dd>{total} pts</dd>
+            </div>
             <div className={SUMMARY_ROW}>
               <dt>Current balance</dt>
               <dd>{profileLoading ? "—" : `${balance} pts`}</dd>
@@ -200,13 +287,14 @@ export default function CheckoutPage({
           <div className="flex flex-col gap-2.5 mt-1.5">
             <button
               className={PLACE_BTN}
-              onClick={() => placeOrder({ addressId })}
+              onClick={() => placeOrder({ addressId, promoCode: appliedPromo?.promo?.code })}
               disabled={
                 entries.length === 0 ||
                 submitting ||
                 profileLoading ||
                 insufficient ||
-                !addressId
+                !addressId ||
+                promoMutation.isPending
               }
             >
               {submitting ? "Placing order…" : "Place order"}

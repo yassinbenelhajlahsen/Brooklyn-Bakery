@@ -3,6 +3,7 @@ import { listAllOrders, getOrder, transitionOrder } from '../controllers/adminOr
 import { adminDeleteReview } from '../controllers/reviewsController.js';
 import adminProductsRoutes from './adminProductsRoutes.js';
 import adminUsersRoutes from './adminUsersRoutes.js';
+import adminPromoRoutes from './adminPromoRoutes.js';
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.delete('/reviews/:id', adminDeleteReview);
 
 router.use('/products', adminProductsRoutes);
 router.use('/users', adminUsersRoutes);
+router.use('/promo-codes', adminPromoRoutes);
 
 export default router;

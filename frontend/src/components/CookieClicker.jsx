@@ -7,6 +7,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import cookieModelUrl from "../threeDModels/Cookie3.glb?url";
 import { apiGet } from "../lib/apiFetch.js";
 import { useDebugValue } from "react";
+import { useState } from "react";
 
 export default function CookieClicker() {
   const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile} =
@@ -20,14 +21,24 @@ export default function CookieClicker() {
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const heading = displayName ? `${displayName}'s bakery` : "Your bakery";
+  const [currentCursor, setCurrentCursor] = useState("glove0");
+  const [currentUpgrade, setCurrentUpgrade ] = useState("");
 
   const setUpgrades = async () =>{
     if (!profile?.id) return;
-    let z = await apiGet(`/cookieUpgrades/getUserPoints/${profile.id}`)
-    console.log(z)
+    let userData = await apiGet(`/cookieUpgrades/applyUpgrades/${profile.id}`)
+    setCurrentUpgrade(userData);
+    console.log(userData)
   }
 
   useEffect(()=>{
+    switch(currentUpgrade){
+      case "triple_points":
+        setCurrentCursor("glove2")
+    }
+  },[currentUpgrade])
+
+  useEffect( () => {
     setUpgrades();
   },[profile])
 
@@ -412,7 +423,8 @@ export default function CookieClicker() {
         >
           <canvas
             ref={canvasRef}
-            className="block w-full h-full cursor-pointer transition-transform duration-100 ease-in-out hover:scale-105 active:animate-cookie-click"
+            className="block w-full h-full transition-transform duration-100 ease-in-out hover:scale-105 active:animate-cookie-click"
+            style={{ cursor: `url('src/assets/${currentCursor}.svg') 35 6, auto` }}
             onClick={handleCookieClick}
           />
         </div>

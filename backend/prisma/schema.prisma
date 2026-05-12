@@ -48,6 +48,7 @@ model User {
   lastClickFlushAt DateTime? @map("last_click_flush_at") @db.Timestamptz(6)
 
   cartItems CartItem[]
+  wishlistItems WishlistItem[]
   orders    Order[]
   reviews   Review[]
   addresses Address[]
@@ -71,6 +72,7 @@ model Product {
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
 
   cartItems  CartItem[]
+  wishlistItems WishlistItem[]
   orderItems OrderItem[]
   reviews    Review[]
 
@@ -89,6 +91,19 @@ model CartItem {
 
   @@id([userId, productId])
   @@map("cart_items")
+}
+
+model WishlistItem {
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at") @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([userId, addedAt(sort: Desc)])
+  @@map("wishlist_items")
 }
 
 model Order {

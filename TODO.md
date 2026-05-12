@@ -13,7 +13,7 @@
 - [ ] Out-of-stock subscription — no way to notify users when a product is restocked
 - [ ] Customer support chatbot
 - [x] Pagination — all products load at once, no page-based or infinite scroll
-- [ ] Wishlist / favorites
+- [x] Wishlist / favorites
 - [ ] Product comparison
 - [ ] Promo codes / discounts
 - [ ] Admin: flag or delete inappropriate reviews

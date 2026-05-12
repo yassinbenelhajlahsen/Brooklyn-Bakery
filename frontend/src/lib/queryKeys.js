@@ -4,6 +4,7 @@ export const queryKeys = {
   reviewsBySlug: (slug) => ['reviews', 'slug', slug],
   reviewsById: (productId) => ['reviews', 'id', productId],
   orders: () => ['orders'],
+  wishlist: () => ['wishlist'],
   adminOrders: (filters = {}) => ['admin', 'orders', filters],
   adminOrdersAll: () => ['admin', 'orders'],
   adminProducts: (filters = {}) => ['admin', 'products', filters],

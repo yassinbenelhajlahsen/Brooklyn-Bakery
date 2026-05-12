@@ -96,6 +96,13 @@ export async function placeOrder(userId, { addressId } = {}) {
             include: { items: true },
         });
 
+        await tx.wishlistItem.deleteMany({
+            where: {
+                userId,
+                productId: { in: cartItems.map((ci) => ci.product.id) },
+            },
+        });
+
         await tx.cartItem.deleteMany({ where: { userId } });
 
         return { createdOrder: order, cartItems };

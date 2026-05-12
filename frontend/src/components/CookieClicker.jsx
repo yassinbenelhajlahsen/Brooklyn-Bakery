@@ -1,17 +1,83 @@
 import { useCookieClicker } from "../hooks/useCookieClicker.js";
 import { useJar } from "../contexts/JarContext.jsx";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import cookieModelUrl from "../threeDModels/Cookie3.glb?url";
-import { apiGet } from "../lib/apiFetch.js";
-import { useDebugValue } from "react";
-import { useState } from "react";
+
+/** Same thresholds / ids as `backend/controllers/cookieUpgradesController.js` — unlocks are derived locally from points (no round-trip on each change). Edit `cursorFile` to match assets in `src/assets/`. */
+const COOKIE_CURSOR_OPTIONS = [
+  {
+    id: "base",
+    threshold: 0,
+    label: "Classic glove",
+    description: "1 pt per click",
+    cursorFile: "glove0",
+    pointsNumerator: 1,
+    pointsDenominator: 1,
+  },
+  {
+    id: "one_half_points",
+    threshold: 15,
+    label: "1.5× bakery",
+    description: "1.5 pts per click (avg)",
+    cursorFile: "glove0",
+    pointsNumerator: 3,
+    pointsDenominator: 2,
+  },
+  {
+    id: "double_points",
+    threshold: 25,
+    label: "2× bakery",
+    description: "2 pts per click",
+    cursorFile: "glove0",
+    pointsNumerator: 2,
+    pointsDenominator: 1,
+  },
+  {
+    id: "triple_points",
+    threshold: 50,
+    label: "3× bakery",
+    description: "3 pts per click",
+    cursorFile: "glove2",
+    pointsNumerator: 3,
+    pointsDenominator: 1,
+  },
+];
+
+const CURSOR_STORAGE_PREFIX = "bb:cookieCursorChoice:";
+
+/** Returns null while logged-in but profile id is not ready yet (avoid reading guest prefs). */
+function storageKeyForCursorChoice(profileId, isAuthenticated) {
+  if (!isAuthenticated) return `${CURSOR_STORAGE_PREFIX}guest`;
+  if (!profileId) return null;
+  return `${CURSOR_STORAGE_PREFIX}${profileId}`;
+}
+
+function readStoredCursorChoice(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const found = COOKIE_CURSOR_OPTIONS.some((o) => o.id === raw);
+    return found ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredCursorChoice(key, optionId) {
+  try {
+    localStorage.setItem(key, optionId);
+  } catch {
+    // ignore
+  }
+}
 
 export default function CookieClicker() {
-  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile} =
-    useCookieClicker();
+  const pointsRuleRef = useRef({ num: 1, den: 1 });
+  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile } =
+    useCookieClicker(pointsRuleRef);
   const { open, setOpen } = useJar();
   const lidCtxRef = useRef(null);
   const plinthCtxRef = useRef(null);
@@ -21,26 +87,49 @@ export default function CookieClicker() {
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const heading = displayName ? `${displayName}'s bakery` : "Your bakery";
-  const [currentCursor, setCurrentCursor] = useState("glove0");
-  const [currentUpgrade, setCurrentUpgrade ] = useState("");
 
-  const setUpgrades = async () =>{
-    if (!profile?.id) return;
-    let userData = await apiGet(`/cookieUpgrades/applyUpgrades/${profile.id}`)
-    setCurrentUpgrade(userData);
-    console.log(userData)
-  }
+  const storageKey = storageKeyForCursorChoice(profile?.id, isAuthenticated);
 
-  useEffect(()=>{
-    switch(currentUpgrade){
-      case "triple_points":
-        setCurrentCursor("glove2")
+  const [cursorMenuTick, setCursorMenuTick] = useState(0);
+
+  const selectedOptionId = useMemo(() => {
+    void cursorMenuTick;
+    const unlocked = COOKIE_CURSOR_OPTIONS.filter((o) => displayPoints >= o.threshold);
+    const unlockedSet = new Set(unlocked.map((o) => o.id));
+    const stored = storageKey != null ? readStoredCursorChoice(storageKey) : null;
+    let pick =
+      stored && unlockedSet.has(stored)
+        ? stored
+        : "base";
+    if (!unlockedSet.has(pick)) {
+      pick = unlocked[unlocked.length - 1]?.id ?? "base";
     }
-  },[currentUpgrade])
+    return pick;
+  }, [displayPoints, storageKey, cursorMenuTick]);
 
-  useEffect( () => {
-    setUpgrades();
-  },[profile])
+  const selectedOption =
+    COOKIE_CURSOR_OPTIONS.find((o) => o.id === selectedOptionId) ??
+    COOKIE_CURSOR_OPTIONS[0];
+  const currentCursorFile = selectedOption.cursorFile;
+
+  const pointsRule = useMemo(
+    () => ({
+      num: selectedOption.pointsNumerator,
+      den: selectedOption.pointsDenominator,
+    }),
+    [selectedOption],
+  );
+
+  useLayoutEffect(() => {
+    pointsRuleRef.current = pointsRule;
+  }, [pointsRule]);
+
+  const selectCursorOption = (optionId) => {
+    const opt = COOKIE_CURSOR_OPTIONS.find((o) => o.id === optionId);
+    if (!opt || displayPoints < opt.threshold) return;
+    if (storageKey != null) writeStoredCursorChoice(storageKey, optionId);
+    setCursorMenuTick((t) => t + 1);
+  };
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -416,7 +505,7 @@ export default function CookieClicker() {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,460px)_minmax(220px,300px)] justify-center gap-10 md:gap-40 items-center">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,460px)_minmax(260px,320px)] justify-center gap-10 md:gap-40 items-start md:items-center">
         <div
           ref={wrapperRef}
           className="relative w-full aspect-[1/1.15] max-w-[460px] mx-auto"
@@ -424,7 +513,9 @@ export default function CookieClicker() {
           <canvas
             ref={canvasRef}
             className="block w-full h-full transition-transform duration-100 ease-in-out hover:scale-105 active:animate-cookie-click"
-            style={{ cursor: `url('src/assets/${currentCursor}.svg') 35 6, auto` }}
+            style={{
+              cursor: `url('src/assets/${currentCursorFile}.svg') 35 6, auto`,
+            }}
             onClick={handleCookieClick}
           />
         </div>
@@ -456,12 +547,47 @@ export default function CookieClicker() {
               Points
             </p>
           </div>
+
+          <div className="w-full max-w-[280px] bg-surface rounded-lg border border-line shadow-card p-4 text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted m-0 mb-1">
+              Cookie cursor
+            </p>
+            <p className="text-sm text-ink/80 m-0 mb-3">
+              Pick a look you&apos;ve unlocked. Unlocks match your point milestones.
+            </p>
+            <ul className="list-none m-0 p-0 flex flex-col gap-1.5">
+              {COOKIE_CURSOR_OPTIONS.map((opt) => {
+                const unlocked = displayPoints >= opt.threshold;
+                const active = opt.id === selectedOptionId;
+                return (
+                  <li key={opt.id}>
+                    <button
+                      type="button"
+                      disabled={!unlocked}
+                      onClick={() => selectCursorOption(opt.id)}
+                      className={[
+                        "w-full text-left rounded-md px-3 py-2 text-sm transition-colors border",
+                        unlocked
+                          ? active
+                            ? "border-accent bg-accent/10 text-ink font-medium"
+                            : "border-transparent bg-line/25 text-ink hover:bg-line/40"
+                          : "border-transparent bg-line/10 text-muted cursor-not-allowed opacity-70",
+                      ].join(" ")}
+                    >
+                      <span className="block">{opt.label}</span>
+                      <span className="block text-[0.75rem] text-muted font-normal mt-0.5">
+                        {unlocked
+                          ? opt.description
+                          : `Unlock at ${opt.threshold} pts`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       </div>
-      <div>
-        {profile?.role}
-      </div>
-      <br></br>
     </div>
   );
 }

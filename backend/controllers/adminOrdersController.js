@@ -25,6 +25,7 @@ export async function listAllOrders(req, res, next) {
                 skip,
                 include: {
                     user: { select: { id: true, displayName: true } },
+                    promoCode: { select: { code: true, scope: true, productType: true, product: { select: { name: true } } } },
                     items: { include: { product: { select: { name: true, imageUrl: true } } } },
                 },
             }),
@@ -42,6 +43,7 @@ export async function getOrder(req, res) {
         where: { id: req.params.id },
         include: {
             user: { select: { id: true, displayName: true, balance: true } },
+            promoCode: { select: { code: true, scope: true, productType: true, product: { select: { name: true } } } },
             items: { include: { product: { select: { name: true, imageUrl: true } } } },
         },
     });

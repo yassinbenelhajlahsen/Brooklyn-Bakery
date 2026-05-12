@@ -15,7 +15,7 @@
 - [x] Pagination — all products load at once, no page-based or infinite scroll
 - [x] Wishlist / favorites
 - [ ] Product comparison
-- [ ] Promo codes / discounts
+- [X] Promo codes / discounts
 - [ ] Admin: flag or delete inappropriate reviews
 - [ ] Admin: site-wide announcement banner
 - [ ] Admin: CSV/PDF export of orders and users

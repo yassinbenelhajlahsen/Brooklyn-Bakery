@@ -24,6 +24,7 @@ const CATEGORY_LABELS = {
   cookie: 'Cookies',
   drink: 'Drinks',
 }
+const CLOSED_SECTION = '__closed'
 
 export default function WishlistPage({ cart, onIncrement, onDecrement }) {
   const { user, ready, authedFetch } = useAuth()
@@ -43,23 +44,25 @@ export default function WishlistPage({ cart, onIncrement, onDecrement }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.wishlist() }),
   })
 
-  if (!ready) return <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5" />
-  if (!user) return <Navigate to="/" replace />
-
   const entries = [...(wishlistQuery.data?.items ?? [])].sort(
     (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
   )
-  const groupedEntries = [
-    { key: 'all', label: CATEGORY_LABELS.all, entries },
-    ...Object.entries(CATEGORY_LABELS)
-      .filter(([key]) => key !== 'all')
-      .map(([key, label]) => ({
-        key,
-        label,
-        entries: entries.filter(({ product }) => product.type === key),
-      }))
-      .filter((group) => group.entries.length > 0),
-  ]
+  const categoryGroups = Object.entries(CATEGORY_LABELS)
+    .filter(([key]) => key !== 'all')
+    .map(([key, label]) => ({
+      key,
+      label,
+      entries: entries.filter(({ product }) => product.type === key),
+    }))
+    .filter((group) => group.entries.length > 0)
+  const groupedEntries = categoryGroups.length > 1
+    ? [{ key: 'all', label: CATEGORY_LABELS.all, entries }, ...categoryGroups]
+    : categoryGroups
+  const singleCategoryKey = categoryGroups.length === 1 ? categoryGroups[0].key : null
+  const activeSection = openSection === CLOSED_SECTION ? null : (openSection ?? singleCategoryKey)
+
+  if (!ready) return <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5" />
+  if (!user) return <Navigate to="/" replace />
 
   return (
     <main className="flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5">
@@ -98,19 +101,19 @@ export default function WishlistPage({ cart, onIncrement, onDecrement }) {
                 <button
                   type="button"
                   className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-accent/10"
-                  onClick={() => setOpenSection((current) => (current === group.key ? null : group.key))}
-                  aria-expanded={openSection === group.key}
+                  onClick={() => setOpenSection(activeSection === group.key ? CLOSED_SECTION : group.key)}
+                  aria-expanded={activeSection === group.key}
                 >
                   <span className="font-display text-[24px] leading-tight text-ink">
                     {group.label}
                   </span>
                   <span className="flex items-center gap-3 text-[13px] text-muted">
                     {group.entries.length} {group.entries.length === 1 ? 'item' : 'items'}
-                    <ChevronIcon open={openSection === group.key} className="w-4 h-4" />
+                    <ChevronIcon open={activeSection === group.key} className="w-4 h-4" />
                   </span>
                 </button>
 
-                {openSection === group.key && (
+                {activeSection === group.key && (
                   <div className="border-t border-line p-5">
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
                       {group.entries.map(({ product }) => (

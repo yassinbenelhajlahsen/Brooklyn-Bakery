@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import OrdersTab from '../components/admin/OrdersTab.jsx';
 import ProductsTab from '../components/admin/ProductsTab.jsx';
+import PromoCodesTab from '../components/admin/PromoCodesTab.jsx';
 import UsersTab from '../components/admin/UsersTab.jsx';
 import PackageIcon from '../components/icons/PackageIcon.jsx';
 import UserIcon from '../components/icons/UserIcon.jsx';
@@ -26,9 +27,28 @@ function CubeIcon({ className }) {
   );
 }
 
+function TagIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20.6 13.1 13.1 20.6a2 2 0 0 1-2.8 0L3 13.3V3h10.3l7.3 7.3a2 2 0 0 1 0 2.8Z" />
+      <path d="M7.5 7.5h.01" />
+    </svg>
+  );
+}
+
 const TABS = [
   { key: 'orders',   label: 'Orders',   Icon: PackageIcon, Component: OrdersTab   },
   { key: 'products', label: 'Products', Icon: CubeIcon,    Component: ProductsTab },
+  { key: 'promos',   label: 'Promos',   Icon: TagIcon,     Component: PromoCodesTab },
   { key: 'users',    label: 'Users',    Icon: UserIcon,    Component: UsersTab    },
 ];
 
@@ -91,7 +111,8 @@ export default function AdminPage() {
       </header>
 
       <nav
-        className="relative grid grid-cols-3 border-b border-line mb-6"
+        className="relative grid border-b border-line mb-6"
+        style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
         role="tablist"
         aria-label="Admin sections"
       >

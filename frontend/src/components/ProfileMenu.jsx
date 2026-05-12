@@ -94,7 +94,7 @@ export default function ProfileMenu() {
         <div className="py-1">
           {profile?.role === 'admin' && (
             <MenuItem
-              icon={<UserIcon className="w-[18px] h-[18px]" />}
+              icon={<ShieldIcon className="w-[18px] h-[18px]" />}
               label="Admin"
               onClick={() => {
                 setOpen(false);
@@ -193,6 +193,24 @@ function HeartIcon({ className }) {
       aria-hidden="true"
     >
       <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3 5 6v5.5c0 4.4 2.8 7.8 7 9.5 4.2-1.7 7-5.1 7-9.5V6l-7-3Z" />
+      <path d="M9.5 12.2 11.2 14l3.4-4" />
     </svg>
   );
 }

@@ -86,6 +86,7 @@ function readStoredCursorChoice(key) {
     const found = COOKIE_CURSOR_OPTIONS.some((o) => o.id === raw);
     return found ? raw : null;
   } catch {
+    console.trace("failed to read stored cursor choice");
     return null;
   }
 }
@@ -94,14 +95,13 @@ function writeStoredCursorChoice(key, optionId) {
   try {
     localStorage.setItem(key, optionId);
   } catch {
-    // localStorage unavailable (Safari private mode) — preference is in-memory only.
+    console.trace("failed to write stored cursor choice")// localStorage unavailable (Safari private mode) — preference is in-memory only.
   }
 }
 
 export default function CookieClicker() {
   const pointsRuleRef = useRef({ num: 1, den: 1 });
-  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile } =
-    useCookieClicker(pointsRuleRef);
+  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile } = useCookieClicker(pointsRuleRef);
   const { open, setOpen } = useJar();
   const lidCtxRef = useRef(null);
   const plinthCtxRef = useRef(null);
@@ -117,6 +117,10 @@ export default function CookieClicker() {
   const [cursorMenuTick, setCursorMenuTick] = useState(0);
   const [bursts, setBursts] = useState([]);
   const burstIdRef = useRef(0);
+  const cameraRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cookieModelRef = useRef(null);
+  const debrisRef = useRef([]);
 
   const selectedOptionId = useMemo(() => {
     void cursorMenuTick;
@@ -180,10 +184,12 @@ export default function CookieClicker() {
 
     const scene = new THREE.Scene();
     scene.background = null;
+    sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0.6, 6.2);
     camera.lookAt(0, 0.2, 0);
+    cameraRef.current = camera;
 
     const resize = () => {
       if (!wrapper) return;
@@ -397,6 +403,7 @@ export default function CookieClicker() {
         model.renderOrder = 1;
         scene.add(model);
         cookieModel = model;
+        cookieModelRef.current = model;
         cookieAnimRef.current = {
           closedScale: COOKIE_CLOSED_SCALE,
           openScale: COOKIE_OPEN_SCALE,
@@ -425,8 +432,31 @@ export default function CookieClicker() {
     const easeInQuad = (x) => x * x;
     const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
 
+    const DEBRIS_GRAVITY = 9.81;
+
     const animate = (timestamp) => {
       frameId = requestAnimationFrame(animate);
+
+      if (debrisRef.current.length > 0) {
+        debrisRef.current = debrisRef.current.filter((d) => {
+          const t = (timestamp - d.startTime) / 1000;
+          if (t >= d.lifetime) {
+            scene.remove(d.mesh);
+            d.mesh.geometry.dispose();
+            d.mesh.material.dispose();
+            return false;
+          }
+          d.mesh.position.x = d.spawnPos.x + d.velocity.x * t;
+          d.mesh.position.y = d.spawnPos.y + d.velocity.y * t - 0.5 * DEBRIS_GRAVITY * t * t;
+          d.mesh.position.z = d.spawnPos.z + d.velocity.z * t;
+          d.mesh.rotation.x = d.initRotation.x + d.angularVel.x * t;
+          d.mesh.rotation.y = d.initRotation.y + d.angularVel.y * t;
+          d.mesh.rotation.z = d.initRotation.z + d.angularVel.z * t;
+          d.mesh.material.opacity = Math.max(0, 1 - t / d.lifetime);
+          return true;
+        });
+      }
+
       if (cookieModel) {
         const t = timestamp / 1000;
         cookieModel.rotation.y =
@@ -508,9 +538,84 @@ export default function CookieClicker() {
       }
       plinthCtxRef.current = null;
       cookieAnimRef.current = null;
+      cookieModelRef.current = null;
+      cameraRef.current = null;
+      sceneRef.current = null;
+      debrisRef.current.forEach((d) => {
+        scene.remove(d.mesh);
+        d.mesh.geometry.dispose();
+        d.mesh.material.dispose();
+      });
+      debrisRef.current = [];
       renderer.dispose();
     };
   }, []);
+
+  const COOKIE_DEBRIS_COLORS = [0xc8864a, 0xd4935a, 0xb07030, 0x8b5a2b, 0x7a4e24, 0x3d2b1f, 0xe8c090];
+
+  const spawnCookieDebris = (event) => {
+    const camera = cameraRef.current;
+    const scene = sceneRef.current;
+    const model = cookieModelRef.current;
+    const wrapper = wrapperRef.current;
+    if (!camera || !scene || !model || !wrapper) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+    const intersects = raycaster.intersectObject(model, true);
+    if (intersects.length === 0) return;
+
+    const hit = intersects[0];
+    const worldNormal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+    const spawnPos = hit.point.clone().addScaledVector(worldNormal, 0.06);
+
+    const count = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const color = COOKIE_DEBRIS_COLORS[Math.floor(Math.random() * COOKIE_DEBRIS_COLORS.length)];
+      const size = 0.07 + Math.random() * 0.09;
+      const geo = new THREE.BoxGeometry(size, size, size);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        roughness: 0.85,
+        metalness: 0,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(spawnPos);
+      mesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+      );
+      scene.add(mesh);
+
+      // speed at which the crumbs come flying out of cookie
+      const speed = 1.0 + Math.random() * 2.5;
+      const spread = 2.8;
+      debrisRef.current.push({
+        mesh,
+        spawnPos: spawnPos.clone(),
+        velocity: {
+          x: worldNormal.x * speed + (Math.random() - 0.5) * spread,
+          y: worldNormal.y * speed + (Math.random() - 0.5) * spread + 1.2,
+          z: worldNormal.z * speed + (Math.random() - 0.5) * spread,
+        },
+        initRotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
+        angularVel: {
+          x: (Math.random() - 0.5) * 12,
+          y: (Math.random() - 0.5) * 12,
+          z: (Math.random() - 0.5) * 12,
+        },
+        startTime: performance.now(),
+        lifetime: 1.1 + Math.random() * 0.2,
+      });
+    }
+  };
 
   const spawnBurst = (event) => {
     const wrapper = wrapperRef.current;
@@ -555,7 +660,8 @@ export default function CookieClicker() {
         cookieAnim.animStart = now;
       }
     }
-    spawnBurst(event);
+    spawnCookieDebris(event);
+    spawnBurst(event)
     handleClick();
   };
 

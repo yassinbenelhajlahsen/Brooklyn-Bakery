@@ -264,7 +264,14 @@ export default function ChatbotWidget({ cart = {} }) {
 
               <button
                 type="button"
-                onClick={() => goTo('/profile', 'Profile')}
+                onClick={() => {
+                  if (!user) {
+                    addBotMessage('You need to log in to view your profile. Opening the login window.');
+                    openLogin?.();
+                  } else {
+                    goTo('/profile', 'Profile');
+                  }
+                }}
                 className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink transition hover:border-accent hover:text-accent"
               >
                 Profile

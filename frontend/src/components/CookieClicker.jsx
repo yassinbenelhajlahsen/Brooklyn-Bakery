@@ -61,8 +61,8 @@ const COOKIE_CURSOR_OPTIONS = [
 const BURST_LIFETIME_MS = 700;
 
 const BURST_KEYFRAMES = `
-@keyframes bb-burst-ring { 0% { transform: scale(0.2); opacity: 0.95; } 100% { transform: scale(1.6); opacity: 0; } }
-@keyframes bb-burst-flash { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes bb-burst-ring { 0% { transform: scale(0.2); opacity: 0.95; } 100% { transform: scale(0.8); opacity: 0; } }
+@keyframes bb-burst-flash { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(1.2); opacity: 0; } }
 @keyframes bb-burst-spark { 0% { transform: rotate(var(--bb-angle)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--bb-angle)) translateY(calc(var(--bb-spark-distance) * -1)) scale(0.4); opacity: 0; } }
 .bb-burst { position: absolute; pointer-events: none; will-change: transform, opacity; }
 .bb-burst-ring { position: absolute; left: 0; top: 0; width: var(--bb-size); height: var(--bb-size); border: 2px solid var(--bb-color); border-radius: 50%; animation: bb-burst-ring var(--bb-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards; }

@@ -20,6 +20,7 @@ import FaqPage from './pages/FAQPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import AdminRoute from './components/admin/AdminRoute.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import SharePage from './pages/SharePage.jsx';
 
 const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 
@@ -78,6 +79,7 @@ export default function App() {
           <Route path="/story" element={<main className={MAIN_CLS}><StoryPage /></main>} />
           <Route path="/contact" element={<main className={MAIN_CLS}><ContactPage /></main>} />
           <Route path="/faq" element={<main className={MAIN_CLS}><FaqPage /></main>} />
+          <Route path="/share" element={<main className={MAIN_CLS}><SharePage /></main>} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/orders" element={<OrderHistoryPage addItem={addItem} />} />
           <Route

@@ -16,6 +16,7 @@ export default function Footer() {
             <li><Link to="/story" className="text-[#d9c8b4] hover:text-cream transition-colors">Our Story</Link></li>
             <li><Link to="/contact" className="text-[#d9c8b4] hover:text-cream transition-colors">Contact Us</Link></li>
             <li><Link to="/faq" className="text-[#d9c8b4] hover:text-cream transition-colors">FAQ</Link></li>
+            <li><Link to="/share" className="text-[#d9c8b4] hover:text-cream transition-colors">Share</Link></li>
           </ul>
         </div>
       </div>

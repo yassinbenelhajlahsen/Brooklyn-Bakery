@@ -78,6 +78,8 @@ export default function ProductDetailPage({ cart, onIncrement, onDecrement }) {
     const productId = pendingWishProductId
     const already = wishlistQuery.data?.items?.some((entry) => entry.productId === productId)
 
+    // Clear before mutating so a re-render from the mutation doesn't refire the effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingWishProductId(null)
 
     if (!already) {

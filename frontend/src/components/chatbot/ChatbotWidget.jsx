@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth.js';
@@ -11,6 +11,13 @@ const QUICK_ACTIONS = [
   { label: 'Contact us', message: 'How do I contact support?' },
 ];
 
+const BOT_REPLY_MS = 280;
+
+const LIVE_CART_RE = /\b(my cart|in my cart|cart contents|what'?s in my cart)\b/i;
+const LIVE_BALANCE_RE = /\b(my (balance|points)|how many points)\b/i;
+const START_CHECKOUT_RE = /\b(checkout now|i want to checkout|ready to checkout|place( the)? order|let'?s checkout)\b/i;
+const OPEN_LOGIN_RE = /\b(open|show) (the )?(login|sign[- ]?in)\b|\blog me in\b|\bsign me in\b/i;
+
 export default function ChatbotWidget({ cart = {} }) {
   const navigate = useNavigate();
   const { user, profile, openLogin } = useAuth();
@@ -19,16 +26,30 @@ export default function ChatbotWidget({ cart = {} }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
     {
+      id: makeId(),
       role: 'bot',
-      text: 'Hi! I’m your Brooklyn Bakery assistant. I can help with items, points, checkout, reviews, account settings, and contact info.',
+      text: "Hi! I'm your Brooklyn Bakery assistant. I can help with items, points, checkout, reviews, account settings, and contact info.",
     },
   ]);
 
   const inputRef = useRef(null);
+  const scrollerRef = useRef(null);
+  const cartRef = useRef(cart);
 
-  const cartItems = Object.values(cart);
-  const cartCount = cartItems.reduce((sum, entry) => sum + entry.qty, 0);
-  const cartTotal = cartItems.reduce((sum, entry) => sum + entry.item.price * entry.qty, 0);
+  useEffect(() => { cartRef.current = cart; }, [cart]);
+
+  useEffect(() => {
+    if (!open) return;
+    const focusId = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(focusId);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [messages, open]);
 
   const userSummary = useMemo(() => {
     if (!user) return 'You are not logged in.';
@@ -37,66 +58,74 @@ export default function ChatbotWidget({ cart = {} }) {
 
   function openChat() {
     setOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
+  function closeChat() {
+    setOpen(false);
   }
 
   function addBotMessage(text) {
-    setMessages((current) => [...current, { role: 'bot', text }]);
+    setMessages((current) => [...current, { id: makeId(), role: 'bot', text }]);
+  }
+
+  function liveCart() {
+    const items = Object.values(cartRef.current ?? {});
+    const count = items.reduce((sum, entry) => sum + entry.qty, 0);
+    const total = items.reduce((sum, entry) => sum + entry.item.price * entry.qty, 0);
+    return { count, total };
   }
 
   function handleSend(customMessage) {
     const text = (customMessage ?? input).trim();
     if (!text) return;
 
-    setMessages((current) => [...current, { role: 'user', text }]);
+    setMessages((current) => [...current, { id: makeId(), role: 'user', text }]);
     setInput('');
 
-    const lower = text.toLowerCase();
-
     setTimeout(() => {
-      if (lower.includes('checkout')) {
-        if (!user) {
-          addBotMessage('You need to log in before checkout. I can open the login window for you.');
-          return;
-        }
-
-        if (cartCount === 0) {
-          addBotMessage('Your cart is empty. Add a bakery item first, then go to checkout.');
-          return;
-        }
-
+      if (LIVE_CART_RE.test(text)) {
+        const { count, total } = liveCart();
         addBotMessage(
-          `You have ${cartCount} item${cartCount === 1 ? '' : 's'} in your cart totaling ${cartTotal} points. Go to checkout when you are ready.`,
-        );
-        return;
-      }
-
-      if (lower.includes('cart')) {
-        addBotMessage(
-          cartCount > 0
-            ? `You currently have ${cartCount} item${cartCount === 1 ? '' : 's'} in your cart totaling ${cartTotal} points.`
+          count > 0
+            ? `You currently have ${count} item${count === 1 ? '' : 's'} in your cart totaling ${total} points.`
             : 'Your cart is currently empty. Browse the shop and add an item first.',
         );
         return;
       }
 
-      if (lower.includes('balance') || lower.includes('points')) {
+      if (LIVE_BALANCE_RE.test(text)) {
         addBotMessage(
           user
             ? `${userSummary} You can earn more points from the Earn page.`
-            : 'You can earn and use points after logging in.',
+            : 'Once you log in I can show your balance. You can earn and spend points after logging in.',
         );
         return;
       }
 
-      if (lower.includes('login') || lower.includes('sign in')) {
-        addBotMessage('I can open the login window for you.');
+      if (START_CHECKOUT_RE.test(text)) {
+        if (!user) {
+          addBotMessage('You need to log in before checkout. I can open the login window for you.');
+          return;
+        }
+        const { count, total } = liveCart();
+        if (count === 0) {
+          addBotMessage('Your cart is empty. Add a bakery item first, then go to checkout.');
+          return;
+        }
+        addBotMessage(
+          `You have ${count} item${count === 1 ? '' : 's'} in your cart totaling ${total} points. Go to checkout when you are ready.`,
+        );
+        return;
+      }
+
+      if (OPEN_LOGIN_RE.test(text)) {
+        addBotMessage('Opening the login window.');
         openLogin?.();
         return;
       }
 
       addBotMessage(findBotAnswer(text));
-    }, 250);
+    }, BOT_REPLY_MS);
   }
 
   function handleQuickAction(action) {
@@ -104,39 +133,44 @@ export default function ChatbotWidget({ cart = {} }) {
   }
 
   function goTo(path, label) {
-    navigate(path);
-    setOpen(false);
-    setMessages((current) => [
-      ...current,
-      { role: 'bot', text: `Opening ${label}.` },
-    ]);
+    addBotMessage(`Opening ${label}.`);
+    setTimeout(() => {
+      navigate(path);
+      closeChat();
+    }, 120);
   }
 
   return (
     <>
-      {!open && (
-        <button
-          type="button"
-          onClick={openChat}
-          className={clsx(
-            'fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full',
-            'bg-accent text-white shadow-card grid place-items-center',
-            'transition hover:bg-accent-dark hover:-translate-y-0.5',
-            'motion-reduce:transition-none motion-reduce:hover:translate-y-0',
-          )}
-          aria-label="Open bakery assistant"
-        >
-          <ChatIcon className="h-6 w-6" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={openChat}
+        className={clsx(
+          'fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full',
+          'bg-accent text-white shadow-card grid place-items-center',
+          'transition duration-200 ease-out hover:bg-accent-dark hover:-translate-y-0.5',
+          'motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+          open ? 'pointer-events-none scale-90 opacity-0' : 'scale-100 opacity-100',
+        )}
+        aria-label="Open bakery assistant"
+        aria-hidden={open}
+        tabIndex={open ? -1 : 0}
+      >
+        <ChatIcon className="h-6 w-6" />
+      </button>
 
-      {open && (
-        <section
-          className={clsx(
-            'fixed bottom-5 right-5 z-50 w-[380px] max-w-[calc(100vw-2rem)]',
-            'rounded-2xl border border-line bg-surface shadow-card overflow-hidden',
-          )}
-          aria-label="Bakery assistant chat"
+      <section
+        className={clsx(
+          'fixed bottom-5 right-5 z-50 w-[380px] max-w-[calc(100vw-2rem)]',
+          'rounded-2xl border border-line bg-surface shadow-card overflow-hidden',
+          'origin-bottom-right transition duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'motion-reduce:transition-none',
+          open
+            ? 'opacity-100 translate-y-0 scale-100'
+            : 'opacity-0 translate-y-3 scale-95 pointer-events-none',
+        )}
+        aria-label="Bakery assistant chat"
+        aria-hidden={!open}
         >
           <header className="flex items-center justify-between gap-3 border-b border-line bg-cream/50 px-4 py-3">
             <div>
@@ -150,21 +184,29 @@ export default function ChatbotWidget({ cart = {} }) {
 
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="h-8 w-8 rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent"
+              onClick={closeChat}
+              className="h-8 w-8 rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent transition-colors"
               aria-label="Close assistant"
             >
               ×
             </button>
           </header>
 
-          <div className="max-h-[420px] overflow-y-auto px-4 py-4">
-            <div className="space-y-3">
-              {messages.map((message, index) => (
-                <div
-                  key={`${message.role}-${index}`}
+          <div
+            ref={scrollerRef}
+            className="max-h-[420px] overflow-y-auto px-4 py-4"
+          >
+            <ul
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
+              className="m-0 list-none space-y-3 p-0"
+            >
+              {messages.map((message) => (
+                <li
+                  key={message.id}
                   className={clsx(
-                    'flex',
+                    'flex animate-chat-pop motion-reduce:animate-none',
                     message.role === 'user' ? 'justify-end' : 'justify-start',
                   )}
                 >
@@ -178,9 +220,9 @@ export default function ChatbotWidget({ cart = {} }) {
                   >
                     {message.text}
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
 
             <div className="mt-4 flex flex-wrap gap-2">
               {QUICK_ACTIONS.map((action) => (
@@ -188,7 +230,7 @@ export default function ChatbotWidget({ cart = {} }) {
                   key={action.label}
                   type="button"
                   onClick={() => handleQuickAction(action)}
-                  className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink hover:border-accent hover:text-accent"
+                  className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink transition hover:border-accent hover:text-accent"
                 >
                   {action.label}
                 </button>
@@ -199,7 +241,7 @@ export default function ChatbotWidget({ cart = {} }) {
               <button
                 type="button"
                 onClick={() => goTo('/', 'Shop')}
-                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink hover:border-accent hover:text-accent"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink transition hover:border-accent hover:text-accent"
               >
                 Browse shop
               </button>
@@ -207,7 +249,7 @@ export default function ChatbotWidget({ cart = {} }) {
               <button
                 type="button"
                 onClick={() => goTo('/checkout', 'Checkout')}
-                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink hover:border-accent hover:text-accent"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink transition hover:border-accent hover:text-accent"
               >
                 Go checkout
               </button>
@@ -215,7 +257,7 @@ export default function ChatbotWidget({ cart = {} }) {
               <button
                 type="button"
                 onClick={() => goTo('/profile', 'Profile')}
-                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink hover:border-accent hover:text-accent"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink transition hover:border-accent hover:text-accent"
               >
                 Profile
               </button>
@@ -223,7 +265,7 @@ export default function ChatbotWidget({ cart = {} }) {
               <button
                 type="button"
                 onClick={() => goTo('/earn', 'Earn')}
-                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink hover:border-accent hover:text-accent"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink transition hover:border-accent hover:text-accent"
               >
                 Earn points
               </button>
@@ -242,21 +284,26 @@ export default function ChatbotWidget({ cart = {} }) {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Ask about checkout, items, points…"
-              className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
 
             <button
               type="submit"
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-dark disabled:opacity-50"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
               disabled={!input.trim()}
             >
               Send
             </button>
           </form>
         </section>
-      )}
     </>
   );
+}
+
+let idCounter = 0;
+function makeId() {
+  idCounter += 1;
+  return `m_${idCounter}`;
 }
 
 function ChatIcon({ className }) {

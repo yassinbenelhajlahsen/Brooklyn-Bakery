@@ -5,42 +5,70 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import cookieModelUrl from "../threeDModels/Cookie3.glb?url";
+import glove0Url from "../assets/glove0.svg";
+import glove1Url from "../assets/glove1.svg";
+import glove2Url from "../assets/glove2.svg";
+import glove3Url from "../assets/glove3.svg";
 
-/** Same thresholds / ids as `backend/controllers/cookieUpgradesController.js` — unlocks are derived locally from points (no round-trip on each change). Edit `cursorFile` to match assets in `src/assets/`. */
+/** Same thresholds / ids as `backend/controllers/cookieUpgradesController.js` — unlocks are derived locally from points (no round-trip on each change). */
 const COOKIE_CURSOR_OPTIONS = [
   {
     id: "base",
     threshold: 0,
     label: "1+ pt per click",
-    cursorFile: "glove0",
+    description: "Default glove",
+    cursorUrl: glove0Url,
     pointsNumerator: 1,
     pointsDenominator: 1,
+    accentColor: "#9aa19c",
+    burstTier: 1,
   },
   {
     id: "one_half_points",
     threshold: 15,
     label: "1.5+ pts per click",
-    cursorFile: "glove1",
+    description: "1.5× points per click",
+    cursorUrl: glove1Url,
     pointsNumerator: 3,
     pointsDenominator: 2,
+    accentColor: "#46d27a",
+    burstTier: 2,
   },
   {
     id: "double_points",
     threshold: 25,
     label: "2+ pts per click",
-    cursorFile: "glove2",
+    description: "2× points per click",
+    cursorUrl: glove2Url,
     pointsNumerator: 2,
     pointsDenominator: 1,
+    accentColor: "#3a7df5",
+    burstTier: 3,
   },
   {
     id: "triple_points",
     threshold: 50,
     label: "3+ pts per click",
-    cursorFile: "glove3",
+    description: "3× points per click",
+    cursorUrl: glove3Url,
     pointsNumerator: 3,
     pointsDenominator: 1,
+    accentColor: "#ff7a1f",
+    burstTier: 4,
   },
 ];
+
+const BURST_LIFETIME_MS = 700;
+
+const BURST_KEYFRAMES = `
+@keyframes bb-burst-ring { 0% { transform: scale(0.2); opacity: 0.95; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes bb-burst-flash { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes bb-burst-spark { 0% { transform: rotate(var(--bb-angle)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--bb-angle)) translateY(calc(var(--bb-spark-distance) * -1)) scale(0.4); opacity: 0; } }
+.bb-burst { position: absolute; pointer-events: none; will-change: transform, opacity; }
+.bb-burst-ring { position: absolute; left: 0; top: 0; width: var(--bb-size); height: var(--bb-size); border: 2px solid var(--bb-color); border-radius: 50%; animation: bb-burst-ring var(--bb-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.bb-burst-flash { position: absolute; left: 0; top: 0; width: calc(var(--bb-size) * 0.7); height: calc(var(--bb-size) * 0.7); background: radial-gradient(circle, var(--bb-color) 0%, transparent 65%); filter: blur(2px); animation: bb-burst-flash calc(var(--bb-duration) * 0.55) ease-out forwards; }
+.bb-burst-spark { position: absolute; left: 0; top: 0; width: 3px; height: var(--bb-spark-length); background: var(--bb-color); border-radius: 2px; box-shadow: 0 0 6px var(--bb-color); animation: bb-burst-spark var(--bb-duration) cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+`;
 
 const CURSOR_STORAGE_PREFIX = "bb:cookieCursorChoice:";
 
@@ -63,8 +91,11 @@ function readStoredCursorChoice(key) {
 }
 
 function writeStoredCursorChoice(key, optionId) {
-  try { localStorage.setItem(key, optionId); }
-  catch {}
+  try {
+    localStorage.setItem(key, optionId);
+  } catch {
+    // localStorage unavailable (Safari private mode) — preference is in-memory only.
+  }
 }
 
 export default function CookieClicker() {
@@ -84,6 +115,8 @@ export default function CookieClicker() {
   const storageKey = storageKeyForCursorChoice(profile?.id, isAuthenticated);
 
   const [cursorMenuTick, setCursorMenuTick] = useState(0);
+  const [bursts, setBursts] = useState([]);
+  const burstIdRef = useRef(0);
 
   const selectedOptionId = useMemo(() => {
     void cursorMenuTick;
@@ -103,7 +136,6 @@ export default function CookieClicker() {
   const selectedOption =
     COOKIE_CURSOR_OPTIONS.find((o) => o.id === selectedOptionId) ??
     COOKIE_CURSOR_OPTIONS[0];
-  const currentCursorFile = selectedOption.cursorFile;
 
   const pointsRule = useMemo(
     () => ({
@@ -116,6 +148,11 @@ export default function CookieClicker() {
   useLayoutEffect(() => {
     pointsRuleRef.current = pointsRule;
   }, [pointsRule]);
+
+  // Cursor URL must be wrapped in double quotes: Vite inlines small SVGs as
+  // data URIs with single-quoted attributes (width='48' …), which would
+  // prematurely close a single-quoted url('…') and invalidate the declaration.
+  const cursorCss = `.bb-cookie-cursor, .bb-cookie-cursor canvas { cursor: url("${selectedOption.cursorUrl}") 16 11, pointer !important; }${BURST_KEYFRAMES}`;
 
   const selectCursorOption = (optionId) => {
     const opt = COOKIE_CURSOR_OPTIONS.find((o) => o.id === optionId);
@@ -475,7 +512,32 @@ export default function CookieClicker() {
     };
   }, []);
 
-  const handleCookieClick = () => {
+  const spawnBurst = (event) => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const rect = wrapper.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const id = ++burstIdRef.current;
+    const tier = selectedOption.burstTier;
+    const burst = {
+      id,
+      x,
+      y,
+      color: selectedOption.accentColor,
+      tier,
+      sparkCount: 4 + tier * 2,
+      size: 70 + tier * 26,
+      sparkLength: 12 + tier * 4,
+      sparkDistance: 28 + tier * 14,
+    };
+    setBursts((prev) => [...prev, burst]);
+    window.setTimeout(() => {
+      setBursts((prev) => prev.filter((b) => b.id !== id));
+    }, BURST_LIFETIME_MS);
+  };
+
+  const handleCookieClick = (event) => {
     if (!open) {
       setOpen(true);
       openTriggeredRef.current = true;
@@ -493,24 +555,67 @@ export default function CookieClicker() {
         cookieAnim.animStart = now;
       }
     }
+    spawnBurst(event);
     handleClick();
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-[minmax(0,460px)_minmax(260px,320px)] justify-center gap-10 md:gap-40 items-start md:items-center">
+        <style>{cursorCss}</style>
         <div
           ref={wrapperRef}
-          className="relative w-full aspect-[1/1.15] max-w-[460px] mx-auto"
+          className="bb-cookie-cursor relative w-full aspect-[1/1.15] max-w-[460px] mx-auto"
+          data-bb-debug="cursor-wrapper-v3"
         >
           <canvas
             ref={canvasRef}
             className="block w-full h-full transition-transform duration-100 ease-in-out hover:scale-105 active:animate-cookie-click"
-            style={{
-              cursor: `url('src/assets/${currentCursorFile}.svg') 35 6, auto`,
-            }}
             onClick={handleCookieClick}
           />
+          <div className="pointer-events-none absolute inset-0 overflow-visible">
+            {bursts.map((b) => (
+              <div
+                key={b.id}
+                className="bb-burst"
+                style={{
+                  left: `${b.x}px`,
+                  top: `${b.y}px`,
+                  "--bb-color": b.color,
+                  "--bb-size": `${b.size}px`,
+                  "--bb-spark-length": `${b.sparkLength}px`,
+                  "--bb-spark-distance": `${b.sparkDistance}px`,
+                  "--bb-duration": `${BURST_LIFETIME_MS}ms`,
+                }}
+              >
+                <div
+                  className="bb-burst-flash"
+                  style={{
+                    marginLeft: `calc(var(--bb-size) * -0.35)`,
+                    marginTop: `calc(var(--bb-size) * -0.35)`,
+                  }}
+                />
+                <div
+                  className="bb-burst-ring"
+                  style={{
+                    marginLeft: `calc(var(--bb-size) * -0.5)`,
+                    marginTop: `calc(var(--bb-size) * -0.5)`,
+                  }}
+                />
+                {Array.from({ length: b.sparkCount }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bb-burst-spark"
+                    style={{
+                      marginLeft: "-1.5px",
+                      marginTop: `calc(var(--bb-spark-length) * -0.5)`,
+                      "--bb-angle": `${(360 / b.sparkCount) * i}deg`,
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col items-center md:items-start gap-8 text-center md:text-left pointer-events-auto">

@@ -1,4 +1,5 @@
-export const RATE_PER_SEC = 10;
+// Sized for the max legitimate earn rate: 10 physical clicks/sec × 3x upgrade.
+export const RATE_PER_SEC = 30;
 export const BURST_BONUS = 20;
 export const MAX_FIRST_WINDOW_MS = 3_600_000;
 export const MAX_DELTA = 100_000;

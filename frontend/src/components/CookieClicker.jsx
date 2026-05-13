@@ -15,8 +15,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "base",
     threshold: 0,
-    label: "1+ pt per click",
-    description: "Default glove",
+    label: "1x pts per click",
+    // description: "Default glove",
     cursorUrl: glove0Url,
     pointsNumerator: 1,
     pointsDenominator: 1,
@@ -26,8 +26,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "one_half_points",
     threshold: 15,
-    label: "1.5+ pts per click",
-    description: "1.5× points per click",
+    label: "1.5x pts per click",
+    // description: "1.5× points per click",
     cursorUrl: glove1Url,
     pointsNumerator: 3,
     pointsDenominator: 2,
@@ -37,8 +37,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "double_points",
     threshold: 25,
-    label: "2+ pts per click",
-    description: "2× points per click",
+    label: "2x pts per click",
+    // description: "2× points per click",
     cursorUrl: glove2Url,
     pointsNumerator: 2,
     pointsDenominator: 1,
@@ -48,8 +48,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "triple_points",
     threshold: 50,
-    label: "3+ pts per click",
-    description: "3× points per click",
+    label: "3x pts per click",
+    // description: "3× points per click",
     cursorUrl: glove3Url,
     pointsNumerator: 3,
     pointsDenominator: 1,

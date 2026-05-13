@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, matchPath } from 'react-router-dom'
 import Header from './components/Header.jsx'
 import ShopEarnShell from './components/ShopEarnShell.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
@@ -32,6 +32,8 @@ function ScrollToTop() {
 export default function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const { cart, itemCount, increment, decrement, removeItem, addItem, clearCart } = useCart()
+  const { pathname } = useLocation()
+  const isAdminRoute = matchPath('/admin/*', pathname) || pathname === '/admin'
 
   const shellLayout = (
     <ShopEarnShell cart={cart} onIncrement={increment} onDecrement={decrement} />
@@ -113,20 +115,8 @@ export default function App() {
           onClear={clearCart}
         />
       )}
-            <Footer />
-
-      {cartOpen && (
-        <CartDrawer
-          cart={cart}
-          onClose={() => setCartOpen(false)}
-          onIncrement={increment}
-          onDecrement={decrement}
-          onClear={clearCart}
-        />
-      )}
-
       <LoginModal />
-      <ChatbotWidget cart={cart} />
+      {!isAdminRoute && <ChatbotWidget cart={cart} />}
     </div>
     </JarProvider>
   )

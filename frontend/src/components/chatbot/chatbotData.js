@@ -1,54 +1,76 @@
 export const FAQS = [
   {
-    keywords: ['checkout', 'place order', 'buy', 'purchase'],
+    keywords: ['items', 'item', 'products', 'product', 'sell', 'menu', 'catalog', 'bakery', 'treats', 'cookies', 'goods', 'shop'],
     answer:
-      'To checkout, add items to your cart, click the cart icon, then continue to checkout. You will need enough points and a saved address before placing the order.',
+      'We sell a rotating selection of Brooklyn-baked treats — cookies, pastries, and seasonal specials. Browse the full catalog on the shop page, or open any item to see details and reviews.',
   },
   {
-    keywords: ['cart', 'add to cart', 'remove item', 'quantity'],
+    keywords: ['checkout', 'order', 'buy', 'purchase'],
     answer:
-      'You can add items from the catalog or product detail page. In the cart or checkout page, you can increase, decrease, or remove items before placing your order.',
+      'To checkout, add items to your cart, open the cart, then continue to checkout. You will need enough points and a saved address before placing the order.',
   },
   {
-    keywords: ['points', 'balance', 'earn', 'cookie clicker'],
+    keywords: ['cart', 'quantity', 'qty', 'remove'],
     answer:
-      'Your balance is shown in your account menu and profile page. You can earn more points from the Earn page, then use those points to place bakery orders.',
+      'You can add items from the catalog or a product page. In the cart or checkout page, you can increase, decrease, or remove items before placing your order.',
   },
   {
-    keywords: ['review', 'rating', 'stars'],
+    keywords: ['points', 'point', 'balance', 'earn', 'clicker'],
     answer:
-      'You can write a review from the product detail page. Open any item, scroll to the reviews section, choose a rating, and submit your feedback.',
+      'Your balance is shown in the account menu and profile page. You can earn more points from the Earn page (cookie clicker), then spend them on bakery orders.',
   },
   {
-    keywords: ['address', 'shipping', 'delivery'],
+    keywords: ['review', 'rating', 'star', 'stars', 'feedback'],
     answer:
-      'You can manage your saved addresses from the Profile page. During checkout, choose the address you want to use for the order.',
+      'You can write a review from any product page. Scroll to the reviews section, choose a rating, and submit your feedback.',
   },
   {
-    keywords: ['contact', 'support', 'help', 'phone', 'email'],
+    keywords: ['address', 'shipping', 'delivery', 'ship'],
     answer:
-      'You can contact Brooklyn Bakery through the Contact section.',
+      'You can manage saved addresses from the Profile page. During checkout, pick the address you want to use for the order.',
   },
   {
-    keywords: ['wishlist', 'save item', 'favorite'],
+    keywords: ['contact', 'support', 'help', 'phone', 'reach'],
     answer:
-      'You can save products to your wishlist from the product detail page by clicking the wishlist button.',
+      'You can reach Brooklyn Bakery through the Contact page in the footer.',
   },
   {
-    keywords: ['account', 'profile', 'photo', 'display name', 'email'],
+    keywords: ['wishlist', 'favorite', 'favourite', 'save', 'saved'],
+    answer:
+      'Click the wishlist heart on any product page to save it. You can view and manage saved items from the Wishlist page.',
+  },
+  {
+    keywords: ['account', 'profile', 'photo', 'name', 'email', 'password', 'security'],
     answer:
       'You can update your profile photo, display name, email, addresses, and security settings from the Profile page.',
   },
 ];
 
+const WORD_RE = /[a-z0-9]+/g;
+
+function tokenize(text) {
+  return new Set((text.toLowerCase().match(WORD_RE) ?? []));
+}
+
 export function findBotAnswer(message) {
-  const normalized = message.toLowerCase();
+  const tokens = tokenize(message);
+  if (tokens.size === 0) return defaultAnswer();
 
-  const match = FAQS.find((item) =>
-    item.keywords.some((keyword) => normalized.includes(keyword)),
-  );
+  let best = null;
+  let bestScore = 0;
+  for (const faq of FAQS) {
+    let score = 0;
+    for (const keyword of faq.keywords) {
+      if (tokens.has(keyword)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = faq;
+    }
+  }
+  return best ? best.answer : defaultAnswer();
+}
 
-  if (match) return match.answer;
-
-  return "I can help with products, points, checkout, reviews, addresses, wishlist, account settings, and contact information. Try asking: “How do I checkout?” or “How do I earn points?”";
+function defaultAnswer() {
+  return 'I can help with products, points, checkout, reviews, addresses, wishlist, account settings, and contact info. Try asking: "What items do you sell?" or "How do I earn points?"';
 }

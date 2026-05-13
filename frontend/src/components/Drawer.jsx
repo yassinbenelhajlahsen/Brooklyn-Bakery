@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-const ANIM_MS = 250;
+const ANIM_MS = 320;
 
 function renderSlot(slot, close) {
   if (slot == null) return null;
@@ -46,12 +46,12 @@ export default function Drawer({
   return createPortal(
     <>
       <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-250 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${visible ? 'opacity-100' : 'opacity-0'}`}
         onClick={close}
         aria-hidden="true"
       />
       <aside
-        className={`fixed top-0 right-0 bottom-0 ${width} max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 grid ${rows} overflow-hidden transition-transform duration-250 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 bottom-0 ${width} max-w-full max-sm:w-full bg-surface border-l border-line shadow-[-12px_0_40px_rgba(61,47,36,0.12)] z-50 grid ${rows} overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none will-change-transform ${visible ? 'translate-x-0' : 'translate-x-full'}`}
         role="dialog"
         aria-label={ariaLabel}
       >

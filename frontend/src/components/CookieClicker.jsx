@@ -757,22 +757,33 @@ export default function CookieClicker() {
           />
         </div>
 
-        <div className="flex flex-col items-center md:items-start gap-8 text-center md:text-left pointer-events-auto">
+        <div style = {{ 
+          "padding": "2vw",
+          "borderRadius": "3vw",
+          "background": "linear-gradient(#633817, #a1673b)",
+        }} 
+          className="flex flex-col items-stretch gap-8 text-center md:text-left pointer-events-auto max-w-[320px] mx-auto md:max-w-none md:mx-0">
           <div className="min-h-[3.75rem] md:min-h-[4.5rem] flex flex-col justify-center">
             {loading ? (
               <div className="h-8 md:h-10 w-56 rounded bg-line/60 animate-pulse" />
             ) : (
               <>
-                <h2 className="text-3xl md:text-4xl text-ink">{heading}</h2>
+                <h2 className="text-3xl md:text-4xl text-ink" style = {{
+                  "textAlign": "center",
+                  "color": "white"
+                }}>{heading}</h2>
                 {!isAuthenticated && (
-                  <p className="text-xs text-muted mt-2 italic">
+                  <p className="text-xs text-muted mt-2 italic" style = {{
+                    "textAlign": "center",
+                    "color": "#ccbfb6"
+                  }}>
                     Log in to save your points
                   </p>
                 )}
               </>
             )}
           </div>
-          <div className="bg-surface px-8 py-6 rounded-lg border border-line shadow-card">
+          <div className="w-full bg-surface px-8 py-6 rounded-lg border border-line shadow-card">
             {loading ? (
               <div className="h-[3.75rem] w-28 rounded bg-line/60 animate-pulse" />
             ) : (
@@ -785,7 +796,7 @@ export default function CookieClicker() {
             </p>
           </div>
 
-          <div className="w-full max-w-[280px] bg-surface rounded-lg border border-line shadow-card p-4 text-left">
+          <div className="w-full bg-surface rounded-lg border border-line shadow-card p-4 text-left">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted m-0 mb-1">
               UPGRADES
             </p>

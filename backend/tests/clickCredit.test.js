@@ -20,7 +20,7 @@ test('computeCredit: credits full delta when under the rate cap', () => {
 });
 
 test('computeCredit: caps delta silently when over the rate', () => {
-    // 100ms elapsed → floor(100/1000)*10 + 20 = 0 + 20 = 20 max
+    // 100ms elapsed → floor(100/1000)*30 + 20 = 0 + 20 = 20 max
     const result = computeCredit({
         delta: 5000,
         elapsedMs: 100,
@@ -31,14 +31,14 @@ test('computeCredit: caps delta silently when over the rate', () => {
 });
 
 test('computeCredit: uses the smaller of client and server elapsed', () => {
-    // Client claims 10s, server says 1s → use 1s. maxAllowed = 10 + 20 = 30.
+    // Client claims 10s, server says 1s → use 1s. maxAllowed = 30 + 20 = 50.
     const result = computeCredit({
         delta: 1000,
         elapsedMs: 10_000,
         lastClickFlushAt: new Date(NOW.getTime() - 1000),
         now: NOW,
     });
-    assert.equal(result.credited, 30);
+    assert.equal(result.credited, 50);
 });
 
 test('computeCredit: uses client elapsed (clamped) when lastClickFlushAt is null', () => {
@@ -49,7 +49,7 @@ test('computeCredit: uses client elapsed (clamped) when lastClickFlushAt is null
         lastClickFlushAt: null,
         now: NOW,
     });
-    // maxAllowed = floor(10_000/1000)*10 + 20 = 100 + 20 = 120. delta=50 passes.
+    // maxAllowed = floor(10_000/1000)*30 + 20 = 300 + 20 = 320. delta=50 passes.
     assert.equal(result.credited, 50);
 });
 

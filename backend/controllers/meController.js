@@ -45,7 +45,29 @@ export async function updateMe(req, res, next) {
                 throw httpError(400, 'Avatar URL must be a string');
             }
 
-            data.avatarUrl = avatarUrl;
+            if (avatarUrl === '') {
+                data.avatarUrl = null;
+            } else {
+                let parsed;
+                try {
+                    parsed = new URL(avatarUrl);
+                } catch {
+                    throw httpError(400, 'Invalid avatar URL');
+                }
+
+                const supabaseHost = new URL(process.env.SUPABASE_URL).host;
+                const expectedPrefix = `/storage/v1/object/public/avatars/${req.user.id}/`;
+
+                if (
+                    parsed.protocol !== 'https:' ||
+                    parsed.host !== supabaseHost ||
+                    !parsed.pathname.startsWith(expectedPrefix)
+                ) {
+                    throw httpError(400, 'Invalid avatar URL');
+                }
+
+                data.avatarUrl = avatarUrl;
+            }
         }
 
         if (Object.keys(data).length === 0) {

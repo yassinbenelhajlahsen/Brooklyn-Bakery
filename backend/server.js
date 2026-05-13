@@ -27,11 +27,6 @@ const allowedOrigins = [
 
 app.use(cors({ origin: allowedOrigins }));
 
-app.use(cors({
-    origin: allowedOrigins,
-    credentials: true
-}))
-
 app.use(express.json()) // handling json data
 
 app.use('/cookieUpgrades', requireAuth, cookieUpgrades);

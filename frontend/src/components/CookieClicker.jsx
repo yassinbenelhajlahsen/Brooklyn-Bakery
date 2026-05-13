@@ -15,8 +15,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "base",
     threshold: 0,
-    label: "1+ pt per click",
-    description: "Default glove",
+    label: "1x pts per click",
+    // description: "Default glove",
     cursorUrl: glove0Url,
     pointsNumerator: 1,
     pointsDenominator: 1,
@@ -26,8 +26,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "one_half_points",
     threshold: 15,
-    label: "1.5+ pts per click",
-    description: "1.5× points per click",
+    label: "1.5x pts per click",
+    // description: "1.5× points per click",
     cursorUrl: glove1Url,
     pointsNumerator: 3,
     pointsDenominator: 2,
@@ -37,8 +37,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "double_points",
     threshold: 25,
-    label: "2+ pts per click",
-    description: "2× points per click",
+    label: "2x pts per click",
+    // description: "2× points per click",
     cursorUrl: glove2Url,
     pointsNumerator: 2,
     pointsDenominator: 1,
@@ -48,8 +48,8 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "triple_points",
     threshold: 50,
-    label: "3+ pts per click",
-    description: "3× points per click",
+    label: "3x pts per click",
+    // description: "3× points per click",
     cursorUrl: glove3Url,
     pointsNumerator: 3,
     pointsDenominator: 1,
@@ -57,18 +57,6 @@ const COOKIE_CURSOR_OPTIONS = [
     burstTier: 4,
   },
 ];
-
-const BURST_LIFETIME_MS = 700;
-
-const BURST_KEYFRAMES = `
-@keyframes bb-burst-ring { 0% { transform: scale(0.2); opacity: 0.95; } 100% { transform: scale(1.6); opacity: 0; } }
-@keyframes bb-burst-flash { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(2.4); opacity: 0; } }
-@keyframes bb-burst-spark { 0% { transform: rotate(var(--bb-angle)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--bb-angle)) translateY(calc(var(--bb-spark-distance) * -1)) scale(0.4); opacity: 0; } }
-.bb-burst { position: absolute; pointer-events: none; will-change: transform, opacity; }
-.bb-burst-ring { position: absolute; left: 0; top: 0; width: var(--bb-size); height: var(--bb-size); border: 2px solid var(--bb-color); border-radius: 50%; animation: bb-burst-ring var(--bb-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.bb-burst-flash { position: absolute; left: 0; top: 0; width: calc(var(--bb-size) * 0.7); height: calc(var(--bb-size) * 0.7); background: radial-gradient(circle, var(--bb-color) 0%, transparent 65%); filter: blur(2px); animation: bb-burst-flash calc(var(--bb-duration) * 0.55) ease-out forwards; }
-.bb-burst-spark { position: absolute; left: 0; top: 0; width: 3px; height: var(--bb-spark-length); background: var(--bb-color); border-radius: 2px; box-shadow: 0 0 6px var(--bb-color); animation: bb-burst-spark var(--bb-duration) cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-`;
 
 const CURSOR_STORAGE_PREFIX = "bb:cookieCursorChoice:";
 
@@ -86,6 +74,7 @@ function readStoredCursorChoice(key) {
     const found = COOKIE_CURSOR_OPTIONS.some((o) => o.id === raw);
     return found ? raw : null;
   } catch {
+    console.trace("failed to read stored cursor choice");
     return null;
   }
 }
@@ -94,14 +83,13 @@ function writeStoredCursorChoice(key, optionId) {
   try {
     localStorage.setItem(key, optionId);
   } catch {
-    // localStorage unavailable (Safari private mode) — preference is in-memory only.
+    console.trace("failed to write stored cursor choice")// localStorage unavailable (Safari private mode) — preference is in-memory only.
   }
 }
 
 export default function CookieClicker() {
   const pointsRuleRef = useRef({ num: 1, den: 1 });
-  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile } =
-    useCookieClicker(pointsRuleRef);
+  const { displayPoints, handleClick, isAuthenticated, displayName, loading, profile } = useCookieClicker(pointsRuleRef);
   const { open, setOpen } = useJar();
   const lidCtxRef = useRef(null);
   const plinthCtxRef = useRef(null);
@@ -115,8 +103,10 @@ export default function CookieClicker() {
   const storageKey = storageKeyForCursorChoice(profile?.id, isAuthenticated);
 
   const [cursorMenuTick, setCursorMenuTick] = useState(0);
-  const [bursts, setBursts] = useState([]);
-  const burstIdRef = useRef(0);
+  const cameraRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cookieModelRef = useRef(null);
+  const debrisRef = useRef([]);
 
   const selectedOptionId = useMemo(() => {
     void cursorMenuTick;
@@ -152,7 +142,7 @@ export default function CookieClicker() {
   // Cursor URL must be wrapped in double quotes: Vite inlines small SVGs as
   // data URIs with single-quoted attributes (width='48' …), which would
   // prematurely close a single-quoted url('…') and invalidate the declaration.
-  const cursorCss = `.bb-cookie-cursor, .bb-cookie-cursor canvas { cursor: url("${selectedOption.cursorUrl}") 16 11, pointer !important; }${BURST_KEYFRAMES}`;
+  const cursorCss = `.bb-cookie-cursor, .bb-cookie-cursor canvas { cursor: url("${selectedOption.cursorUrl}") 16 11, pointer !important; }`;
 
   const selectCursorOption = (optionId) => {
     const opt = COOKIE_CURSOR_OPTIONS.find((o) => o.id === optionId);
@@ -180,10 +170,12 @@ export default function CookieClicker() {
 
     const scene = new THREE.Scene();
     scene.background = null;
+    sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0.6, 6.2);
     camera.lookAt(0, 0.2, 0);
+    cameraRef.current = camera;
 
     const resize = () => {
       if (!wrapper) return;
@@ -397,6 +389,7 @@ export default function CookieClicker() {
         model.renderOrder = 1;
         scene.add(model);
         cookieModel = model;
+        cookieModelRef.current = model;
         cookieAnimRef.current = {
           closedScale: COOKIE_CLOSED_SCALE,
           openScale: COOKIE_OPEN_SCALE,
@@ -425,8 +418,41 @@ export default function CookieClicker() {
     const easeInQuad = (x) => x * x;
     const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
 
+    const DEBRIS_GRAVITY = 9.81;
+
     const animate = (timestamp) => {
       frameId = requestAnimationFrame(animate);
+
+      if (debrisRef.current.length > 0) {
+        debrisRef.current = debrisRef.current.filter((d) => {
+          const t = (timestamp - d.startTime) / 1000;
+          if (t >= d.lifetime) {
+            scene.remove(d.mesh);
+            d.mesh.geometry.dispose();
+            d.mesh.material.dispose();
+            return false;
+          }
+          const gravity = d.gravity ?? DEBRIS_GRAVITY;
+          d.mesh.position.x = d.spawnPos.x + d.velocity.x * t;
+          d.mesh.position.y = d.spawnPos.y + d.velocity.y * t - 0.5 * gravity * t * t;
+          d.mesh.position.z = d.spawnPos.z + d.velocity.z * t;
+          d.mesh.rotation.x = d.initRotation.x + d.angularVel.x * t;
+          d.mesh.rotation.y = d.initRotation.y + d.angularVel.y * t;
+          d.mesh.rotation.z = d.initRotation.z + d.angularVel.z * t;
+          const lifeRatio = t / d.lifetime;
+          if (d.isSpark) {
+            // Sparks shrink and brighten quickly, then fade — fireworks-ember curve.
+            const fade = Math.pow(1 - lifeRatio, 1.4);
+            d.mesh.material.opacity = fade;
+            const s = d.baseScale * (0.4 + 0.6 * fade);
+            d.mesh.scale.setScalar(s);
+          } else {
+            d.mesh.material.opacity = Math.max(0, 1 - lifeRatio);
+          }
+          return true;
+        });
+      }
+
       if (cookieModel) {
         const t = timestamp / 1000;
         cookieModel.rotation.y =
@@ -508,33 +534,188 @@ export default function CookieClicker() {
       }
       plinthCtxRef.current = null;
       cookieAnimRef.current = null;
+      cookieModelRef.current = null;
+      cameraRef.current = null;
+      sceneRef.current = null;
+      debrisRef.current.forEach((d) => {
+        scene.remove(d.mesh);
+        d.mesh.geometry.dispose();
+        d.mesh.material.dispose();
+      });
+      debrisRef.current = [];
       renderer.dispose();
     };
   }, []);
 
-  const spawnBurst = (event) => {
+  const COOKIE_DEBRIS_COLORS = [0xc8864a, 0xd4935a, 0xb07030, 0x8b5a2b, 0x7a4e24, 0x3d2b1f, 0xe8c090];
+
+  const spawnCookieDebris = (event) => {
+    const camera = cameraRef.current;
+    const scene = sceneRef.current;
+    const model = cookieModelRef.current;
     const wrapper = wrapperRef.current;
-    if (!wrapper) return;
+    if (!camera || !scene || !model || !wrapper) return;
+
     const rect = wrapper.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const id = ++burstIdRef.current;
+    const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+    const intersects = raycaster.intersectObject(model, true);
+    if (intersects.length === 0) return;
+
+    const hit = intersects[0];
+    const worldNormal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+    const spawnPos = hit.point.clone().addScaledVector(worldNormal, 0.06);
+
+    const count = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const color = COOKIE_DEBRIS_COLORS[Math.floor(Math.random() * COOKIE_DEBRIS_COLORS.length)];
+      const size = 0.07 + Math.random() * 0.09;
+      const geo = new THREE.BoxGeometry(size, size, size);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        roughness: 0.85,
+        metalness: 0,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(spawnPos);
+      mesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+      );
+      scene.add(mesh);
+
+      // speed at which the crumbs come flying out of cookie
+      const speed = 1.0 + Math.random() * 2.5;
+      const spread = 2.8;
+      debrisRef.current.push({
+        mesh,
+        spawnPos: spawnPos.clone(),
+        velocity: {
+          x: worldNormal.x * speed + (Math.random() - 0.5) * spread,
+          y: worldNormal.y * speed + (Math.random() - 0.5) * spread + 1.2,
+          z: worldNormal.z * speed + (Math.random() - 0.5) * spread,
+        },
+        initRotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
+        angularVel: {
+          x: (Math.random() - 0.5) * 12,
+          y: (Math.random() - 0.5) * 12,
+          z: (Math.random() - 0.5) * 12,
+        },
+        startTime: performance.now(),
+        lifetime: 1.1 + Math.random() * 0.2,
+      });
+    }
+  };
+
+  // Glowing accent-colored embers that fly out alongside the crumbs. Skipped on
+  // the base tier (the user has no upgrade yet — crumbs only). Higher tiers
+  // spawn more, brighter, longer-lived sparks for a fireworks feel.
+  const SPARK_GRAVITY = 2.2;
+  const spawnSparks = (event) => {
     const tier = selectedOption.burstTier;
-    const burst = {
-      id,
-      x,
-      y,
-      color: selectedOption.accentColor,
-      tier,
-      sparkCount: 4 + tier * 2,
-      size: 70 + tier * 26,
-      sparkLength: 12 + tier * 4,
-      sparkDistance: 28 + tier * 14,
-    };
-    setBursts((prev) => [...prev, burst]);
-    window.setTimeout(() => {
-      setBursts((prev) => prev.filter((b) => b.id !== id));
-    }, BURST_LIFETIME_MS);
+    if (tier <= 1) return;
+    const camera = cameraRef.current;
+    const scene = sceneRef.current;
+    const model = cookieModelRef.current;
+    const wrapper = wrapperRef.current;
+    if (!camera || !scene || !model || !wrapper) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+    const intersects = raycaster.intersectObject(model, true);
+    if (intersects.length === 0) return;
+
+    const hit = intersects[0];
+    const worldNormal = hit.face.normal
+      .clone()
+      .transformDirection(hit.object.matrixWorld)
+      .normalize();
+    const spawnPos = hit.point.clone().addScaledVector(worldNormal, 0.05);
+    const baseColor = new THREE.Color(selectedOption.accentColor);
+    const baseHSL = { h: 0, s: 0, l: 0 };
+    baseColor.getHSL(baseHSL);
+
+    // Brief soft halo at the impact point. NormalBlending (not additive) so it
+    // reads as the accent color rather than blowing out to white when sparks
+    // overlap on top of it.
+    const haloColor = new THREE.Color().setHSL(
+      baseHSL.h,
+      Math.min(1, baseHSL.s + 0.1),
+      Math.max(0.35, baseHSL.l - 0.05),
+    );
+    const haloGeo = new THREE.SphereGeometry(0.16 + tier * 0.035, 16, 12);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: haloColor,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.position.copy(spawnPos);
+    scene.add(halo);
+    debrisRef.current.push({
+      mesh: halo,
+      isSpark: true,
+      baseScale: 1,
+      spawnPos: spawnPos.clone(),
+      velocity: { x: 0, y: 0, z: 0 },
+      initRotation: { x: 0, y: 0, z: 0 },
+      angularVel: { x: 0, y: 0, z: 0 },
+      gravity: 0,
+      startTime: performance.now(),
+      lifetime: 0.18,
+    });
+
+    const count = 4 + tier * 4; // tier2: 12, tier3: 16, tier4: 20
+    for (let i = 0; i < count; i++) {
+      const size = 0.035 + Math.random() * 0.035;
+      const geo = new THREE.SphereGeometry(size, 8, 8);
+      // Vary hue ±25° and keep lightness in a saturated mid-range so each
+      // spark reads as a distinct, vivid accent — not washed-out white.
+      const hueShift = (Math.random() - 0.5) * (50 / 360);
+      const hue = (baseHSL.h + hueShift + 1) % 1;
+      const sat = Math.min(1, baseHSL.s + 0.15);
+      const light = 0.45 + Math.random() * 0.2;
+      const color = new THREE.Color().setHSL(hue, sat, light);
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(spawnPos);
+      scene.add(mesh);
+
+      const speed = 2.0 + Math.random() * 2.8 + tier * 0.4;
+      const spread = 3.0;
+      debrisRef.current.push({
+        mesh,
+        isSpark: true,
+        baseScale: 1,
+        spawnPos: spawnPos.clone(),
+        velocity: {
+          x: worldNormal.x * speed + (Math.random() - 0.5) * spread,
+          y: worldNormal.y * speed + (Math.random() - 0.5) * spread + 0.9,
+          z: worldNormal.z * speed + (Math.random() - 0.5) * spread,
+        },
+        initRotation: { x: 0, y: 0, z: 0 },
+        angularVel: { x: 0, y: 0, z: 0 },
+        gravity: SPARK_GRAVITY,
+        startTime: performance.now(),
+        lifetime: 0.5 + Math.random() * 0.35,
+      });
+    }
   };
 
   const handleCookieClick = (event) => {
@@ -555,7 +736,8 @@ export default function CookieClicker() {
         cookieAnim.animStart = now;
       }
     }
-    spawnBurst(event);
+    spawnCookieDebris(event);
+    spawnSparks(event);
     handleClick();
   };
 
@@ -573,49 +755,6 @@ export default function CookieClicker() {
             className="block w-full h-full transition-transform duration-100 ease-in-out hover:scale-105 active:animate-cookie-click"
             onClick={handleCookieClick}
           />
-          <div className="pointer-events-none absolute inset-0 overflow-visible">
-            {bursts.map((b) => (
-              <div
-                key={b.id}
-                className="bb-burst"
-                style={{
-                  left: `${b.x}px`,
-                  top: `${b.y}px`,
-                  "--bb-color": b.color,
-                  "--bb-size": `${b.size}px`,
-                  "--bb-spark-length": `${b.sparkLength}px`,
-                  "--bb-spark-distance": `${b.sparkDistance}px`,
-                  "--bb-duration": `${BURST_LIFETIME_MS}ms`,
-                }}
-              >
-                <div
-                  className="bb-burst-flash"
-                  style={{
-                    marginLeft: `calc(var(--bb-size) * -0.35)`,
-                    marginTop: `calc(var(--bb-size) * -0.35)`,
-                  }}
-                />
-                <div
-                  className="bb-burst-ring"
-                  style={{
-                    marginLeft: `calc(var(--bb-size) * -0.5)`,
-                    marginTop: `calc(var(--bb-size) * -0.5)`,
-                  }}
-                />
-                {Array.from({ length: b.sparkCount }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="bb-burst-spark"
-                    style={{
-                      marginLeft: "-1.5px",
-                      marginTop: `calc(var(--bb-spark-length) * -0.5)`,
-                      "--bb-angle": `${(360 / b.sparkCount) * i}deg`,
-                    }}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="flex flex-col items-center md:items-start gap-8 text-center md:text-left pointer-events-auto">

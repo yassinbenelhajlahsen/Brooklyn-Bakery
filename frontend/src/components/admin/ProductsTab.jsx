@@ -35,6 +35,26 @@ function SkeletonRow() {
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4 animate-pulse">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 bg-cream rounded-md flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-cream rounded w-36" />
+          <div className="h-3 bg-cream rounded w-16" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="h-8 bg-cream rounded" />
+        <div className="h-8 bg-cream rounded" />
+        <div className="h-8 bg-cream rounded" />
+      </div>
+      <div className="h-8 bg-cream rounded" />
+    </div>
+  );
+}
+
 export default function ProductsTab() {
   const {
     items, total, hasMore,
@@ -66,7 +86,7 @@ export default function ProductsTab() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 max-[880px]:flex-col max-[880px]:items-stretch">
         <label className="flex items-center gap-2 text-sm text-ink cursor-pointer select-none">
           <input
             type="checkbox"
@@ -77,7 +97,7 @@ export default function ProductsTab() {
           Include archived
         </label>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 max-[880px]:justify-between max-[880px]:w-full">
           <label className="flex items-center gap-2 text-sm text-muted">
             Sort by
             <select
@@ -107,8 +127,8 @@ export default function ProductsTab() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-xl border border-line bg-surface overflow-hidden">
+      {/* Table (desktop) */}
+      <div className="rounded-xl border border-line bg-surface overflow-hidden max-[880px]:hidden">
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col style={{ width: '3.5rem' }} />
@@ -221,6 +241,94 @@ export default function ProductsTab() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="space-y-3 min-[880px]:hidden">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-muted text-sm">
+            No products.
+          </div>
+        ) : (
+          items.map((product) => (
+            <div
+              key={product.id}
+              className={`rounded-xl border border-line bg-surface p-4 ${product.archivedAt ? 'opacity-60' : ''}`}
+            >
+              <div className="flex items-start gap-3 mb-3">
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-10 h-10 rounded-md object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-md bg-line flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-medium text-ink truncate">{product.name}</div>
+                    {product.archivedAt ? (
+                      <span className="text-muted text-[10px] uppercase tracking-widest flex-shrink-0">
+                        Archived
+                      </span>
+                    ) : (
+                      <span className="text-accent text-[10px] uppercase tracking-widest font-medium flex-shrink-0">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted text-xs capitalize">{product.type}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-3 text-sm">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Price</div>
+                  <div className="text-ink font-mono">{product.price} pts</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Stock</div>
+                  <div className="text-ink font-mono">{product.stock}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Rating</div>
+                  <StarDisplay avgRating={product.avgRating} reviewCount={product.reviewCount} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setReviewProduct(product)}
+                  className="flex-1 px-3 py-1.5 text-xs rounded border border-line hover:bg-cream text-ink transition-colors"
+                >
+                  Reviews
+                </button>
+                <button
+                  onClick={() => setEditing({ mode: 'edit', product })}
+                  className="flex-1 px-3 py-1.5 text-xs rounded border border-line hover:bg-cream text-ink transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleArchiveToggle(product)}
+                  disabled={mutating === product.id}
+                  className={`flex-1 px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    product.archivedAt
+                      ? 'border-accent/40 text-accent hover:bg-accent/5'
+                      : 'border-line text-muted hover:bg-cream'
+                  }`}
+                >
+                  {mutating === product.id
+                    ? '…'
+                    : product.archivedAt
+                    ? 'Unarchive'
+                    : 'Archive'}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <LoadMoreFooter

@@ -96,7 +96,7 @@ export default function PromoCodesTab() {
           </button>
         </div>
 
-        <div className="grid grid-cols-[1fr_8rem_11rem_1fr] gap-3 max-[980px]:grid-cols-2 max-sm:grid-cols-1">
+        <div className="grid grid-cols-[1fr_8rem_11rem_1fr] gap-3 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           <label className="flex flex-col gap-1 text-sm text-muted">
             Code
             <input
@@ -162,7 +162,8 @@ export default function PromoCodesTab() {
         </div>
       </form>
 
-      <div className="rounded-xl border border-line bg-surface overflow-hidden">
+      {/* Table (desktop) */}
+      <div className="rounded-xl border border-line bg-surface overflow-hidden max-[880px]:hidden">
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col style={{ width: '13.5rem' }} />
@@ -234,6 +235,78 @@ export default function PromoCodesTab() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="space-y-3 min-[880px]:hidden">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-line bg-surface p-4 animate-pulse">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="h-4 bg-cream rounded w-28" />
+                <div className="h-3 bg-cream rounded w-16" />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="h-8 bg-cream rounded" />
+                <div className="h-8 bg-cream rounded" />
+              </div>
+              <div className="h-8 bg-cream rounded" />
+            </div>
+          ))
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-muted text-sm">
+            No promo codes yet.
+          </div>
+        ) : (
+          items.map((promo) => (
+            <div
+              key={promo.id}
+              className={`rounded-xl border border-line bg-surface p-4 ${promo.active ? '' : 'opacity-60'}`}
+            >
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="font-mono font-semibold text-ink truncate">{promo.code}</span>
+                <span
+                  className={
+                    promo.active
+                      ? 'text-accent text-[10px] uppercase tracking-widest font-medium flex-shrink-0'
+                      : 'text-muted text-[10px] uppercase tracking-widest flex-shrink-0'
+                  }
+                >
+                  {promo.active ? 'Active' : 'Disabled'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2 text-sm">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Discount</div>
+                  <div className="text-ink">{promo.discountPercent}%</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Times used</div>
+                  <div className="text-ink">{promo.orderCount ?? 0}</div>
+                </div>
+              </div>
+              <div className="text-muted text-xs mb-3 truncate">{scopeLabel(promo)}</div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleActive(promo)}
+                  disabled={updating && updatingId === promo.id}
+                  className="flex-1 px-3 py-1.5 text-xs rounded border border-line hover:bg-cream text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {promo.active ? 'Expire' : 'Enable'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(promo)}
+                  disabled={deleting && deletingId === promo.id}
+                  className="flex-1 px-3 py-1.5 text-xs rounded border border-line hover:border-danger hover:text-danger text-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

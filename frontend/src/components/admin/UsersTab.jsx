@@ -18,6 +18,22 @@ function SkeletonRow() {
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4 animate-pulse">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="h-4 bg-cream rounded w-32" />
+        <div className="h-5 bg-cream rounded-full w-20" />
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="h-8 bg-cream rounded" />
+        <div className="h-8 bg-cream rounded" />
+      </div>
+      <div className="h-3 bg-cream rounded w-24" />
+    </div>
+  );
+}
+
 export default function UsersTab() {
   const { user } = useAuth();
   const {
@@ -36,8 +52,8 @@ export default function UsersTab() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-xl border border-line bg-surface overflow-hidden">
+      {/* Table (desktop) */}
+      <div className="rounded-xl border border-line bg-surface overflow-hidden max-[880px]:hidden">
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col />
@@ -100,6 +116,52 @@ export default function UsersTab() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="space-y-3 min-[880px]:hidden">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-muted text-sm">
+            No users found.
+          </div>
+        ) : (
+          items.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => setSelectedId(u.id)}
+              className="w-full text-left rounded-xl border border-line bg-surface p-4 hover:bg-accent/5 transition-colors duration-100"
+            >
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="text-ink font-medium truncate">{u.displayName || '—'}</span>
+                {u.role === 'admin' ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent flex-shrink-0">
+                    Admin
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cream/70 text-muted flex-shrink-0">
+                    Customer
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Balance</div>
+                  <div className="text-ink font-mono">{u.balance} pts</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Orders</div>
+                  <div className="text-ink font-mono">{u.orderCount}</div>
+                </div>
+              </div>
+              <div className="text-muted text-xs">
+                {new Date(u.createdAt).toLocaleDateString()}
+              </div>
+            </button>
+          ))
+        )}
       </div>
 
       <LoadMoreFooter

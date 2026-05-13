@@ -98,7 +98,6 @@ export default function CookieClicker() {
   const initialOpenRef = useRef(open);
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
-  const heading = displayName ? `${displayName}'s bakery` : "Your bakery";
 
   const storageKey = storageKeyForCursorChoice(profile?.id, isAuthenticated);
 
@@ -126,6 +125,12 @@ export default function CookieClicker() {
   const selectedOption =
     COOKIE_CURSOR_OPTIONS.find((o) => o.id === selectedOptionId) ??
     COOKIE_CURSOR_OPTIONS[0];
+
+  const multiplier =
+    selectedOption.pointsNumerator / selectedOption.pointsDenominator;
+  const multiplierLabel = `${
+    multiplier % 1 === 0 ? multiplier : multiplier.toFixed(1)
+  }x click`;
 
   const pointsRule = useMemo(
     () => ({
@@ -757,56 +762,65 @@ export default function CookieClicker() {
           />
         </div>
 
-        <div style = {{ 
-          "padding": "2vw",
-          "borderRadius": "3vw",
-          "background": "linear-gradient(#633817, #a1673b)",
-        }} 
-          className="flex flex-col items-stretch gap-8 text-center md:text-left pointer-events-auto max-w-[320px] mx-auto md:max-w-none md:mx-0">
+        <div className="flex flex-col items-stretch gap-5 text-center md:text-left pointer-events-auto max-w-[340px] mx-auto md:max-w-none md:mx-0 p-5 rounded-2xl bg-line/45 border border-line shadow-card">
           <div className="min-h-[3.75rem] md:min-h-[4.5rem] flex flex-col justify-center">
             {loading ? (
-              <div className="h-8 md:h-10 w-56 rounded bg-line/60 animate-pulse" />
+              <div className="h-8 md:h-10 w-56 rounded bg-line/60 animate-pulse mx-auto" />
             ) : (
               <>
-                <h2 className="text-3xl md:text-4xl text-ink" style = {{
-                  "textAlign": "center",
-                  "color": "white"
-                }}>{heading}</h2>
+                <h2 className="text-3xl md:text-4xl text-accent text-center">
+                  {displayName ? (
+                    <>
+                      {displayName}
+                      <span className="text-muted">'s</span> bakery
+                    </>
+                  ) : (
+                    <>Your bakery</>
+                  )}
+                </h2>
                 {!isAuthenticated && (
-                  <p className="text-xs text-muted mt-2 italic" style = {{
-                    "textAlign": "center",
-                    "color": "#ccbfb6"
-                  }}>
+                  <p className="text-xs text-muted mt-2 italic text-center">
                     Log in to save your points
                   </p>
                 )}
               </>
             )}
           </div>
-          <div className="w-full bg-surface px-8 py-6 rounded-lg border border-line shadow-card">
+
+          <div className="w-full bg-surface px-6 py-5 rounded-lg border border-line shadow-card">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted m-0 mb-1.5">
+              Points balance
+            </p>
             {loading ? (
               <div className="h-[3.75rem] w-28 rounded bg-line/60 animate-pulse" />
             ) : (
-              <p className="text-6xl font-bold text-accent m-0 font-display">
-                {displayPoints}
-              </p>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <p className="text-6xl font-bold text-accent m-0 font-display leading-none tracking-tight tabular-nums">
+                  {displayPoints}
+                </p>
+                {selectedOption.id !== "base" && (
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-accent-dark bg-accent/10 border border-accent/30 rounded-full px-2 py-1 whitespace-nowrap">
+                    {multiplierLabel}
+                  </span>
+                )}
+              </div>
             )}
-            <p className="text-[0.9rem] text-muted mt-2 mb-0 uppercase tracking-[0.05em]">
-              Points
-            </p>
           </div>
 
           <div className="w-full bg-surface rounded-lg border border-line shadow-card p-4 text-left">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted m-0 mb-1">
-              UPGRADES
-            </p>
-            <p className="text-sm text-ink/80 m-0 mb-3">
-              Earn more points the more you click!
-            </p>
+            <div className="flex items-baseline justify-between mb-3">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted m-0">
+                Upgrades
+              </p>
+              <p className="text-[0.65rem] text-muted/80 m-0 italic">
+                click to equip
+              </p>
+            </div>
             <ul className="list-none m-0 p-0 flex flex-col gap-1.5">
               {COOKIE_CURSOR_OPTIONS.map((opt) => {
                 const unlocked = displayPoints >= opt.threshold;
                 const active = opt.id === selectedOptionId;
+                const ptsToGo = Math.max(0, opt.threshold - displayPoints);
                 return (
                   <li key={opt.id}>
                     <button
@@ -814,19 +828,47 @@ export default function CookieClicker() {
                       disabled={!unlocked}
                       onClick={() => selectCursorOption(opt.id)}
                       className={[
-                        "w-full text-left rounded-md px-3 py-2 text-sm transition-colors border",
+                        "group w-full text-left rounded-lg px-3 py-2.5 text-sm transition-all duration-200 border flex items-center gap-3",
                         unlocked
                           ? active
-                            ? "border-accent bg-accent/10 text-ink font-medium"
-                            : "border-transparent bg-line/25 text-ink hover:bg-line/40"
+                            ? "border-accent/70 bg-accent/10 text-ink shadow-[0_0_0_3px_rgba(181,101,29,0.10)]"
+                            : "border-transparent bg-line/25 text-ink hover:bg-line/40 hover:-translate-y-px"
                           : "border-transparent bg-line/10 text-muted cursor-not-allowed opacity-70",
                       ].join(" ")}
                     >
-                      <span className="block">{opt.label}</span>
-                      <span className="block text-[0.75rem] text-muted font-normal mt-0.5">
-                        {unlocked
-                          ? opt.description
-                          : `Unlock at ${opt.threshold} pts`}
+                      <span
+                        aria-hidden
+                        className="flex-shrink-0 w-2.5 h-2.5 rounded-full border-2 transition-colors"
+                        style={{
+                          borderColor: unlocked
+                            ? opt.accentColor
+                            : "rgba(140, 122, 109, 0.45)",
+                          background: active
+                            ? opt.accentColor
+                            : unlocked
+                              ? `${opt.accentColor}33`
+                              : "transparent",
+                          boxShadow: active
+                            ? `0 0 0 3px ${opt.accentColor}25`
+                            : "none",
+                        }}
+                      />
+                      <span className="flex-1 min-w-0">
+                        <span
+                          className={[
+                            "block leading-tight",
+                            active ? "font-semibold" : "font-medium",
+                          ].join(" ")}
+                        >
+                          {opt.label}
+                        </span>
+                        <span className="block text-[0.7rem] text-muted font-normal mt-0.5">
+                          {unlocked
+                            ? active
+                              ? "Equipped"
+                              : "Tap to equip"
+                            : `${ptsToGo} pts to unlock`}
+                        </span>
                       </span>
                     </button>
                   </li>

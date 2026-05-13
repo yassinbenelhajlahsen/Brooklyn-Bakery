@@ -13,7 +13,7 @@ import LoginModal from './components/LoginModal.jsx'
 import PageTransition from './components/PageTransition.jsx'
 import { useCart } from './hooks/useCart.js'
 import { JarProvider } from './contexts/JarContext.jsx'
-
+import ChatbotWidget from './components/chatbot/ChatbotWidget.jsx';
 import StoryPage from './pages/StoryPage.jsx';
 import ContactPage from './pages/ContactUsPage.jsx';
 import FaqPage from './pages/FAQPage.jsx';
@@ -115,7 +115,20 @@ export default function App() {
           onClear={clearCart}
         />
       )}
+            <Footer />
+
+      {cartOpen && (
+        <CartDrawer
+          cart={cart}
+          onClose={() => setCartOpen(false)}
+          onIncrement={increment}
+          onDecrement={decrement}
+          onClear={clearCart}
+        />
+      )}
+
       <LoginModal />
+      <ChatbotWidget cart={cart} />
     </div>
     </JarProvider>
   )

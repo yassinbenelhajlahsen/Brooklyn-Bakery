@@ -11,7 +11,14 @@ const QUICK_ACTIONS = [
   { label: 'Contact us', message: 'How do I contact support?' },
 ];
 
-const BOT_REPLY_MS = 280;
+const TYPING_MIN_MS = 520;
+const TYPING_PER_CHAR_MS = 12;
+const TYPING_MAX_MS = 1400;
+
+function pickTypingDelay(reply) {
+  const n = (reply ?? '').length;
+  return Math.min(TYPING_MAX_MS, Math.max(TYPING_MIN_MS, n * TYPING_PER_CHAR_MS));
+}
 
 const LIVE_CART_RE = /\b(my cart|in my cart|cart contents|what'?s in my cart)\b/i;
 const LIVE_BALANCE_RE = /\b(my (balance|points)|how many points)\b/i;
@@ -24,6 +31,7 @@ export default function ChatbotWidget({ cart = {} }) {
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: makeId(),
@@ -49,7 +57,7 @@ export default function ChatbotWidget({ cart = {} }) {
     const el = scrollerRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [messages, open]);
+  }, [messages, typing, open]);
 
   const userSummary = useMemo(() => {
     if (!user) return 'You are not logged in.';
@@ -75,6 +83,31 @@ export default function ChatbotWidget({ cart = {} }) {
     return { count, total };
   }
 
+  function composeReply(text) {
+    if (LIVE_CART_RE.test(text)) {
+      const { count, total } = liveCart();
+      return count > 0
+        ? `You currently have ${count} item${count === 1 ? '' : 's'} in your cart totaling ${total} points.`
+        : 'Your cart is currently empty. Browse the shop and add an item first.';
+    }
+    if (LIVE_BALANCE_RE.test(text)) {
+      return user
+        ? `${userSummary} You can earn more points from the Earn page.`
+        : 'Once you log in I can show your balance. You can earn and spend points after logging in.';
+    }
+    if (START_CHECKOUT_RE.test(text)) {
+      if (!user) return 'You need to log in before checkout. I can open the login window for you.';
+      const { count, total } = liveCart();
+      if (count === 0) return 'Your cart is empty. Add a bakery item first, then go to checkout.';
+      return `You have ${count} item${count === 1 ? '' : 's'} in your cart totaling ${total} points. Go to checkout when you are ready.`;
+    }
+    if (OPEN_LOGIN_RE.test(text)) {
+      openLogin?.();
+      return 'Opening the login window.';
+    }
+    return findBotAnswer(text);
+  }
+
   function handleSend(customMessage) {
     const text = (customMessage ?? input).trim();
     if (!text) return;
@@ -82,50 +115,12 @@ export default function ChatbotWidget({ cart = {} }) {
     setMessages((current) => [...current, { id: makeId(), role: 'user', text }]);
     setInput('');
 
+    const reply = composeReply(text);
+    setTyping(true);
     setTimeout(() => {
-      if (LIVE_CART_RE.test(text)) {
-        const { count, total } = liveCart();
-        addBotMessage(
-          count > 0
-            ? `You currently have ${count} item${count === 1 ? '' : 's'} in your cart totaling ${total} points.`
-            : 'Your cart is currently empty. Browse the shop and add an item first.',
-        );
-        return;
-      }
-
-      if (LIVE_BALANCE_RE.test(text)) {
-        addBotMessage(
-          user
-            ? `${userSummary} You can earn more points from the Earn page.`
-            : 'Once you log in I can show your balance. You can earn and spend points after logging in.',
-        );
-        return;
-      }
-
-      if (START_CHECKOUT_RE.test(text)) {
-        if (!user) {
-          addBotMessage('You need to log in before checkout. I can open the login window for you.');
-          return;
-        }
-        const { count, total } = liveCart();
-        if (count === 0) {
-          addBotMessage('Your cart is empty. Add a bakery item first, then go to checkout.');
-          return;
-        }
-        addBotMessage(
-          `You have ${count} item${count === 1 ? '' : 's'} in your cart totaling ${total} points. Go to checkout when you are ready.`,
-        );
-        return;
-      }
-
-      if (OPEN_LOGIN_RE.test(text)) {
-        addBotMessage('Opening the login window.');
-        openLogin?.();
-        return;
-      }
-
-      addBotMessage(findBotAnswer(text));
-    }, BOT_REPLY_MS);
+      setTyping(false);
+      addBotMessage(reply);
+    }, pickTypingDelay(reply));
   }
 
   function handleQuickAction(action) {
@@ -206,8 +201,10 @@ export default function ChatbotWidget({ cart = {} }) {
                 <li
                   key={message.id}
                   className={clsx(
-                    'flex animate-chat-pop motion-reduce:animate-none',
-                    message.role === 'user' ? 'justify-end' : 'justify-start',
+                    'flex motion-reduce:animate-none',
+                    message.role === 'user'
+                      ? 'justify-end animate-chat-pop-user'
+                      : 'justify-start animate-chat-pop-bot',
                   )}
                 >
                   <div
@@ -222,6 +219,17 @@ export default function ChatbotWidget({ cart = {} }) {
                   </div>
                 </li>
               ))}
+
+              {typing && (
+                <li
+                  className="flex justify-start animate-chat-pop-bot motion-reduce:animate-none"
+                  aria-label="Assistant is typing"
+                >
+                  <div className="bg-cream text-ink border border-line rounded-2xl px-3 py-2.5 inline-flex items-center gap-1">
+                    <TypingDots />
+                  </div>
+                </li>
+              )}
             </ul>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -304,6 +312,25 @@ let idCounter = 0;
 function makeId() {
   idCounter += 1;
   return `m_${idCounter}`;
+}
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-end gap-1" aria-hidden="true">
+      <Dot delay="0ms" />
+      <Dot delay="160ms" />
+      <Dot delay="320ms" />
+    </span>
+  );
+}
+
+function Dot({ delay }) {
+  return (
+    <span
+      className="block h-1.5 w-1.5 rounded-full bg-muted animate-typing-dot motion-reduce:animate-none"
+      style={{ animationDelay: delay }}
+    />
+  );
 }
 
 function ChatIcon({ className }) {

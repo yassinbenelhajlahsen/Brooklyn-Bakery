@@ -43,25 +43,34 @@ export default function ProfileMenu() {
   const displayName = profile?.displayName?.trim() || user.email?.split('@')[0] || 'there';
   const initial = (profile?.displayName?.trim()?.[0] || user.email?.[0] || '?').toUpperCase();
   const balance = profile?.balance ?? 0;
+  const avatarUrl = profile?.avatarUrl ?? profile?.avatar_url ?? '';
 
   return (
     <div className="relative" ref={menuRef}>
       <button
-        type="button"
-        aria-label="Open account menu"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={clsx(
-          'w-10 h-10 rounded-full bg-accent text-white font-medium text-[15px]',
-          'grid place-items-center select-none',
-          'ring-offset-2 ring-offset-surface transition-all duration-150',
-          'hover:bg-accent-dark hover:ring-2 hover:ring-accent/30',
-          open && 'ring-2 ring-accent/40',
-        )}
-      >
-        {initial}
-      </button>
+  type="button"
+  aria-label="Open account menu"
+  aria-haspopup="menu"
+  aria-expanded={open}
+  onClick={() => setOpen((v) => !v)}
+  className={clsx(
+    'w-10 h-10 rounded-full bg-accent text-white font-medium text-[15px]',
+    'grid place-items-center select-none overflow-hidden',
+    'ring-offset-2 ring-offset-surface transition-all duration-150',
+    'hover:bg-accent-dark hover:ring-2 hover:ring-accent/30',
+    open && 'ring-2 ring-accent/40',
+  )}
+>
+  {avatarUrl ? (
+    <img
+      src={avatarUrl}
+      alt=""
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    initial
+  )}
+</button>
 
       <div
         role="menu"
@@ -76,20 +85,40 @@ export default function ProfileMenu() {
         )}
       >
         <div className="px-4 pt-4 pb-3 border-b border-line">
-          <div
-            className="font-display italic text-[18px] leading-tight text-ink truncate"
-            style={{ fontVariationSettings: "'opsz' 24" }}
-          >
-            {displayName}
-          </div>
-          {user.email && (
-            <div className="text-[12px] text-muted truncate mt-0.5">{user.email}</div>
-          )}
-          <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-accent font-medium">
-            <StarIcon className="w-3.5 h-3.5" />
-            <span>{balance.toLocaleString()} {balance === 1 ? 'point' : 'points'}</span>
-          </div>
+  <div className="flex items-center gap-3">
+    <div className="h-11 w-11 rounded-full bg-accent text-white grid place-items-center overflow-hidden shrink-0">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span className="text-sm font-medium">{initial}</span>
+      )}
+    </div>
+
+    <div className="min-w-0">
+      <div
+        className="font-display italic text-[18px] leading-tight text-ink truncate"
+        style={{ fontVariationSettings: "'opsz' 24" }}
+      >
+        {displayName}
+      </div>
+
+      {user.email && (
+        <div className="text-[12px] text-muted truncate mt-0.5">
+          {user.email}
         </div>
+      )}
+    </div>
+  </div>
+
+  <div className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-accent font-medium">
+    <StarIcon className="w-3.5 h-3.5" />
+    <span>{balance.toLocaleString()} {balance === 1 ? 'point' : 'points'}</span>
+  </div>
+</div>
 
         <div className="py-1">
           {profile?.role === 'admin' && (

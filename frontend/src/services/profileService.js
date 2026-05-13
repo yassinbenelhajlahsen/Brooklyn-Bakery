@@ -9,15 +9,17 @@ export async function fetchProfile(authedFetch) {
   }
 }
 
-export async function updateMyProfile(authedFetch, { displayName }) {
+export async function updateMyProfile(authedFetch, updates) {
   const res = await authedFetch('/me', {
     method: 'PATCH',
-    body: JSON.stringify({ displayName }),
+    body: JSON.stringify(updates),
   });
+
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? 'Failed to update profile');
   }
+
   const body = await res.json();
   return body.user ?? null;
 }

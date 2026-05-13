@@ -20,6 +20,23 @@ function SkeletonRow() {
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4 animate-pulse">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="h-3 bg-cream rounded w-20" />
+        <div className="h-5 bg-cream rounded-full w-24" />
+      </div>
+      <div className="h-4 bg-cream rounded w-40 mb-3" />
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="h-8 bg-cream rounded" />
+        <div className="h-8 bg-cream rounded" />
+      </div>
+      <div className="h-3 bg-cream rounded w-28" />
+    </div>
+  );
+}
+
 export default function OrdersTab() {
   const {
     items, total, hasMore, status,
@@ -31,7 +48,7 @@ export default function OrdersTab() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <StatusFilter value={status} onChange={setStatus} />
         <button
           onClick={refresh}
@@ -61,8 +78,8 @@ export default function OrdersTab() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-xl border border-line bg-surface overflow-hidden">
+      {/* Table (desktop) */}
+      <div className="rounded-xl border border-line bg-surface overflow-hidden max-[880px]:hidden">
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col style={{ width: '8rem'  }} />
@@ -121,6 +138,47 @@ export default function OrdersTab() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="space-y-3 min-[880px]:hidden">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-muted text-sm">
+            No orders found.
+          </div>
+        ) : (
+          items.map((order) => (
+            <button
+              key={order.id}
+              type="button"
+              onClick={() => setSelected(order)}
+              className="w-full text-left rounded-xl border border-line bg-surface p-4 hover:bg-accent/5 transition-colors duration-100"
+            >
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="font-mono text-muted text-xs">#{order.id.slice(-8)}</span>
+                <StatusBadge status={order.status} />
+              </div>
+              <div className="text-ink font-medium mb-3 truncate">
+                {order.user?.displayName || '—'}
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Items</div>
+                  <div className="text-ink">{order.items.length}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted mb-0.5">Total</div>
+                  <div className="text-ink font-semibold">{order.total} pts</div>
+                </div>
+              </div>
+              <div className="text-muted text-xs">
+                {new Date(order.createdAt).toLocaleString()}
+              </div>
+            </button>
+          ))
+        )}
       </div>
 
       <LoadMoreFooter

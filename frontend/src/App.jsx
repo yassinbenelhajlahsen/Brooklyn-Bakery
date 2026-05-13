@@ -1,12 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, useLocation, matchPath } from 'react-router-dom'
 import Header from './components/Header.jsx'
 import ShopEarnShell from './components/ShopEarnShell.jsx'
-import CheckoutPage from './pages/CheckoutPage.jsx'
-import OrderHistoryPage from './pages/OrderHistoryPage.jsx'
-import WishlistPage from './pages/WishlistPage.jsx'
-import ProfilePage from './pages/ProfilePage.jsx'
-import ProductDetailPage from './pages/ProductDetailPage.jsx'
 import Footer from './components/Footer.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import LoginModal from './components/LoginModal.jsx'
@@ -14,13 +9,19 @@ import PageTransition from './components/PageTransition.jsx'
 import { useCart } from './hooks/useCart.js'
 import { JarProvider } from './contexts/JarContext.jsx'
 import ChatbotWidget from './components/chatbot/ChatbotWidget.jsx';
-import StoryPage from './pages/StoryPage.jsx';
-import ContactPage from './pages/ContactUsPage.jsx';
-import FaqPage from './pages/FAQPage.jsx';
-import AdminPage from './pages/AdminPage.jsx';
 import AdminRoute from './components/admin/AdminRoute.jsx';
-import NotFoundPage from './pages/NotFoundPage.jsx';
-import SharePage from './pages/SharePage.jsx';
+
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage.jsx'))
+const OrderHistoryPage = lazy(() => import('./pages/OrderHistoryPage.jsx'))
+const WishlistPage = lazy(() => import('./pages/WishlistPage.jsx'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'))
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage.jsx'))
+const StoryPage = lazy(() => import('./pages/StoryPage.jsx'))
+const ContactPage = lazy(() => import('./pages/ContactUsPage.jsx'))
+const FaqPage = lazy(() => import('./pages/FAQPage.jsx'))
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'))
+const SharePage = lazy(() => import('./pages/SharePage.jsx'))
 
 const MAIN_CLS = "flex-1 p-8 max-w-full overflow-y-auto max-sm:px-4 max-sm:py-5"
 
@@ -46,6 +47,7 @@ export default function App() {
       <ScrollToTop />
       <Header cartCount={itemCount} onCartClick={() => setCartOpen(true)} />
       <PageTransition>
+        <Suspense fallback={null}>
         <Routes>
 
           <Route element={shellLayout}>
@@ -106,6 +108,7 @@ export default function App() {
           />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Suspense>
       </PageTransition>
       <Footer />
       {cartOpen && (

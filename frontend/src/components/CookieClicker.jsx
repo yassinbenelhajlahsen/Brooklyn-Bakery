@@ -11,8 +11,7 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "base",
     threshold: 0,
-    label: "Classic glove",
-    description: "1 pt per click",
+    label: "1+ pt per click",
     cursorFile: "glove0",
     pointsNumerator: 1,
     pointsDenominator: 1,
@@ -20,8 +19,7 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "one_half_points",
     threshold: 15,
-    label: "1.5× bakery",
-    description: "1.5 pts per click (avg)",
+    label: "1.5+ pts per click",
     cursorFile: "glove1",
     pointsNumerator: 3,
     pointsDenominator: 2,
@@ -29,8 +27,7 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "double_points",
     threshold: 25,
-    label: "2× bakery",
-    description: "2 pts per click",
+    label: "2+ pts per click",
     cursorFile: "glove2",
     pointsNumerator: 2,
     pointsDenominator: 1,
@@ -38,8 +35,7 @@ const COOKIE_CURSOR_OPTIONS = [
   {
     id: "triple_points",
     threshold: 50,
-    label: "3× bakery",
-    description: "3 pts per click",
+    label: "3+ pts per click",
     cursorFile: "glove3",
     pointsNumerator: 3,
     pointsDenominator: 1,
@@ -67,11 +63,8 @@ function readStoredCursorChoice(key) {
 }
 
 function writeStoredCursorChoice(key, optionId) {
-  try {
-    localStorage.setItem(key, optionId);
-  } catch {
-    // ignore
-  }
+  try { localStorage.setItem(key, optionId); }
+  catch {}
 }
 
 export default function CookieClicker() {
@@ -550,10 +543,10 @@ export default function CookieClicker() {
 
           <div className="w-full max-w-[280px] bg-surface rounded-lg border border-line shadow-card p-4 text-left">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted m-0 mb-1">
-              Cookie cursor
+              UPGRADES
             </p>
             <p className="text-sm text-ink/80 m-0 mb-3">
-              Pick a look you&apos;ve unlocked. Unlocks match your point milestones.
+              Earn more points the more you click!
             </p>
             <ul className="list-none m-0 p-0 flex flex-col gap-1.5">
               {COOKIE_CURSOR_OPTIONS.map((opt) => {

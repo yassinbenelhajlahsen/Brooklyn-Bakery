@@ -37,6 +37,7 @@ export default function AccountSection() {
   const [savingName, setSavingName] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -174,6 +175,21 @@ export default function AccountSection() {
     fileInputRef.current?.click();
   }
 
+  async function removeAvatar() {
+    clearMessages();
+    setRemovingAvatar(true);
+
+    try {
+      await updateMyProfile(authedFetch, { avatarUrl: '' });
+      await refreshProfile();
+      showSuccess('Profile picture removed');
+    } catch (err) {
+      setError(err?.message ?? 'Could not remove profile picture.');
+    } finally {
+      setRemovingAvatar(false);
+    }
+  }
+
   async function handleAvatarChange(event) {
     const file = event.target.files?.[0];
 
@@ -290,10 +306,21 @@ export default function AccountSection() {
             type="button"
             className={`${SECONDARY_BTN} mt-4 w-full justify-center`}
             onClick={openFilePicker}
-            disabled={uploadingAvatar}
+            disabled={uploadingAvatar || removingAvatar}
           >
             {uploadingAvatar ? 'Uploading…' : avatarUrl ? 'Change photo' : 'Upload photo'}
           </button>
+
+          {avatarUrl && (
+            <button
+              type="button"
+              className={`${GHOST_BTN} mt-2`}
+              onClick={removeAvatar}
+              disabled={uploadingAvatar || removingAvatar}
+            >
+              {removingAvatar ? 'Removing…' : 'Remove photo'}
+            </button>
+          )}
 
           <input
             ref={fileInputRef}
